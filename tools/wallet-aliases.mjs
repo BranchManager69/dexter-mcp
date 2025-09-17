@@ -26,8 +26,8 @@ export function registerWalletAliasTools(server) {
   server.registerTool('list_aliases', {
     title: 'List Wallet Aliases',
     description: 'List wallet aliases for the current AI user (via X-User-Token).',
-    inputSchema: z.object({ wallet_id: z.string().optional() }).optional(),
-    outputSchema: z.object({ items: z.array(z.object({ id: z.string(), user_id: z.string(), wallet_id: z.string(), alias: z.string(), created_at: z.any() })) })
+    inputSchema: { wallet_id: z.string().optional() },
+    outputSchema: { items: z.array(z.object({ id: z.string(), user_id: z.string(), wallet_id: z.string(), alias: z.string(), created_at: z.any() })) }
   }, async (args, extra) => {
     try {
       const headers = headersFromExtra(extra);
@@ -46,8 +46,8 @@ export function registerWalletAliasTools(server) {
   server.registerTool('add_wallet_alias', {
     title: 'Add Wallet Alias',
     description: 'Add or update a wallet alias for the current AI user.',
-    inputSchema: z.object({ wallet_id: z.string(), alias: z.string() }),
-    outputSchema: z.object({ ok: z.boolean(), alias: z.object({ id: z.string(), user_id: z.string(), wallet_id: z.string(), alias: z.string(), created_at: z.any() }) })
+    inputSchema: { wallet_id: z.string(), alias: z.string() },
+    outputSchema: { ok: z.boolean(), alias: z.object({ id: z.string(), user_id: z.string(), wallet_id: z.string(), alias: z.string(), created_at: z.any() }) }
   }, async ({ wallet_id, alias }, extra) => {
     try {
       const headers = headersFromExtra(extra);
@@ -71,4 +71,3 @@ export function registerWalletAliasTools(server) {
 }
 
 export default { registerWalletAliasTools };
-

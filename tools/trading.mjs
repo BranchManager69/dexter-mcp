@@ -70,11 +70,11 @@ export function registerTradingTools(server, options = {}) {
   server.registerTool('list_wallet_token_balances', {
     title: 'List Wallet Token Balances',
     description: 'List SPL token balances held by a managed wallet (descending by UI amount). Includes native SOL.',
-    inputSchema: z.object({
+    inputSchema: {
       wallet_id: z.string().optional(),
       min_ui: z.coerce.number().nonnegative().optional(),
       limit: z.coerce.number().int().optional()
-    }),
+    },
     outputSchema: {
       items: z.array(z.object({
         mint: z.string(),
@@ -158,11 +158,11 @@ export function registerTradingTools(server, options = {}) {
   server.registerTool('resolve_token', {
     title: 'Resolve Token',
     description: 'Resolve a token name or symbol to Solana mint addresses using DexScreener search.',
-    inputSchema: z.object({
+    inputSchema: {
       query: z.string().describe('Token name or symbol to search for (e.g., "BONK", "LABUBU")'),
       chain: z.enum(['solana']).default('solana').optional().describe('Blockchain to search on'),
       limit: z.coerce.number().int().min(1).max(10).default(5).optional().describe('Maximum results to return')
-    }),
+    },
     outputSchema: {
       results: z.array(z.object({
         address: z.string(),
@@ -983,14 +983,14 @@ export function registerTradingTools(server, options = {}) {
   server.registerTool('list_managed_wallets', {
     title: 'List Managed Wallets',
     description: 'List managed wallets available for trading (IDs and public keys).',
-    inputSchema: z.object({
+    inputSchema: {
       search: z.string().min(1).optional(),
       query: z.string().optional(),
       q: z.string().optional(),
       limit: z.number().int().positive().max(500).optional(),
       offset: z.number().int().min(0).optional(),
       include_admin: z.boolean().optional()
-    }),
+    },
     outputSchema: { wallets: z.array(z.object({ id: z.string(), public_key: z.string(), wallet_name: z.string().nullable(), user_id: z.any().nullable() })) }
   }, async ({ search, query, q, limit, offset, include_admin, __issuer, __sub }, extra) => {
     const searchTerm = search ?? query ?? q;

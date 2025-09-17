@@ -192,7 +192,14 @@ export function registerWalletAuthTools(server) {
   server.registerTool('list_my_wallets', {
     title: 'List My Wallets',
     description: 'List wallets linked to the current authenticated user and indicate the default.',
-    outputSchema: { wallets: z.array(z.object({ id: z.string(), public_key: z.string(), wallet_name: z.string().nullable(), is_default: z.boolean() })) }
+    outputSchema: {
+      wallets: z.array(z.object({
+        id: z.string(),
+        public_key: z.string(),
+        wallet_name: z.string().nullable(),
+        is_default: z.boolean()
+      }))
+    }
   }, async (args, extra) => {
     try {
       const headers = headersFromExtra(extra);
@@ -351,7 +358,7 @@ export function registerWalletAuthTools(server) {
       default_wallet: z.string().nullable(),
       bearer_header: z.string().nullable(),
       bearer_preview: z.string().nullable(),
-      mapping_hit: z.boolean().optional(),
+      mapping_hit: z.boolean().optional()
     }
   }, async (args, extra) => {
     const headers = headersFromExtra(extra);

@@ -229,21 +229,21 @@ export function buildMcpServer(options = {}){
     if (schema === undefined || schema === null) {
       return fallback;
     }
+    if (schema instanceof z.ZodObject) {
+      return schema._def.shape();
+    }
     if (schema instanceof z.ZodType) {
-      return schema;
+      throw new TypeError('registerTool: pass a raw object shape, not a Zod schema instance');
     }
     if (schema && typeof schema === 'object') {
-      if (Object.keys(schema).length === 0) {
-        return z.object({});
-      }
-      const shape = {};
+      const out = {};
       for (const [key, value] of Object.entries(schema)) {
         if (!(value instanceof z.ZodType)) {
           throw new TypeError(`registerTool: schema for "${key}" must be a Zod schema`);
         }
-        shape[key] = value;
+        out[key] = value;
       }
-      return z.object(shape);
+      return out;
     }
     throw new TypeError('registerTool: unsupported schema type');
   }
@@ -251,14 +251,14 @@ export function buildMcpServer(options = {}){
   server.registerTool = (name, meta, handler) => {
     const m = { ...meta };
     if (Object.prototype.hasOwnProperty.call(meta, 'inputSchema')) {
-      m.inputSchema = coerceSchema(meta.inputSchema, z.object({}));
+      m.inputSchema = coerceSchema(meta.inputSchema, {});
     }
     if (Object.prototype.hasOwnProperty.call(meta, 'outputSchema')) {
       m.outputSchema = coerceSchema(meta.outputSchema, undefined);
     }
     try {
-      const inDesc = m.inputSchema ? m.inputSchema.constructor.name : 'undefined';
-      const outDesc = m.outputSchema ? m.outputSchema.constructor.name : 'undefined';
+      const inDesc = m.inputSchema ? 'RawShape' : 'undefined';
+      const outDesc = m.outputSchema ? 'RawShape' : 'undefined';
       console.log(`[schema] register tool ${name} input=${inDesc} output=${outDesc}`);
     } catch {}
 

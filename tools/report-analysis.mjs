@@ -181,7 +181,7 @@ export function registerReportAnalysisTools(server) {
       riskScore: z.number().nullable().optional(),
       duration_ms: z.number().nullable().optional(),
       created_at: z.any().optional(),
-      uri: z.string().optional(),
+      uri: z.string().nullable().optional(),
       size_bytes: z.number().nullable().optional(),
       top_pool: z.any().optional(),
     }
