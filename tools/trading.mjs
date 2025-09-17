@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { resolveWalletForRequest } from './wallet-auth.mjs';
+import { resolveWalletForRequest, userOwnsWallet } from './wallet-auth.mjs';
 function headersFromExtra(extra){
   try { if (extra?.requestInfo?.headers) return extra.requestInfo.headers; } catch {}
   try { if (extra?.request?.headers) return extra.request.headers; } catch {}
@@ -44,21 +44,8 @@ async function getAdaptivePriorityMicroLamports(base = 10000, percentile = 0.9) 
 
 async function resolveWalletIdOrNull(explicitWalletId, extra){
   if (explicitWalletId) return String(explicitWalletId);
-  const r = resolveWalletForRequest(extra);
-  if (r?.wallet_id) return String(r.wallet_id);
-  try {
-    const headers = headersFromExtra(extra);
-    const issuer = String(headers['x-user-issuer'] || '').trim();
-    const subject = String(headers['x-user-sub'] || '').trim();
-    if (issuer && subject) {
-      const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
-      const map = await prisma.oauth_user_wallets.findFirst({ where: { provider: issuer, subject, default_wallet: true } });
-      if (map?.wallet_id) return String(map.wallet_id);
-      const any = await prisma.oauth_user_wallets.findFirst({ where: { provider: issuer, subject }, orderBy: { created_at: 'asc' } });
-      if (any?.wallet_id) return String(any.wallet_id);
-    }
-  } catch {}
+  const resolved = await resolveWalletForRequest(extra);
+  if (resolved?.wallet_id) return String(resolved.wallet_id);
   const envDefault = process.env.TOKEN_AI_DEFAULT_WALLET_ID || '';
   return envDefault ? String(envDefault) : null;
 }
@@ -96,8 +83,8 @@ export function registerTradingTools(server, options = {}) {
       const { SOL_MINT, SOL_DECIMALS } = await import('../../../token-ai/trade-manager/jupiter-api.js');
       let wid = wallet_id;
       if (!wid) {
-        const r = resolveWalletForRequest(extra);
-        wid = r.wallet_id;
+        const resolved = await resolveWalletForRequest(extra);
+        wid = resolved.wallet_id;
         if (!wid) return { content:[{ type:'text', text:'no_wallet' }], isError:true };
       }
       const { publicKey } = await loadWallet(wid);
