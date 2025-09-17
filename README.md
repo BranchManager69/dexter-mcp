@@ -1,9 +1,8 @@
 # Token‑AI MCP Servers (Unified /mcp)
 
-This folder contains the Model Context Protocol (MCP) servers for Token‑AI. The unified public endpoint lives at `/mcp` using the official Streamable HTTP transport. OAuth is supported for user-facing connectors (Claude), and a bearer token is supported for backend/API usage (OpenAI Responses, Node SDK, UI proxy).
+This folder contains the Model Context Protocol (MCP) servers for Token‑AI. The unified public endpoint lives at `/mcp` using the official Streamable HTTP transport. OAuth is supported for user-facing connectors (Claude). A static bearer token is also supported for backend/API usage (OpenAI Responses, Node SDK, UI proxy) when OAuth is disabled.
 
-- Streamable HTTP + OAuth: `mcp/http-server-oauth.mjs`
-- Bearer-only HTTP (optional): `mcp/http-server.mjs`
+- HTTP server (OAuth‑capable): `mcp/http-server-oauth.mjs` (also supports bearer‑only when `TOKEN_AI_MCP_OAUTH=false`)
 - Stdio server (optional/local): `mcp/server.mjs`
 - Shared tool registration: `mcp/common.mjs`
 
@@ -74,7 +73,7 @@ Systemd (production):
      - Server returns `Mcp-Session-Id` header.
   3. Subsequent POST/GET: include `Mcp-Session-Id: <id>`; Authorization may be omitted (session reuse).
   4. Optional: `MCP-Protocol-Version: 2025-06-18` header per spec.
-- Backwards-compatible: stdio flow unchanged; `mcp/http-server.mjs` (bearer-only) can keep running in parallel.
+- Backwards-compatible: stdio flow unchanged. For bearer‑only behavior, run `http-server-oauth.mjs` with `TOKEN_AI_MCP_OAUTH=false` and set `TOKEN_AI_MCP_TOKEN`.
 
 #### Claude/ChatGPT Connector Setup
 

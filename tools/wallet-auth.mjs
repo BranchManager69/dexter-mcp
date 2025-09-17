@@ -184,6 +184,7 @@ export function registerWalletAuthTools(server) {
     outputSchema: { wallet_id: z.string().nullable(), source: z.string() }
   }, async (_args, extra) => {
     const r = resolveWalletForRequest(extra);
+    try { console.log(`[wallet-auth] resolve_wallet sid=${extra?.sessionId||'∅'} wallet=${r.wallet_id||'∅'} source=${r.source}`); } catch {}
     return { structuredContent: r, content:[{ type:'text', text: r.wallet_id || 'none' }] };
   });
 

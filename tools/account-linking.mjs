@@ -14,6 +14,18 @@ function headersFromExtra(extra){
   return {};
 }
 
+function getIdentity(args, extra) {
+  try {
+    const headers = headersFromExtra(extra);
+    const issuer = String(args?.__issuer || headers['x-user-issuer'] || '').trim();
+    const subject = String(args?.__sub || headers['x-user-sub'] || '').trim();
+    const email = String(args?.__email || headers['x-user-email'] || '').trim();
+    return { issuer, subject, email, headers };
+  } catch {
+    return { issuer: '', subject: '', email: '', headers: headersFromExtra(extra) };
+  }
+}
+
 // Generate secure 6-char code (avoiding confusing characters)
 function generateLinkingCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No 0/O, 1/I/L
@@ -37,11 +49,12 @@ export function registerAccountLinkingTools(server) {
     }
   }, async (args, extra) => {
     try {
-      const headers = headersFromExtra(extra);
-      const issuer = String(headers['x-user-issuer'] || '').trim();
-      const subject = String(headers['x-user-sub'] || '').trim();
+      const { issuer, subject } = getIdentity(args, extra);
       
       if (!issuer || !subject) {
+        try {
+          console.log('[linking] missing identity', { issuer, subject, args, sid: extra?.sessionId, headers: Object.fromEntries(Object.entries(getIdentity(args, extra).headers || {})) });
+        } catch {}
         return { 
           content: [{ type: 'text', text: 'no_oauth_identity' }], 
           isError: true 
@@ -105,11 +118,12 @@ export function registerAccountLinkingTools(server) {
     }
   }, async (args, extra) => {
     try {
-      const headers = headersFromExtra(extra);
-      const issuer = String(headers['x-user-issuer'] || '').trim();
-      const subject = String(headers['x-user-sub'] || '').trim();
+      const { issuer, subject } = getIdentity(args, extra);
       
       if (!issuer || !subject) {
+        try {
+          console.log('[linking] missing identity', { issuer, subject, args, sid: extra?.sessionId, headers: Object.fromEntries(Object.entries(getIdentity(args, extra).headers || {})) });
+        } catch {}
         return { 
           content: [{ type: 'text', text: 'no_oauth_identity' }], 
           isError: true 
@@ -220,9 +234,7 @@ export function registerAccountLinkingTools(server) {
     }
   }, async (args, extra) => {
     try {
-      const headers = headersFromExtra(extra);
-      const issuer = String(headers['x-user-issuer'] || '').trim();
-      const subject = String(headers['x-user-sub'] || '').trim();
+      const { issuer, subject } = getIdentity(args, extra);
       
       if (!issuer || !subject) {
         return { 
@@ -292,9 +304,7 @@ export function registerAccountLinkingTools(server) {
         };
       }
       
-      const headers = headersFromExtra(extra);
-      const issuer = String(headers['x-user-issuer'] || '').trim();
-      const subject = String(headers['x-user-sub'] || '').trim();
+      const { issuer, subject } = getIdentity(args, extra);
       
       if (!issuer || !subject) {
         return { 

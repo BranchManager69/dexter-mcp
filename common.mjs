@@ -24,6 +24,134 @@ import { registerFoundationTools } from './tools/foundation.mjs';
 import { registerWalletExtraTools } from './tools/wallet-extra.mjs';
 import { registerWalletAliasTools } from './tools/wallet-aliases.mjs';
 
+function headersFromExtra(extra){
+  try {
+    if (extra?.requestInfo?.headers) return extra.requestInfo.headers;
+  } catch {}
+  try {
+    if (extra?.httpRequest?.headers) return extra.httpRequest.headers;
+  } catch {}
+  try {
+    if (extra?.request?.headers) return extra.request.headers;
+  } catch {}
+  return {};
+}
+
+function extractSessionId(extra, args){
+  try {
+    const h = headersFromExtra(extra);
+    const sid = h['mcp-session-id'] || h['Mcp-Session-Id'] || h['MCP-SESSION-ID'];
+    if (sid) return String(sid);
+  } catch {}
+  try {
+    if (args && typeof args === 'object' && args.sessionId) {
+      return String(args.sessionId);
+    }
+  } catch {}
+  return 'stdio';
+}
+
+function describeCaller(extra, args){
+  try {
+    const headers = headersFromExtra(extra);
+    const email = headers['x-user-email'] || headers['X-User-Email'];
+    if (email) return String(email);
+    const sub = headers['x-user-sub'] || headers['X-User-Sub'] || args?.__sub;
+    if (sub) return `sub:${String(sub)}`;
+    if (args?.__issuer) return `issuer:${String(args.__issuer)}`;
+  } catch {}
+  return null;
+}
+
+function summarizeArgs(args){
+  try {
+    if (!args || typeof args !== 'object') return '';
+    const summary = {};
+    const highlightKeys = ['wallet_id','make_default','mint_address','mint','token_mint','chain_id','symbol','url','twitter_url','telegram_url','limit','query'];
+    for (const [key, value] of Object.entries(args)) {
+      if (key.startsWith('__')) {
+        const pretty = key.replace(/^__+/, '');
+        summary[pretty] = typeof value === 'string' ? sanitizeText(value) : value;
+        continue;
+      }
+      if (key === 'signal' || key === 'requestInfo' || key === 'httpRequest') continue;
+      if (key === 'sessionId' || key === 'requestId') continue;
+      if (!highlightKeys.includes(key) && typeof value === 'object') continue;
+      if (typeof value === 'string') {
+        summary[key] = value.length > 80 ? `${value.slice(0,77)}…` : value;
+      } else if (typeof value === 'number' || typeof value === 'boolean') {
+        summary[key] = value;
+      } else if (Array.isArray(value)) {
+        summary[key] = `[len=${value.length}]`;
+      } else if (value && typeof value === 'object') {
+        summary[key] = '{…}';
+      } else {
+        summary[key] = value;
+      }
+    }
+    const json = JSON.stringify(summary);
+    if (!json) return '';
+    return json.length > 180 ? `${json.slice(0,177)}…` : json;
+  } catch {}
+  return '';
+}
+
+const COLORS = { start: '\x1b[36m', ok: '\x1b[32m', err: '\x1b[31m', info: '\x1b[35m', reset: '\x1b[0m' };
+
+function summarizeResult(result){
+  try {
+    if (!result || typeof result !== 'object') return '';
+    if (result.isError) {
+      let text = '';
+      try {
+        if (Array.isArray(result.content)) {
+          const first = result.content.find((c) => c && typeof c.text === 'string');
+          if (first) text = first.text;
+        }
+        if (!text && typeof result.error === 'object' && result.error?.message) text = result.error.message;
+      } catch {}
+      const sanitized = sanitizeText(text || 'error');
+      return `isError=true${sanitized ? ` message=${sanitized}` : ''}`;
+    }
+    if (result.structuredContent && typeof result.structuredContent === 'object') {
+      const sc = result.structuredContent;
+      const highlights = [];
+      if (Array.isArray(sc.wallets)) highlights.push(`wallets.len=${sc.wallets.length}`);
+      if (Array.isArray(sc.links)) highlights.push(`links.len=${sc.links.length}`);
+      if (Array.isArray(sc.results)) highlights.push(`results.len=${sc.results.length}`);
+      if ('wallet_id' in sc) highlights.push(`wallet_id=${sanitizeText(sc.wallet_id) || '∅'}`);
+      if ('source' in sc) highlights.push(`source=${sanitizeText(sc.source) || '∅'}`);
+      if ('status' in sc) highlights.push(`status=${sanitizeText(sc.status) || '∅'}`);
+      if ('mint_address' in sc) highlights.push(`mint=${sanitizeText(sc.mint_address) || '∅'}`);
+      if ('issuer' in sc) highlights.push(`issuer=${sanitizeText(sc.issuer) || '∅'}`);
+      if ('subject' in sc) highlights.push(`subject=${sanitizeText(sc.subject) || '∅'}`);
+      if ('bearer_preview' in sc) highlights.push(`bearer=${sanitizeText(sc.bearer_preview) || '∅'}`);
+      if (!highlights.length) {
+        const keys = Object.keys(sc);
+        if (keys.length) highlights.push(`keys=${keys.join(',')}`);
+      }
+      return `structured=${highlights.join(' ')}`;
+    }
+    if (Array.isArray(result.content)) {
+      const texts = result.content
+        .filter((c) => c && typeof c.text === 'string')
+        .map((c) => sanitizeText(c.text))
+        .filter(Boolean);
+      if (texts.length) return `content.len=${result.content.length} preview=${texts[0]}`;
+      return `content.len=${result.content.length}`;
+    }
+  } catch {}
+  return '';
+}
+
+function sanitizeText(input){
+  try {
+    const text = String(input || '').replace(/\s+/g, ' ').trim();
+    if (!text) return '';
+    return text.replace(/[A-Za-z0-9]{24,}/g, '***');
+  } catch { return ''; }
+}
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TOKEN_AI_DIR = path.resolve(HERE, '..');
 const REPORTS_DIR = path.join(TOKEN_AI_DIR, 'reports', 'ai-token-analyses');
@@ -102,16 +230,45 @@ export function buildMcpServer(options = {}){
   server.registerTool = (name, meta, handler) => {
     const m = { ...meta };
     try {
-      // If tool declares no inputs, leave undefined so SDK calls handler without args
       if (meta.inputSchema == null) {
         m.inputSchema = undefined;
       } else {
         m.inputSchema = z.any();
       }
     } catch {}
-    // Disable output validation to avoid schema conversion/parse issues
     try { m.outputSchema = undefined; } catch {}
-    return _origRegisterTool(name, m, handler);
+
+    const wrappedHandler = async (args, extra) => {
+      const started = Date.now();
+      const sid = extractSessionId(extra, args);
+
+      const caller = describeCaller(extra, args);
+      const preview = summarizeArgs(args);
+      try {
+        const callerInfo = caller ? ` user=${caller}` : '';
+        const argInfo = preview ? ` args=${preview}` : '';
+        console.log(`${COLORS.start}[mcp-tool] start${COLORS.reset} name=${name} sid=${sid}${callerInfo}${argInfo}`);
+      } catch {}
+      try {
+        const result = await handler(args, extra);
+        try {
+          const duration = Date.now() - started;
+          const outcome = summarizeResult(result);
+          const outcomeInfo = outcome ? ` ${outcome}` : '';
+          console.log(`${COLORS.ok}[mcp-tool] ok${COLORS.reset} name=${name} sid=${sid} ms=${duration}${outcomeInfo}`);
+        } catch {}
+        return result;
+      } catch (err) {
+        try {
+          const duration = Date.now() - started;
+          const message = err?.stack || err?.message || String(err);
+          console.error(`${COLORS.err}[mcp-tool] err${COLORS.reset} name=${name} sid=${sid} ms=${duration} error=${message}`);
+        } catch {}
+        throw err;
+      }
+    };
+
+    return _origRegisterTool(name, m, wrappedHandler);
   };
 
   const wantAll = includeToolsets.has('all');
