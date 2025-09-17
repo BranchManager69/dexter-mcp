@@ -9,14 +9,12 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import dotenv from 'dotenv';
 import path from 'node:path';
 
-// Load env from repo root (Dexter), legacy token-ai/.env, and local MCP overrides
+// Load env from repo root and local MCP overrides
 try {
   const HERE = path.resolve(path.dirname(new URL(import.meta.url).pathname));
   const ALPHA_ROOT = path.resolve(HERE, '..');
   const REPO_ROOT = path.resolve(ALPHA_ROOT, '..');
-  const LEGACY_TOKEN_AI = path.join(REPO_ROOT, 'token-ai');
   dotenv.config({ path: path.join(REPO_ROOT, '.env') });
-  dotenv.config({ path: path.join(LEGACY_TOKEN_AI, '.env') });
   dotenv.config({ path: path.join(HERE, '.env') });
 } catch {}
 
@@ -445,6 +443,11 @@ async function validateTokenAndClaims(token) {
 function serveOAuthMetadata(pathname, res, req) {
   writeCors(res);
   const isAuthMeta = (pathname === '/.well-known/oauth-authorization-server' || pathname === '/mcp/.well-known/oauth-authorization-server');
+  const isProtectedMeta = (
+    pathname === '/.well-known/oauth-protected-resource'
+    || pathname === '/.well-known/oauth-protected-resource/mcp'
+    || pathname === '/mcp/.well-known/oauth-protected-resource'
+  );
   const isOidcMeta = (pathname === '/.well-known/openid-configuration' || pathname === '/mcp/.well-known/openid-configuration');
   const isJwks = (pathname === '/.well-known/jwks.json' || pathname === '/mcp/jwks.json' || pathname === '/jwks.json' || pathname === '/mcp/.well-known/jwks.json');
 
@@ -474,6 +477,19 @@ function serveOAuthMetadata(pathname, res, req) {
       scopes_supported: (prov?.scopes || '').split(/\s+/).filter(Boolean),
       id_token_signing_alg_values_supported: rsaPublicJwk ? ['RS256'] : (HS256_SECRET ? ['HS256'] : []),
       mcp: { client_id: prov?.client_id || '', redirect_uri: `${effectiveBaseUrl(req)}/callback` }
+    }));
+    return true;
+  }
+
+  if (isProtectedMeta) {
+    try { console.log(`[oauth-meta] serve protected metadata for ${pathname} ua=${req?.headers?.['user-agent']||''}`); } catch {}
+    const base = effectiveBaseUrl(req).replace(/\/$/, '');
+    const authMetadata = `${base.replace(/\/mcp$/, '')}/.well-known/oauth-authorization-server`;
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
+    res.end(JSON.stringify({
+      resource: base,
+      authorization_servers: [authMetadata],
+      scopes_supported: ['wallet.read', 'wallet.trade'],
     }));
     return true;
   }
