@@ -780,7 +780,11 @@ const server = http.createServer(async (req, res) => {
         // 1) Server bearer (TOKEN_AI_MCP_TOKEN) for non-OAuth clients
         // 2) OAuth bearer validated via OIDC/GitHub
         if (!auth.startsWith('Bearer ')) return unauthorized(res, 'OAuth token required', req);
-        const token = auth.substring(7);
+        const token = auth.substring(7).trim();
+        if (!token || token === 'undefined') {
+          try { console.log('[oauth] empty bearer for new session', { sid: sidIn || '∅' }); } catch {}
+          return unauthorized(res, 'Invalid token or user not authorized', req);
+        }
         const SERVER_BEARER = String(process.env.TOKEN_AI_MCP_TOKEN||'');
         if (SERVER_BEARER && token === SERVER_BEARER) {
           const preview = `bearer:${token.slice(0,4)}…${token.slice(-4)}`;
@@ -810,22 +814,26 @@ const server = http.createServer(async (req, res) => {
         }
         // If Authorization present, refresh identity cache
         if (auth.startsWith('Bearer ')) {
-          const token = auth.substring(7);
-          const SERVER_BEARER = String(process.env.TOKEN_AI_MCP_TOKEN||'');
-          if (SERVER_BEARER && token === SERVER_BEARER) {
-            const preview = `bearer:${token.slice(0,4)}…${token.slice(-4)}`;
-            req.oauthUser = preview;
+          const token = auth.substring(7).trim();
+          if (!token || token === 'undefined') {
+            try { console.log('[oauth] empty bearer on existing session', { sid: sidIn || '∅' }); } catch {}
           } else {
-            const entry = await validateTokenAndClaims(token);
-            if (entry) {
-              req.oauthUser = entry.user;
-              try {
-                const prov = getProviderConfig(req);
-                if (prov) req.headers['x-user-issuer'] = prov.issuer || effectiveBaseUrl(req);
-                if (entry?.claims?.sub) req.headers['x-user-sub'] = String(entry.claims.sub);
-                if (entry?.claims?.email) req.headers['x-user-email'] = String(entry.claims.email);
-                if (!req.headers['x-user-sub'] && entry?.user) req.headers['x-user-sub'] = String(entry.user);
-              } catch {}
+            const SERVER_BEARER = String(process.env.TOKEN_AI_MCP_TOKEN||'');
+            if (SERVER_BEARER && token === SERVER_BEARER) {
+              const preview = `bearer:${token.slice(0,4)}…${token.slice(-4)}`;
+              req.oauthUser = preview;
+            } else {
+              const entry = await validateTokenAndClaims(token);
+              if (entry) {
+                req.oauthUser = entry.user;
+                try {
+                  const prov = getProviderConfig(req);
+                  if (prov) req.headers['x-user-issuer'] = prov.issuer || effectiveBaseUrl(req);
+                  if (entry?.claims?.sub) req.headers['x-user-sub'] = String(entry.claims.sub);
+                  if (entry?.claims?.email) req.headers['x-user-email'] = String(entry.claims.email);
+                  if (!req.headers['x-user-sub'] && entry?.user) req.headers['x-user-sub'] = String(entry.user);
+                } catch {}
+              }
             }
           }
         }
