@@ -264,6 +264,7 @@ async function validateTokenAndClaims(token) {
   }
   const prov = getProviderConfig();
   if (!prov) return null;
+  try { console.log('[oauth] validate token start', { token: token.slice(0, 8) + '…' }); } catch {}
 
   if (OAUTH_ALLOW_ANY) {
     // In allow-any demo mode, only accept the server-injected bearer token
@@ -786,9 +787,10 @@ const server = http.createServer(async (req, res) => {
           req.oauthUser = preview;
         } else {
           const entry = await validateTokenAndClaims(token);
-          if (!entry) return unauthorized(res, 'Invalid token or user not authorized', req);
+          if (!entry) { console.log('[oauth] token rejected', { token: token.slice(0, 8) + '…' }); return unauthorized(res, 'Invalid token or user not authorized', req); }
           req.oauthUser = entry.user;
           try {
+            console.log('[oauth] token accepted', { user: entry.user, claims: entry.claims });
             const prov = getProviderConfig(req);
             if (prov) req.headers['x-user-issuer'] = prov.issuer || effectiveBaseUrl(req);
             if (entry?.claims?.sub) req.headers['x-user-sub'] = String(entry.claims.sub);
