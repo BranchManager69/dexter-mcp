@@ -70,11 +70,11 @@ export function registerTradingTools(server, options = {}) {
   server.registerTool('list_wallet_token_balances', {
     title: 'List Wallet Token Balances',
     description: 'List SPL token balances held by a managed wallet (descending by UI amount). Includes native SOL.',
-    inputSchema: {
+    inputSchema: z.object({
       wallet_id: z.string().optional(),
-      min_ui: z.number().nonnegative().optional(),
-      limit: z.number().int().optional()
-    },
+      min_ui: z.coerce.number().nonnegative().optional(),
+      limit: z.coerce.number().int().optional()
+    }),
     outputSchema: {
       items: z.array(z.object({
         mint: z.string(),
@@ -91,9 +91,9 @@ export function registerTradingTools(server, options = {}) {
         if (!owns) return { content:[{ type:'text', text:'forbidden_wallet' }], isError:true };
       }
       const conn = await getRpcConnection();
-      const { loadWallet } = await import('../../trade-manager/wallet-utils.js');
+      const { loadWallet } = await import('../../../token-ai/trade-manager/wallet-utils.js');
       const { TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
-      const { SOL_MINT, SOL_DECIMALS } = await import('../../trade-manager/jupiter-api.js');
+      const { SOL_MINT, SOL_DECIMALS } = await import('../../../token-ai/trade-manager/jupiter-api.js');
       let wid = wallet_id;
       if (!wid) {
         const r = resolveWalletForRequest(extra);
@@ -158,11 +158,11 @@ export function registerTradingTools(server, options = {}) {
   server.registerTool('resolve_token', {
     title: 'Resolve Token',
     description: 'Resolve a token name or symbol to Solana mint addresses using DexScreener search.',
-    inputSchema: {
+    inputSchema: z.object({
       query: z.string().describe('Token name or symbol to search for (e.g., "BONK", "LABUBU")'),
       chain: z.enum(['solana']).default('solana').optional().describe('Blockchain to search on'),
-      limit: z.number().int().min(1).max(10).default(5).optional().describe('Maximum results to return')
-    },
+      limit: z.coerce.number().int().min(1).max(10).default(5).optional().describe('Maximum results to return')
+    }),
     outputSchema: {
       results: z.array(z.object({
         address: z.string(),
@@ -465,12 +465,12 @@ export function registerTradingTools(server, options = {}) {
   }, async ({ wallet_id, token_mint, token_amount, percent_of_balance, outputs, slippages_bps, priority_lamports, max_price_impact_pct }, extra) => {
     try {
       const conn = await getRpcConnection();
-      const { loadWallet } = await import('../../trade-manager/wallet-utils.js');
+      const { loadWallet } = await import('../../../token-ai/trade-manager/wallet-utils.js');
       let wid = await resolveWalletIdOrNull(wallet_id, extra); if (!wid) return { content:[{ type:'text', text:'no_wallet' }], isError:true };
       const { publicKey } = await loadWallet(wid);
       const { PublicKey } = await import('@solana/web3.js');
       const { getAssociatedTokenAddress, getAccount } = await import('@solana/spl-token');
-      const { SOL_MINT, SOL_DECIMALS, getQuote, getSwapTransaction, deserializeTransaction, formatTokenAmount } = await import('../../trade-manager/jupiter-api.js');
+      const { SOL_MINT, SOL_DECIMALS, getQuote, getSwapTransaction, deserializeTransaction, formatTokenAmount } = await import('../../../token-ai/trade-manager/jupiter-api.js');
 
       // Determine sell amount UI
       let sellUi = Number(token_amount || 0);
@@ -553,10 +553,10 @@ export function registerTradingTools(server, options = {}) {
   }, async ({ wallet_id, token_mint, sol_amount, out_amount_ui, use_exact_out, input_mints, slippages_bps, priority_lamports, max_price_impact_pct }, extra) => {
     try {
       const conn = await getRpcConnection();
-      const { loadWallet } = await import('../../trade-manager/wallet-utils.js');
+      const { loadWallet } = await import('../../../token-ai/trade-manager/wallet-utils.js');
       let wid = await resolveWalletIdOrNull(wallet_id, extra); if (!wid) return { content:[{ type:'text', text:'no_wallet' }], isError:true };
       const { keypair, publicKey } = await loadWallet(wid);
-      const { SOL_MINT, SOL_DECIMALS, getQuote, getSwapTransaction, deserializeTransaction, formatTokenAmount } = await import('../../trade-manager/jupiter-api.js');
+      const { SOL_MINT, SOL_DECIMALS, getQuote, getSwapTransaction, deserializeTransaction, formatTokenAmount } = await import('../../../token-ai/trade-manager/jupiter-api.js');
 
       const inMints = Array.isArray(input_mints) && input_mints.length ? input_mints : [SOL_MINT];
       const slips = Array.isArray(slippages_bps) && slippages_bps.length ? slippages_bps : [100, 200, 300];
@@ -627,7 +627,7 @@ export function registerTradingTools(server, options = {}) {
     }
   }, async ({ token_mint, sol_amount, slippage_bps }) => {
     try {
-      const { SOL_MINT, SOL_DECIMALS, getQuote, formatTokenAmount } = await import('../../trade-manager/jupiter-api.js');
+      const { SOL_MINT, SOL_DECIMALS, getQuote, formatTokenAmount } = await import('../../../token-ai/trade-manager/jupiter-api.js');
       const lamports = BigInt(Math.floor(Number(sol_amount) * Math.pow(10, SOL_DECIMALS)));
       const quote = await getQuote({ inputMint: SOL_MINT, outputMint: token_mint, amount: String(lamports), slippageBps: Number(slippage_bps)||100 });
       const outTokens = Number(formatTokenAmount(quote.outAmount, await getTokenDecimals(token_mint)));
@@ -655,7 +655,7 @@ export function registerTradingTools(server, options = {}) {
     }
   }, async ({ token_mint, token_amount, slippage_bps, output_mint }) => {
     try {
-      const { SOL_MINT, SOL_DECIMALS, getQuote, formatTokenAmount } = await import('../../trade-manager/jupiter-api.js');
+      const { SOL_MINT, SOL_DECIMALS, getQuote, formatTokenAmount } = await import('../../../token-ai/trade-manager/jupiter-api.js');
       const decimals = await getTokenDecimals(token_mint);
       const raw = BigInt(Math.floor(Number(token_amount) * Math.pow(10, decimals)));
       const outMint = String(output_mint || SOL_MINT);
@@ -701,8 +701,8 @@ export function registerTradingTools(server, options = {}) {
         if (!owns) return { content:[{ type:'text', text:'forbidden_wallet' }], isError:true };
       }
       const conn = await getRpcConnection();
-      const { loadWallet } = await import('../../trade-manager/wallet-utils.js');
-      const { SOL_MINT, SOL_DECIMALS, getQuote, getSwapTransaction, deserializeTransaction, formatTokenAmount } = await import('../../trade-manager/jupiter-api.js');
+      const { loadWallet } = await import('../../../token-ai/trade-manager/wallet-utils.js');
+      const { SOL_MINT, SOL_DECIMALS, getQuote, getSwapTransaction, deserializeTransaction, formatTokenAmount } = await import('../../../token-ai/trade-manager/jupiter-api.js');
       let wid = await resolveWalletIdOrNull(wallet_id, extra); if (!wid) return { content:[{ type:'text', text:'no_wallet' }], isError:true };
       const { keypair, publicKey, wallet } = await loadWallet(wid);
       // Compute desired spend and ensure we have enough SOL to cover spend + fees/ATA rents (WSOL + output if needed)
@@ -713,7 +713,7 @@ export function registerTradingTools(server, options = {}) {
       try {
         const { PublicKey } = await import('@solana/web3.js');
         const { getAssociatedTokenAddress, getAccount } = await import('@solana/spl-token');
-        const { SOL_MINT } = await import('../../trade-manager/jupiter-api.js');
+        const { SOL_MINT } = await import('../../../token-ai/trade-manager/jupiter-api.js');
         const outMintPk = new PublicKey(token_mint);
         const outAta = await getAssociatedTokenAddress(outMintPk, publicKey);
         try { await getAccount(conn, outAta); hasOutAta = true; } catch { hasOutAta = false; }
@@ -795,9 +795,9 @@ export function registerTradingTools(server, options = {}) {
         if (!owns) return { content:[{ type:'text', text:'forbidden_wallet' }], isError:true };
       }
       const conn = await getRpcConnection();
-      const { loadWallet } = await import('../../trade-manager/wallet-utils.js');
+      const { loadWallet } = await import('../../../token-ai/trade-manager/wallet-utils.js');
       let wid = await resolveWalletIdOrNull(wallet_id, extra); if (!wid) return { content:[{ type:'text', text:'no_wallet' }], isError:true };
-      const { SOL_MINT, SOL_DECIMALS, getQuote, getSwapTransaction, deserializeTransaction, formatTokenAmount } = await import('../../trade-manager/jupiter-api.js');
+      const { SOL_MINT, SOL_DECIMALS, getQuote, getSwapTransaction, deserializeTransaction, formatTokenAmount } = await import('../../../token-ai/trade-manager/jupiter-api.js');
       const { keypair, publicKey, wallet } = await loadWallet(wid);
       const decimals = await getTokenDecimals(token_mint);
       // Cap requested amount to on-chain balance to avoid rounding-related failures
@@ -870,11 +870,11 @@ export function registerTradingTools(server, options = {}) {
         if (!owns) return { content:[{ type:'text', text:'forbidden_wallet' }], isError:true };
       }
       const conn = await getRpcConnection();
-      const { loadWallet } = await import('../../trade-manager/wallet-utils.js');
+      const { loadWallet } = await import('../../../token-ai/trade-manager/wallet-utils.js');
       let wid = await resolveWalletIdOrNull(wallet_id, extra); if (!wid) return { content:[{ type:'text', text:'no_wallet' }], isError:true };
       const { PublicKey } = await import('@solana/web3.js');
       const { getAssociatedTokenAddress, getAccount } = await import('@solana/spl-token');
-      const { SOL_MINT, SOL_DECIMALS, getQuote, getSwapTransaction, deserializeTransaction, formatTokenAmount } = await import('../../trade-manager/jupiter-api.js');
+      const { SOL_MINT, SOL_DECIMALS, getQuote, getSwapTransaction, deserializeTransaction, formatTokenAmount } = await import('../../../token-ai/trade-manager/jupiter-api.js');
       const { keypair, publicKey, wallet } = await loadWallet(wid);
       const mintPk = new PublicKey(token_mint);
       const ata = await getAssociatedTokenAddress(mintPk, publicKey);
@@ -956,11 +956,11 @@ export function registerTradingTools(server, options = {}) {
         if (!owns) return { content:[{ type:'text', text:'forbidden_wallet' }], isError:true };
       }
       const conn = await getRpcConnection();
-      const { loadWallet } = await import('../../trade-manager/wallet-utils.js');
+      const { loadWallet } = await import('../../../token-ai/trade-manager/wallet-utils.js');
       let wid = await resolveWalletIdOrNull(wallet_id, extra); if (!wid) return { content:[{ type:'text', text:'no_wallet' }], isError:true };
       const { PublicKey } = await import('@solana/web3.js');
       const { getAssociatedTokenAddress, getAccount } = await import('@solana/spl-token');
-      const { SOL_MINT, SOL_DECIMALS, getQuote, formatTokenAmount } = await import('../../trade-manager/jupiter-api.js');
+      const { SOL_MINT, SOL_DECIMALS, getQuote, formatTokenAmount } = await import('../../../token-ai/trade-manager/jupiter-api.js');
       const { publicKey } = await loadWallet(wid);
       const mintPk = new PublicKey(token_mint);
       const ata = await getAssociatedTokenAddress(mintPk, publicKey);

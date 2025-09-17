@@ -2,7 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
-import { activeRuns } from '../../core/run-manager.js';
+import { activeRuns } from '../../../token-ai/core/run-manager.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TOKEN_AI_DIR = path.resolve(HERE, '../..');

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { RUN_LIMIT, LOGS_PER_RUN_LIMIT, activeRuns, childProcs, spawnAnalyzer } from '../../core/run-manager.js';
+import { RUN_LIMIT, LOGS_PER_RUN_LIMIT, activeRuns, childProcs, spawnAnalyzer } from '../../../token-ai/core/run-manager.js';
 
 // Get ENABLE_RUN_TOOLS flag from environment
 const ENABLE_RUN_TOOLS = String(process.env.TOKEN_AI_MCP_ENABLE_RUN_TOOLS || '1') !== '0';

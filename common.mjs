@@ -223,20 +223,44 @@ export function buildMcpServer(options = {}){
     instructions: instructionsLines.join('\n')
   });
 
-  // Band-aid eliminator: normalize schemas so tools/list never crashes.
-  // Some legacy tools passed plain shape objects instead of Zod schemas.
-  // Wrap any plain object shapes into z.object(...) at registration time.
   const _origRegisterTool = server.registerTool.bind(server);
+
+  function coerceSchema(schema, fallback) {
+    if (schema === undefined || schema === null) {
+      return fallback;
+    }
+    if (schema instanceof z.ZodType) {
+      return schema;
+    }
+    if (schema && typeof schema === 'object') {
+      if (Object.keys(schema).length === 0) {
+        return z.object({});
+      }
+      const shape = {};
+      for (const [key, value] of Object.entries(schema)) {
+        if (!(value instanceof z.ZodType)) {
+          throw new TypeError(`registerTool: schema for "${key}" must be a Zod schema`);
+        }
+        shape[key] = value;
+      }
+      return z.object(shape);
+    }
+    throw new TypeError('registerTool: unsupported schema type');
+  }
+
   server.registerTool = (name, meta, handler) => {
     const m = { ...meta };
+    if (Object.prototype.hasOwnProperty.call(meta, 'inputSchema')) {
+      m.inputSchema = coerceSchema(meta.inputSchema, z.object({}));
+    }
+    if (Object.prototype.hasOwnProperty.call(meta, 'outputSchema')) {
+      m.outputSchema = coerceSchema(meta.outputSchema, undefined);
+    }
     try {
-      if (meta.inputSchema == null) {
-        m.inputSchema = undefined;
-      } else {
-        m.inputSchema = z.any();
-      }
+      const inDesc = m.inputSchema ? m.inputSchema.constructor.name : 'undefined';
+      const outDesc = m.outputSchema ? m.outputSchema.constructor.name : 'undefined';
+      console.log(`[schema] register tool ${name} input=${inDesc} output=${outDesc}`);
     } catch {}
-    try { m.outputSchema = undefined; } catch {}
 
     const wrappedHandler = async (args, extra) => {
       const started = Date.now();

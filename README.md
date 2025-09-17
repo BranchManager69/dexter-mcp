@@ -40,12 +40,13 @@ Nothing changes unless you set these flags; defaults preserve existing behavior 
   - Predictions (stdio): `node token-ai/scripts/test-predictions.mjs --tweet=1956196249452916913 [--mint=<SOL_MINT>] [--minutes=1440]`
     - Env: set `BIRDEYE_API_KEY` to enable price verification; DB must contain the tweet for non-scraping tools.
 
-Systemd (production):
-- Units: `dexter-mcp` (MCP HTTP) and `dexter-ui` (UI/API/WS)
+PM2 (production):
+- Apps (ecosystem): `dexter-api`, `dexter-fe`, `dexter-mcp`
 - Common commands:
-  - Status: `systemctl status dexter-mcp`
-  - Live logs: `sudo journalctl -u dexter-mcp -f`
-  - Restart: `sudo systemctl restart dexter-mcp`
+  - Start: `pm2 start alpha/ecosystem.config.cjs --only dexter-mcp`
+  - Status: `pm2 describe dexter-mcp`
+  - Live logs: `pm2 logs dexter-mcp`
+  - Restart: `pm2 restart dexter-mcp && pm2 save`
 
 ## Endpoints and Transports
 
@@ -423,8 +424,8 @@ To ingest OpenAI Background Mode webhooks from the OpenAI platform:
 - Edit `mcp/common.mjs` to add or change tools/resources
 - Run `npm run test:mcp` and `npm run test:mcp:http` to verify
 - Restart services after changes (production):
-  - `sudo systemctl restart dexter-mcp`
-  - If UI routes changed: `sudo systemctl restart dexter-ui`
+  - `pm2 restart dexter-mcp && pm2 save`
+  - If UI routes changed: `pm2 restart dexter-api dexter-fe && pm2 save`
 
 ## License
 

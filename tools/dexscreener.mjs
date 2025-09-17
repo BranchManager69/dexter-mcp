@@ -6,8 +6,17 @@ export function registerDexscreenerTools(server) {
   server.registerTool('dexscreener_search', {
     title: 'DexScreener Search',
     description: 'Search pairs by query (optionally filter by chain)',
-    inputSchema: { query: z.string().min(1), chain_id: z.string().optional(), limit: z.number().int().optional() },
-    outputSchema: { query: z.string(), chain_id: z.string().nullable(), count: z.number().int(), results: z.array(z.any()) }
+    inputSchema: z.object({
+      query: z.string().min(1),
+      chain_id: z.string().optional(),
+      limit: z.coerce.number().int().optional()
+    }),
+    outputSchema: z.object({
+      query: z.string(),
+      chain_id: z.string().nullable(),
+      count: z.number().int(),
+      results: z.array(z.any())
+    })
   }, async ({ query, chain_id, limit }) => {
     try {
       const q = String(query || '').trim();
@@ -35,8 +44,15 @@ export function registerDexscreenerTools(server) {
   server.registerTool('dexscreener_tokens', {
     title: 'DexScreener Tokens',
     description: 'Fetch token metadata for addresses',
-    inputSchema: { chain_id: z.string().min(1), token_addresses: z.array(z.string()).min(1) },
-    outputSchema: { chain_id: z.string(), token_addresses: z.array(z.string()), raw: z.any() }
+    inputSchema: z.object({
+      chain_id: z.string().min(1),
+      token_addresses: z.array(z.string()).min(1)
+    }),
+    outputSchema: z.object({
+      chain_id: z.string(),
+      token_addresses: z.array(z.string()),
+      raw: z.any()
+    })
   }, async ({ chain_id, token_addresses }) => {
     try {
       const chain = String(chain_id || '').trim().toLowerCase();
@@ -51,8 +67,15 @@ export function registerDexscreenerTools(server) {
   server.registerTool('dexscreener_token_pairs', {
     title: 'DexScreener Token Pairs',
     description: 'Fetch pairs for a given token address',
-    inputSchema: { chain_id: z.string().min(1), token_address: z.string().min(1) },
-    outputSchema: { chain_id: z.string(), token_address: z.string(), raw: z.any() }
+    inputSchema: z.object({
+      chain_id: z.string().min(1),
+      token_address: z.string().min(1)
+    }),
+    outputSchema: z.object({
+      chain_id: z.string(),
+      token_address: z.string(),
+      raw: z.any()
+    })
   }, async ({ chain_id, token_address }) => {
     try {
       const chain = String(chain_id || '').trim().toLowerCase();
@@ -67,8 +90,15 @@ export function registerDexscreenerTools(server) {
   server.registerTool('dexscreener_pair_details', {
     title: 'DexScreener Pair Details',
     description: 'Fetch pair details by chain/pair_id',
-    inputSchema: { chain_id: z.string().min(1), pair_id: z.string().min(1) },
-    outputSchema: { chain_id: z.string(), pair_id: z.string(), raw: z.any() }
+    inputSchema: z.object({
+      chain_id: z.string().min(1),
+      pair_id: z.string().min(1)
+    }),
+    outputSchema: z.object({
+      chain_id: z.string(),
+      pair_id: z.string(),
+      raw: z.any()
+    })
   }, async ({ chain_id, pair_id }) => {
     try {
       const chain = String(chain_id || '').trim().toLowerCase();
@@ -83,8 +113,15 @@ export function registerDexscreenerTools(server) {
   server.registerTool('dexscreener_token_profiles', {
     title: 'DexScreener Token Profiles',
     description: 'Fetch token profiles for a set of addresses',
-    inputSchema: { chain_id: z.string().min(1), token_addresses: z.array(z.string()).min(1) },
-    outputSchema: { chain_id: z.string(), token_addresses: z.array(z.string()), raw: z.any() }
+    inputSchema: z.object({
+      chain_id: z.string().min(1),
+      token_addresses: z.array(z.string()).min(1)
+    }),
+    outputSchema: z.object({
+      chain_id: z.string(),
+      token_addresses: z.array(z.string()),
+      raw: z.any()
+    })
   }, async ({ chain_id, token_addresses }) => {
     try {
       const chain = String(chain_id || '').trim().toLowerCase();
@@ -99,8 +136,15 @@ export function registerDexscreenerTools(server) {
   server.registerTool('dexscreener_token_boosts_latest', {
     title: 'DexScreener Token Boosts Latest',
     description: 'Fetch latest token boosts for addresses',
-    inputSchema: { chain_id: z.string().min(1), token_addresses: z.array(z.string()).min(1) },
-    outputSchema: { chain_id: z.string(), token_addresses: z.array(z.string()), raw: z.any() }
+    inputSchema: z.object({
+      chain_id: z.string().min(1),
+      token_addresses: z.array(z.string()).min(1)
+    }),
+    outputSchema: z.object({
+      chain_id: z.string(),
+      token_addresses: z.array(z.string()),
+      raw: z.any()
+    })
   }, async ({ chain_id, token_addresses }) => {
     try {
       const chain = String(chain_id || '').trim().toLowerCase();
@@ -114,8 +158,15 @@ export function registerDexscreenerTools(server) {
   server.registerTool('dexscreener_token_boosts_top', {
     title: 'DexScreener Token Boosts Top',
     description: 'Fetch top token boosts',
-    inputSchema: { chain_id: z.string().optional(), limit: z.number().int().optional() },
-    outputSchema: { chain_id: z.string(), limit: z.number().int(), raw: z.any() }
+    inputSchema: z.object({
+      chain_id: z.string().optional(),
+      limit: z.coerce.number().int().optional()
+    }),
+    outputSchema: z.object({
+      chain_id: z.string(),
+      limit: z.number().int(),
+      raw: z.any()
+    })
   }, async ({ chain_id, limit }) => {
     try {
       const chain = String(chain_id || 'solana').trim().toLowerCase();
@@ -126,4 +177,3 @@ export function registerDexscreenerTools(server) {
     } catch (e) { return { content:[{ type:'text', text: e?.message || 'token_boosts_top_failed' }], isError:true }; }
   });
 }
-

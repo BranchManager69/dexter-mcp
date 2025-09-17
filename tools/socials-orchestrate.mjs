@@ -49,7 +49,7 @@ export function registerSocialsOrchestrateTools(server) {
       const json = JSON.parse(raw);
       const data = Array.isArray(json) ? (json.find(r => r?.address === mint_address) || json[0]) : json;
 
-      const { formatOrchestratorData } = await import('../../core/format-orchestrator.js');
+      const { formatOrchestratorData } = await import('../../../token-ai/core/format-orchestrator.js');
       const formattedSummary = formatOrchestratorData(data);
       const norm = (() => {
         try {

@@ -8,7 +8,7 @@ export function registerWebsitesTools(server) {
     outputSchema: { success: z.boolean().optional() }
   }, async ({ url }) => {
     try {
-      const { extract_website_content } = await import('../../socials/tools/websites.js');
+      const { extract_website_content } = await import('../../../token-ai/socials/tools/websites.js');
       const res = await extract_website_content(String(url));
       return { structuredContent: res };
     } catch (e) { return { content:[{ type:'text', text: e?.message || 'extract_failed' }], isError:true }; }
@@ -21,7 +21,7 @@ export function registerWebsitesTools(server) {
     outputSchema: { results: z.any().optional() }
   }, async ({ urls }) => {
     try {
-      const { extract_websites_for_token } = await import('../../socials/tools/websites.js');
+      const { extract_websites_for_token } = await import('../../../token-ai/socials/tools/websites.js');
       const list = Array.isArray(urls) ? urls : [];
       const res = await extract_websites_for_token(list);
       return { structuredContent: res };
@@ -35,8 +35,8 @@ export function registerWebsitesTools(server) {
     outputSchema: { links: z.array(z.any()), websites_checked: z.array(z.string()) }
   }, async ({ mint_address, urls }) => {
     try {
-      const { extract_websites_for_token, find_social_links_in_site } = await import('../../socials/tools/websites.js');
-      const { get_token_links_from_db } = await import('../../socials/tools/foundation.js');
+      const { extract_websites_for_token, find_social_links_in_site } = await import('../../../token-ai/socials/tools/websites.js');
+      const { get_token_links_from_db } = await import('../../../token-ai/socials/tools/foundation.js');
       const db = await get_token_links_from_db(mint_address);
       const siteUrls = (Array.isArray(urls) && urls.length) ? urls : (db.websites||[]).map(w=>w.url).filter(Boolean);
       const extracted = await extract_websites_for_token(siteUrls);
@@ -54,4 +54,3 @@ export function registerWebsitesTools(server) {
     } catch (e) { return { content:[{ type:'text', text: e?.message || 'discover_failed' }], isError:true }; }
   });
 }
-

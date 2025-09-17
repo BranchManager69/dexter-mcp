@@ -232,7 +232,7 @@ export function registerPredictionTools(server) {
       }
 
       let interval = actualMinutes <= 360 ? 1 : (actualMinutes <= 2880 ? 5 : 15);
-      const { fetchBirdeyeOHLCVRange } = await import('../../core/ohlcv-util.js');
+      const { fetchBirdeyeOHLCVRange } = await import('../../../token-ai/core/ohlcv-util.js');
       if (!process.env.BIRDEYE_API_KEY) return { structuredContent: { error: 'missing_birdeye_api_key' } };
       const data = await fetchBirdeyeOHLCVRange(mintAddress, tweetTimestamp, actualEndTime, interval);
       if (!data || !Array.isArray(data.ohlcv) || data.ohlcv.length === 0) return { structuredContent: { error: 'no_ohlcv_data', tweet_id: args.tweet_id, mint_address: mintAddress } };
@@ -350,7 +350,7 @@ export function registerPredictionTools(server) {
       if (!mints || mints.length < 2) return { structuredContent: { error: 'Need at least two mint_addresses or resolvable symbols' } };
 
       let interval = 1; if (actualMin > 360) interval = 5; if (actualMin > 2880) interval = 15;
-      const { fetchBirdeyeOHLCVRange } = await import('../../core/ohlcv-util.js');
+      const { fetchBirdeyeOHLCVRange } = await import('../../../token-ai/core/ohlcv-util.js');
       if (!process.env.BIRDEYE_API_KEY) return { structuredContent: { error: 'missing_birdeye_api_key' } };
 
       const rows = [];

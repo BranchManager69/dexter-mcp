@@ -9,7 +9,7 @@ export function registerSocialsDataTools(server) {
     outputSchema: { handle: z.string().optional() }
   }, async ({ twitter_url }) => {
     try {
-      const mod = await import('../../socials/tools/twitter.js');
+      const mod = await import('../../../token-ai/socials/tools/twitter.js');
       const res = await mod.get_twitter_profile({ twitterUrl: String(twitter_url), storageStatePath: process.env.TWITTER_SESSION_PATH });
       return { structuredContent: res };
     } catch (e) { return { content:[{ type:'text', text: e?.message || 'twitter_profile_failed' }], isError:true }; }
@@ -22,7 +22,7 @@ export function registerSocialsDataTools(server) {
     outputSchema: { tweets: z.any().optional() }
   }, async ({ twitter_url, limit, include_replies }) => {
     try {
-      const mod = await import('../../socials/tools/twitter.js');
+      const mod = await import('../../../token-ai/socials/tools/twitter.js');
       const res = await mod.get_twitter_recent_tweets({ twitterUrl: String(twitter_url), storageStatePath: process.env.TWITTER_SESSION_PATH, limit: Number(limit||50), include_replies: include_replies !== false });
       return { structuredContent: res };
     } catch (e) { return { content:[{ type:'text', text: e?.message || 'twitter_recent_failed' }], isError:true }; }
@@ -35,7 +35,7 @@ export function registerSocialsDataTools(server) {
     outputSchema: { communityName: z.string().optional() }
   }, async ({ twitter_url }) => {
     try {
-      const mod = await import('../../socials/tools/twitter.js');
+      const mod = await import('../../../token-ai/socials/tools/twitter.js');
       const res = await mod.get_twitter_community_meta({ twitterUrl: String(twitter_url), storageStatePath: process.env.TWITTER_SESSION_PATH });
       return { structuredContent: res };
     } catch (e) { return { content:[{ type:'text', text: e?.message || 'twitter_community_meta_failed' }], isError:true }; }
@@ -48,7 +48,7 @@ export function registerSocialsDataTools(server) {
     outputSchema: { posts: z.any().optional() }
   }, async ({ twitter_url, limit }) => {
     try {
-      const mod = await import('../../socials/tools/twitter.js');
+      const mod = await import('../../../token-ai/socials/tools/twitter.js');
       const res = await mod.get_twitter_community_posts({ twitterUrl: String(twitter_url), storageStatePath: process.env.TWITTER_SESSION_PATH, limit: Number(limit||10) });
       return { structuredContent: res };
     } catch (e) { return { content:[{ type:'text', text: e?.message || 'twitter_community_posts_failed' }], isError:true }; }
@@ -61,7 +61,7 @@ export function registerSocialsDataTools(server) {
     outputSchema: { admins: z.any().optional() }
   }, async ({ twitter_url, limit }) => {
     try {
-      const mod = await import('../../socials/tools/twitter.js');
+      const mod = await import('../../../token-ai/socials/tools/twitter.js');
       const res = await mod.get_twitter_community_members({ twitterUrl: String(twitter_url), storageStatePath: process.env.TWITTER_SESSION_PATH, limit: Number(limit||200) });
       return { structuredContent: res };
     } catch (e) { return { content:[{ type:'text', text: e?.message || 'twitter_community_members_failed' }], isError:true }; }
@@ -75,7 +75,7 @@ export function registerSocialsDataTools(server) {
     outputSchema: { title: z.string().optional() }
   }, async ({ telegram_url }) => {
     try {
-      const { get_telegram_group_meta } = await import('../../socials/tools/telegram.js');
+      const { get_telegram_group_meta } = await import('../../../token-ai/socials/tools/telegram.js');
       const res = await get_telegram_group_meta(String(telegram_url));
       return { structuredContent: res };
     } catch (e) { return { content:[{ type:'text', text: e?.message || 'telegram_meta_failed' }], isError:true }; }
@@ -89,10 +89,9 @@ export function registerSocialsDataTools(server) {
     outputSchema: { success: z.boolean() }
   }, async ({ mint_address }) => {
     try {
-      const { fetch_market_overview } = await import('../../socials/tools/market.js');
+      const { fetch_market_overview } = await import('../../../token-ai/socials/tools/market.js');
       const res = await fetch_market_overview(String(mint_address));
       return { structuredContent: res };
     } catch (e) { return { content:[{ type:'text', text: e?.message || 'market_overview_failed' }], isError:true }; }
   });
 }
-

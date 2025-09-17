@@ -41,15 +41,15 @@ export function registerAccountLinkingTools(server) {
   server.registerTool('check_dexter_account_link', {
     title: 'Check Dexter Account Link',
     description: 'Check if the current MCP user has a linked Dexter account.',
-    inputSchema: {},
-    outputSchema: { 
+    inputSchema: z.object({}),
+    outputSchema: z.object({
       is_linked: z.boolean(),
       supabase_user_id: z.string().nullable(),
       linked_at: z.string().nullable()
-    }
+    })
   }, async (args, extra) => {
     try {
-      const { issuer, subject } = getIdentity(args, extra);
+      const { issuer, subject } = getIdentity({}, extra);
       
       if (!issuer || !subject) {
         try {
@@ -110,12 +110,12 @@ export function registerAccountLinkingTools(server) {
   server.registerTool('generate_dexter_linking_code', {
     title: 'Generate Dexter Linking Code',
     description: 'Generate a code to link your MCP account with a Dexter account on the website.',
-    inputSchema: {},
-    outputSchema: { 
+    inputSchema: z.object({}),
+    outputSchema: z.object({
       code: z.string(),
       expires_at: z.string(),
       instructions: z.string()
-    }
+    })
   }, async (args, extra) => {
     try {
       const { issuer, subject } = getIdentity(args, extra);
@@ -226,12 +226,12 @@ export function registerAccountLinkingTools(server) {
   server.registerTool('get_linked_dexter_account', {
     title: 'Get Linked Dexter Account',
     description: 'Get details about your linked Dexter account.',
-    inputSchema: {},
-    outputSchema: {
+    inputSchema: z.object({}),
+    outputSchema: z.object({
       supabase_user_id: z.string(),
       linked_at: z.string(),
       link_initiated_by: z.string()
-    }
+    })
   }, async (args, extra) => {
     try {
       const { issuer, subject } = getIdentity(args, extra);
@@ -288,12 +288,13 @@ export function registerAccountLinkingTools(server) {
   server.registerTool('unlink_dexter_account', {
     title: 'Unlink Dexter Account',
     description: 'Remove the link between your MCP and Dexter accounts.',
-    inputSchema: { 
+    inputSchema: z.object({
       confirm: z.boolean().describe('Set to true to confirm unlinking')
-    },
-    outputSchema: { ok: z.boolean() }
-  }, async ({ confirm }, extra) => {
+    }),
+    outputSchema: z.object({ ok: z.boolean() })
+  }, async (args = {}, extra) => {
     try {
+      const { confirm } = args;
       if (!confirm) {
         return {
           content: [{ 

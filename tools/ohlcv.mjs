@@ -20,10 +20,9 @@ export function registerOhlcvTools(server) {
     }
   }, async ({ mint_address, time_from, time_to, interval_minutes }) => {
     try {
-      const { analyze_token_ohlcv_range } = await import('../../socials/tools/market.js');
+      const { analyze_token_ohlcv_range } = await import('../../../token-ai/socials/tools/market.js');
       const res = await analyze_token_ohlcv_range(mint_address, time_from, time_to, interval_minutes);
       return { structuredContent: res };
     } catch (e) { return { content:[{ type:'text', text: e?.message || 'ohlcv_failed' }], isError:true }; }
   });
 }
-
