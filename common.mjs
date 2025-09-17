@@ -7,7 +7,6 @@ import { z } from 'zod';
 
 // Import modular tools
 import { registerWalletAuthTools, sessionWalletOverrides } from './tools/wallet-auth.mjs';
-import { registerAccountLinkingTools } from './tools/account-linking.mjs';
 import { registerProgramAccountsTools } from './tools/program-accounts.mjs';
 import { registerAgentRunTools } from './tools/agent-run.mjs';
 import { registerReportAnalysisTools } from './tools/report-analysis.mjs';
@@ -301,7 +300,6 @@ export function buildMcpServer(options = {}){
   // Register modular toolsets according to selection
   if (want('wallet')) {
     registerWalletAuthTools(server);
-    registerAccountLinkingTools(server);
     registerWalletAliasTools(server);
   }
   if (want('program')) registerProgramAccountsTools(server);

@@ -23,6 +23,9 @@ try {
 const PORT = Number(process.env.TOKEN_AI_MCP_PORT || 3930);
 const TOKEN = process.env.TOKEN_AI_MCP_TOKEN || '';
 const CORS_ORIGIN = process.env.TOKEN_AI_MCP_CORS || '*';
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || '';
 
 // OAuth Configuration (Generic OIDC)
 const OAUTH_ENABLED = process.env.TOKEN_AI_MCP_OAUTH === 'true';
@@ -151,7 +154,21 @@ function getProviderConfig(req) {
   }
   // Built-in lightweight provider (no external IdP) if OAuth is enabled but nothing configured
   if (OAUTH_ENABLED) {
-  const base = (req ? effectiveBaseUrl(req) : (PUBLIC_URL||`http://localhost:${PORT}/mcp`)).replace(/\/$/,'');
+    const baseSupabase = SUPABASE_URL || (req ? effectiveBaseUrl(req) : (PUBLIC_URL||`http://localhost:${PORT}/mcp`));
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      return {
+        type: 'supabase',
+        issuer: SUPABASE_URL,
+        authorization_endpoint: null,
+        token_endpoint: null,
+        userinfo_endpoint: `${SUPABASE_URL.replace(/\/$/, '')}/auth/v1/user`,
+        client_id: 'dexter-supabase',
+        scopes: 'wallet.read wallet.trade',
+        identity_claim: 'sub',
+        allowed_users: [],
+      };
+    }
+    const base = (req ? effectiveBaseUrl(req) : (PUBLIC_URL||`http://localhost:${PORT}/mcp`)).replace(/\/$/,'');
     return {
       type: 'oidc',
       issuer: base,
@@ -176,6 +193,58 @@ function base64urlSha256(input) {
 
 function randomToken(prefix = 'tok') {
   return `${prefix}_${randomUUID().replace(/-/g,'')}`;
+}
+
+function base64UrlDecode(input) {
+  try {
+    const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = normalized.length % 4 === 0 ? normalized : normalized + '='.repeat(4 - (normalized.length % 4));
+    return Buffer.from(pad, 'base64').toString('utf8');
+  } catch {
+    return null;
+  }
+}
+
+function decodeJwtPayload(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payload = base64UrlDecode(parts[1]);
+    if (!payload) return null;
+    return JSON.parse(payload);
+  } catch {
+    return null;
+  }
+}
+
+async function validateSupabaseToken(token) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+  try {
+    const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/auth/v1/user`, {
+      method: 'GET',
+      headers: {
+        authorization: `Bearer ${token}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json().catch(() => null);
+    if (!data?.id) return null;
+    const payload = decodeJwtPayload(token) || {};
+    const expSeconds = typeof payload.exp === 'number' ? payload.exp : null;
+    const expires = expSeconds ? expSeconds * 1000 : Date.now() + 5 * 60 * 1000;
+    const entry = {
+      user: String(data.id),
+      claims: { sub: data.id, email: data.email || null, issuer: SUPABASE_URL },
+      expires,
+    };
+    return entry;
+  } catch (err) {
+    console.warn('[oauth] supabase user fetch failed', err?.message || err);
+    return null;
+  }
 }
 
 function unauthorized(res, message = 'Unauthorized', req){
@@ -261,6 +330,11 @@ async function validateTokenAndClaims(token) {
   const cached = tokenCache.get(token);
   if (cached && cached.expires > Date.now()) {
     return cached;
+  }
+  const supabaseEntry = await validateSupabaseToken(token);
+  if (supabaseEntry) {
+    tokenCache.set(token, supabaseEntry);
+    return supabaseEntry;
   }
   const prov = getProviderConfig();
   if (!prov) return null;
