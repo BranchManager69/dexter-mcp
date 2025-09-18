@@ -535,7 +535,7 @@ const server = http.createServer(async (req, res) => {
       if (!hasSession) {
         // New session: require bearer. Accept either:
         // 1) Server bearer (TOKEN_AI_MCP_TOKEN) for non-OAuth clients
-        // 2) OAuth bearer validated via OIDC/GitHub
+        // 2) OAuth bearer validated via external OIDC provider
         if (!auth.startsWith('Bearer ')) return unauthorized(res, 'OAuth token required', req);
         const token = auth.substring(7).trim();
         if (!token || token === 'undefined') {
