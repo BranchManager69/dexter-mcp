@@ -3,7 +3,7 @@
 
 import http from 'node:http';
 import https from 'node:https';
-import { randomUUID, createHash, createHmac, createPrivateKey, createPublicKey, sign } from 'node:crypto';
+import { randomUUID, createPrivateKey, createPublicKey } from 'node:crypto';
 import { buildMcpServer } from './common.mjs';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import dotenv from 'dotenv';
@@ -55,41 +55,24 @@ const USING_EXTERNAL_OIDC = Boolean(
   OIDC_ISSUER
 );
 
-if (OAUTH_ENABLED && !USING_EXTERNAL_OIDC) {
+if (OAUTH_ENABLED) {
   const missing = [];
-  if (!SUPABASE_URL) missing.push('SUPABASE_URL');
-  if (!SUPABASE_ANON_KEY) missing.push('SUPABASE_ANON_KEY');
+  if (!OIDC_CLIENT_ID) missing.push('TOKEN_AI_OIDC_CLIENT_ID');
+
+  if (USING_EXTERNAL_OIDC) {
+    if (!OIDC_AUTHORIZATION_ENDPOINT) missing.push('TOKEN_AI_OIDC_AUTHORIZATION_ENDPOINT');
+    if (!OIDC_TOKEN_ENDPOINT) missing.push('TOKEN_AI_OIDC_TOKEN_ENDPOINT');
+    if (!OIDC_USERINFO_ENDPOINT) missing.push('TOKEN_AI_OIDC_USERINFO');
+  } else {
+    if (!SUPABASE_URL) missing.push('SUPABASE_URL');
+    if (!SUPABASE_ANON_KEY) missing.push('SUPABASE_ANON_KEY');
+  }
+
   if (missing.length) {
-    console.error(`[oauth] missing required env for Supabase-backed OAuth: ${missing.join(', ')}`);
+    console.error(`[oauth] missing required env for OAuth provider: ${missing.join(', ')}`);
     process.exit(1);
   }
 }
-
-// Allowlist of known safe public redirect URIs (in addition to registered clients)
-// Defaults include Claude and ChatGPT connector callback URLs. Can be extended via env.
-const DEFAULT_ALLOWED_REDIRECTS = [
-  'https://claude.ai/api/mcp/auth_callback',
-  'https://chatgpt.com/connector_platform_oauth_redirect',
-  'https://chat.openai.com/connector_platform_oauth_redirect'
-];
-const ENV_ALLOWED_REDIRECTS = (process.env.TOKEN_AI_MCP_ALLOWED_REDIRECTS || '')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
-const ALLOWED_REDIRECTS = Array.from(new Set([...DEFAULT_ALLOWED_REDIRECTS, ...ENV_ALLOWED_REDIRECTS]));
-
-// Deprecated GitHub fallback (used only if explicitly configured)
-const GITHUB_CLIENT_ID = process.env.TOKEN_AI_MCP_GITHUB_CLIENT_ID || '';
-const GITHUB_CLIENT_SECRET = process.env.TOKEN_AI_MCP_GITHUB_CLIENT_SECRET || '';
-const ALLOWED_GITHUB_USERS = (process.env.TOKEN_AI_MCP_GITHUB_ALLOWED_USERS || '').split(',').filter(Boolean);
-
-// Development override: allow any bearer without validation (NOT recommended for public exposure)
-// Simplify env: if demo mode is on, treat allow-any as enabled by default
-const DEMO_MODE = ['1','true','yes','on'].includes(String(process.env.TOKEN_AI_DEMO_MODE||'').toLowerCase());
-const OAUTH_ALLOW_ANY = (
-  ['1','true','yes','on'].includes(String(process.env.TOKEN_AI_MCP_OAUTH_ALLOW_ANY||'').toLowerCase())
-  || DEMO_MODE
-);
 
 // ID Token/JWKS support (optional)
 const ID_TOKEN_ENABLED = ['1','true','yes','on'].includes(String(process.env.TOKEN_AI_OIDC_ID_TOKEN||'1').toLowerCase());
@@ -114,11 +97,6 @@ const transports = new Map(); // sessionId -> transport
 const servers = new Map(); // sessionId -> McpServer instance
 const sessionUsers = new Map(); // sessionId -> identity (from IdP) or token preview
 const sessionIdentity = new Map(); // sessionId -> { issuer, sub, email }
-// Simple in-process OAuth data stores (built-in provider)
-const oauthCodes = new Map(); // code -> { codeChallenge, method, scope, client_id, redirect_uri, state, createdAt }
-const issuedTokens = new Map(); // token -> { sub, scope, createdAt, expiresAt, refreshToken }
-const refreshTokens = new Map(); // refreshToken -> { sub, scope, createdAt, clientId }
-const registeredClients = new Map(); // client_id -> { client_secret, redirect_uris, grant_types, response_types, scope, contacts, client_name }
 
 // OAuth token cache (to avoid hitting IdP API on every request)
 const tokenCache = new Map(); // token -> { user, claims, expires }
@@ -144,8 +122,9 @@ function effectiveBaseUrl(req){
 }
 
 function getProviderConfig(req) {
-  // Prefer OIDC if configured
-  if (OIDC_AUTHORIZATION_ENDPOINT || OIDC_TOKEN_ENDPOINT || OIDC_USERINFO_ENDPOINT || OIDC_ISSUER) {
+  if (!OAUTH_ENABLED) return null;
+
+  if (USING_EXTERNAL_OIDC) {
     return {
       type: 'oidc',
       issuer: OIDC_ISSUER || undefined,
@@ -160,61 +139,24 @@ function getProviderConfig(req) {
       allowed_users: OIDC_ALLOWED_USERS,
     };
   }
-  // Fallback to GitHub only if explicitly configured (avoid surprising defaults)
-  if (GITHUB_CLIENT_ID || GITHUB_CLIENT_SECRET) {
-    return {
-      type: 'github',
-      issuer: 'https://github.com',
-      authorization_endpoint: 'https://github.com/login/oauth/authorize',
-      token_endpoint: 'https://github.com/login/oauth/access_token',
-      userinfo_endpoint: 'https://api.github.com/user',
-      client_id: GITHUB_CLIENT_ID,
-      scopes: 'read:user',
-      identity_claim: 'login',
-      allowed_users: ALLOWED_GITHUB_USERS,
-    };
-  }
-  // Built-in lightweight provider (no external IdP) if OAuth is enabled but nothing configured
-  if (OAUTH_ENABLED) {
-    const baseSupabase = SUPABASE_URL || (req ? effectiveBaseUrl(req) : (PUBLIC_URL||`http://localhost:${PORT}/mcp`));
-    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-      return {
-        type: 'supabase',
-        issuer: SUPABASE_URL,
-        authorization_endpoint: null,
-        token_endpoint: null,
-        userinfo_endpoint: `${SUPABASE_URL.replace(/\/$/, '')}/auth/v1/user`,
-        client_id: 'dexter-supabase',
-        scopes: 'wallet.read wallet.trade',
-        identity_claim: 'sub',
-        allowed_users: [],
-      };
-    }
-    const base = (req ? effectiveBaseUrl(req) : (PUBLIC_URL||`http://localhost:${PORT}/mcp`)).replace(/\/$/,'');
+
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    const base = SUPABASE_URL.replace(/\/$/, '');
     return {
       type: 'oidc',
-      issuer: base,
-      authorization_endpoint: `${base}/authorize`,
-      token_endpoint: `${base}/token`,
-      userinfo_endpoint: `${base}/userinfo`,
-      jwks_uri: rsaPublicJwk ? `${base}/jwks.json` : undefined,
-      client_id: OIDC_CLIENT_ID || 'clanka-mcp',
-      scopes: OIDC_SCOPES || 'openid profile email',
-      identity_claim: OIDC_IDENTITY_CLAIM || 'sub',
+      issuer: SUPABASE_URL,
+      authorization_endpoint: `${base}/auth/v1/authorize`,
+      token_endpoint: `${base}/auth/v1/token`,
+      userinfo_endpoint: `${base}/auth/v1/user`,
+      jwks_uri: `${base}/auth/v1/jwks`,
+      client_id: OIDC_CLIENT_ID,
+      scopes: OIDC_SCOPES,
+      identity_claim: OIDC_IDENTITY_CLAIM,
       allowed_users: OIDC_ALLOWED_USERS,
-      builtin: true,
     };
   }
+
   return null;
-}
-
-function base64urlSha256(input) {
-  const hash = createHash('sha256').update(input).digest('base64');
-  return hash.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-}
-
-function randomToken(prefix = 'tok') {
-  return `${prefix}_${randomUUID().replace(/-/g,'')}`;
 }
 
 function base64UrlDecode(input) {
@@ -362,34 +304,7 @@ async function validateTokenAndClaims(token) {
   if (!prov) return null;
   try { console.log('[oauth] validate token start', { token: token.slice(0, 8) + '…' }); } catch {}
 
-  if (OAUTH_ALLOW_ANY) {
-    // In allow-any demo mode, only accept the server-injected bearer token
-    // (used by /mcp-proxy). This avoids accepting arbitrary public tokens
-    // while keeping the demo flow working.
-    try {
-      const SERVER_BEARER = process.env.TOKEN_AI_MCP_TOKEN || '';
-      if (SERVER_BEARER && token === SERVER_BEARER) {
-        const preview = `bearer:${token.slice(0,4)}…${token.slice(-4)}`;
-        const entry = { user: preview, claims: { sub: preview }, expires: Date.now() + 300000 };
-        tokenCache.set(token, entry);
-        return entry;
-      }
-    } catch {}
-    // Fall through to OIDC/GitHub validation if configured; otherwise deny
-  }
-
   if (prov.type === 'oidc') {
-    // Accept locally minted tokens when using the built-in provider
-    if (prov.builtin) {
-      const t = issuedTokens.get(token);
-      if (t && (!t.expiresAt || t.expiresAt > Date.now())) {
-        const subject = String(t.sub || '');
-        const display = subject || `local:${token.slice(0,4)}…`;
-        const entry = { user: subject || display, claims: { sub: subject, scope: t.scope }, expires: Date.now() + 300000 };
-        tokenCache.set(token, entry);
-        return entry;
-      }
-    }
     try {
       const url = new URL(prov.userinfo_endpoint);
       const options = { hostname: url.hostname, path: url.pathname + (url.search||''), method: 'GET', headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' } };
@@ -492,7 +407,7 @@ function serveOAuthMetadata(pathname, res, req) {
       issuer: prov?.issuer || 'custom',
       authorization_endpoint: prov?.authorization_endpoint || '',
       token_endpoint: prov?.token_endpoint || '',
-      registration_endpoint: prov?.registration_endpoint || `${effectiveBaseUrl(req)}/register`,
+      registration_endpoint: prov?.registration_endpoint || undefined,
       userinfo_endpoint: prov?.userinfo_endpoint || '',
       token_endpoint_auth_methods_supported: ['none','client_secret_post', 'client_secret_basic'],
       response_types_supported: ['code'],
@@ -527,7 +442,7 @@ function serveOAuthMetadata(pathname, res, req) {
       issuer: prov?.issuer || 'custom',
       authorization_endpoint: prov?.authorization_endpoint || '',
       token_endpoint: prov?.token_endpoint || '',
-      registration_endpoint: prov?.registration_endpoint || `${effectiveBaseUrl(req)}/register`,
+      registration_endpoint: prov?.registration_endpoint || undefined,
       userinfo_endpoint: prov?.userinfo_endpoint || '',
       jwks_uri: rsaPublicJwk ? `${effectiveBaseUrl(req)}/jwks.json` : undefined,
       token_endpoint_auth_methods_supported: ['none','client_secret_post', 'client_secret_basic'],
@@ -601,281 +516,6 @@ const server = http.createServer(async (req, res) => {
     if (OAUTH_ENABLED && serveOAuthMetadata(url.pathname, res, req)) {
       return;
     }
-    
-    // Built-in OAuth provider endpoints
-    if (OAUTH_ENABLED && (url.pathname === '/mcp/authorize' || url.pathname === '/authorize')) {
-      try { console.log(`[oauth] authorize request query=${url.search}`); } catch {}
-      const q = Object.fromEntries(url.searchParams.entries());
-      const clientId = q.client_id || '';
-      const redirectUri = q.redirect_uri || '';
-      const state = q.state || '';
-      const scope = q.scope || 'openid profile email';
-      const codeChallenge = q.code_challenge || '';
-      const codeMethod = (q.code_challenge_method || 'S256').toUpperCase();
-      const responseType = q.response_type || 'code';
-      const nonce = q.nonce || '';
-      // Always auto-approve for built-in provider to maximize connector compatibility
-      const approved = true;
-
-      // Basic validation
-      if (responseType !== 'code' || !clientId || !redirectUri || !codeChallenge || codeMethod !== 'S256') {
-        res.writeHead(400, { 'Content-Type': 'text/plain' });
-        res.end('Invalid authorization request');
-        return;
-      }
-      
-      // Validate redirect URI for registered clients or allowlisted public redirects
-      const claudeCallbackUri = 'https://claude.ai/api/mcp/auth_callback';
-      const registeredClient = registeredClients.get(clientId);
-      const base = effectiveBaseUrl(req);
-      const selfCallback = `${base}/callback`;
-      
-      // Allow our own /callback, localhost, and known public connector redirects (Claude/ChatGPT) even for unregistered clients
-      const isValidRedirect = (
-        ALLOWED_REDIRECTS.includes(redirectUri) ||
-        redirectUri === selfCallback ||
-        redirectUri.startsWith('http://localhost') ||
-        (registeredClient && registeredClient.redirect_uris.includes(redirectUri))
-      );
-      
-      if (!isValidRedirect) {
-        res.writeHead(400, { 'Content-Type': 'text/plain' });
-        res.end('Invalid redirect_uri');
-        return;
-      }
-
-      // Consent UI skipped (auto-approve)
-
-      // Issue an authorization code
-      const code = randomToken('code');
-      oauthCodes.set(code, { codeChallenge, method: codeMethod, scope, client_id: clientId, redirect_uri: redirectUri, state, nonce, createdAt: Date.now() });
-      const sep = redirectUri.includes('?') ? '&' : '?';
-      const loc = `${redirectUri}${sep}code=${encodeURIComponent(code)}${state?`&state=${encodeURIComponent(state)}`:''}`;
-      res.writeHead(302, { 'Location': loc, 'Cache-Control': 'no-store' });
-      res.end();
-      return;
-    }
-
-    if (OAUTH_ENABLED && (url.pathname === '/mcp/token' || url.pathname === '/token')) {
-      // Read x-www-form-urlencoded
-      const raw = await new Promise((resolve) => { let data=''; req.on('data', c=> data+=c.toString()); req.on('end', ()=> resolve(data)); req.on('error', ()=> resolve('')); });
-      const params = new URLSearchParams(raw);
-      const grantType = params.get('grant_type') || '';
-      try { console.log(`[oauth] token grant type=${grantType}`); } catch {}
-      const body = Object.fromEntries(params);
-      const code = body.code || '';
-      const verifier = body.code_verifier || '';
-      let clientId = body.client_id || '';
-      const redirectUri = body.redirect_uri || '';
-      // Support client_secret_basic (optional)
-      try {
-        const authz = String(req.headers['authorization']||'');
-        if (authz.startsWith('Basic ')) {
-          const decoded = Buffer.from(authz.slice(6), 'base64').toString('utf8');
-          const [cid, csec] = decoded.split(':');
-          if (cid) clientId = cid;
-          // Optionally validate secret if we have a registration
-          const reg = registeredClients.get(cid);
-          if (reg && reg.client_secret && csec !== reg.client_secret) {
-            res.writeHead(401, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'invalid_client' }));
-            return;
-          }
-        }
-      } catch {}
-
-      // Handle refresh token grant
-      if (grantType === 'refresh_token') {
-        const refreshToken = body.refresh_token || '';
-        if (!refreshToken) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'invalid_request' }));
-          return;
-        }
-        
-        const refreshData = refreshTokens.get(refreshToken);
-        if (!refreshData) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'invalid_grant' }));
-          return;
-        }
-        
-        // Issue new access token
-        const newAccessToken = randomToken('atk');
-        const ttl = 3600;
-        issuedTokens.set(newAccessToken, { 
-          sub: refreshData.sub, 
-          scope: refreshData.scope, 
-          createdAt: Date.now(), 
-          expiresAt: Date.now() + ttl * 1000,
-          refreshToken 
-        });
-        
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-        res.end(JSON.stringify({ 
-          access_token: newAccessToken, 
-          token_type: 'Bearer', 
-          expires_in: ttl,
-          refresh_token: refreshToken, // Return same refresh token
-          scope: refreshData.scope 
-        }));
-        return;
-      }
-      
-      // Handle authorization code grant
-      if (grantType !== 'authorization_code' || !code || !verifier) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'invalid_request' }));
-        return;
-      }
-      const entry = oauthCodes.get(code);
-      if (!entry) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'invalid_grant' }));
-        return;
-      }
-      if (clientId && entry.client_id && clientId !== entry.client_id) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'invalid_client' }));
-        return;
-      }
-      // Enforce redirect_uri if provided
-      if (redirectUri && entry.redirect_uri && redirectUri !== entry.redirect_uri) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'invalid_grant', error_description: 'redirect_uri mismatch' }));
-        return;
-      }
-      // Verify PKCE S256
-      const expected = entry.codeChallenge;
-      const actual = base64urlSha256(verifier);
-      if (expected !== actual) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'invalid_grant' }));
-        return;
-      }
-      oauthCodes.delete(code);
-      // Mint access token and refresh token
-      const accessToken = randomToken('atk');
-      const refreshToken = randomToken('rtk');
-      const ttl = 3600; // seconds
-      const sub = `user:${accessToken.slice(-12)}`;
-
-      // Store refresh token
-      refreshTokens.set(refreshToken, { sub, scope: entry.scope, createdAt: Date.now(), clientId: entry.client_id });
-
-      // Store access token with reference to refresh token
-      issuedTokens.set(accessToken, { sub, scope: entry.scope, createdAt: Date.now(), expiresAt: Date.now()+ttl*1000, refreshToken });
-      // Optional ID token (HS256 or RS256)
-      let idToken = undefined;
-      if (ID_TOKEN_ENABLED) {
-        try {
-          const iss = effectiveBaseUrl(req);
-          const aud = clientId || entry.client_id || 'clanka-mcp';
-          const now = Math.floor(Date.now()/1000);
-          const payload = { iss, aud, sub, iat: now, exp: now + ttl, nonce: entry.nonce || undefined, scope: entry.scope };
-          if (rsaPrivateKey && rsaPublicJwk) {
-            const header = { alg: 'RS256', typ: 'JWT', kid: RSA_KID };
-            const enc = (obj)=> Buffer.from(JSON.stringify(obj)).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
-            const input = `${enc(header)}.${enc(payload)}`;
-            const signature = sign('RSA-SHA256', Buffer.from(input), rsaPrivateKey).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
-            idToken = `${input}.${signature}`;
-          } else if (HS256_SECRET) {
-            const header = { alg: 'HS256', typ: 'JWT' };
-            const enc = (obj)=> Buffer.from(JSON.stringify(obj)).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
-            const input = `${enc(header)}.${enc(payload)}`;
-            const h = createHmac('sha256', HS256_SECRET).update(input).digest('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
-            idToken = `${input}.${h}`;
-          }
-        } catch {}
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-      const tokenResp = { 
-        access_token: accessToken, 
-        token_type: 'Bearer', 
-        expires_in: ttl, 
-        refresh_token: refreshToken,
-        scope: entry.scope 
-      };
-      if (idToken) tokenResp.id_token = idToken;
-      res.end(JSON.stringify(tokenResp));
-      return;
-    }
-
-    if (OAUTH_ENABLED && (url.pathname === '/mcp/userinfo' || url.pathname === '/userinfo')) {
-      const authz = String(req.headers['authorization']||'');
-      if (!authz.startsWith('Bearer ')) { res.writeHead(401).end('Unauthorized'); return; }
-      const token = authz.slice(7);
-      const t = issuedTokens.get(token);
-      if (!t || (t.expiresAt && t.expiresAt < Date.now())) { res.writeHead(401).end('Unauthorized'); return; }
-      const claims = { sub: t.sub, scope: t.scope };
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-      res.end(JSON.stringify(claims));
-      return;
-    }
-
-    // Dynamic Client Registration endpoint
-    if (OAUTH_ENABLED && (url.pathname === '/mcp/register' || url.pathname === '/register')) {
-      if (req.method !== 'POST') {
-        res.writeHead(405, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'method_not_allowed' }));
-        return;
-      }
-      
-      const raw = await new Promise((resolve) => { 
-        let data=''; 
-        req.on('data', c=> data+=c.toString()); 
-        req.on('end', ()=> resolve(data)); 
-        req.on('error', ()=> resolve('{}'));
-      });
-      
-      let body;
-      try {
-        body = JSON.parse(raw);
-      } catch {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'invalid_request', error_description: 'Invalid JSON' }));
-        return;
-      }
-      
-      // Generate client credentials
-      const clientId = randomToken('cid');
-      const clientSecret = randomToken('cs');
-      
-      // Extract and normalize redirect URIs, augment with known safe public redirects
-      const redirectUris = Array.isArray(body.redirect_uris) ? [...body.redirect_uris] : [];
-      for (const uri of ALLOWED_REDIRECTS) {
-        if (!redirectUris.includes(uri)) redirectUris.push(uri);
-      }
-      
-      // Store client registration
-      registeredClients.set(clientId, {
-        client_secret: clientSecret,
-        redirect_uris: redirectUris,
-        grant_types: body.grant_types || ['authorization_code', 'refresh_token'],
-        response_types: body.response_types || ['code'],
-        scope: body.scope || 'openid profile email',
-        contacts: body.contacts || [],
-        client_name: body.client_name || 'MCP Client',
-        created_at: Math.floor(Date.now() / 1000)
-      });
-      
-      // Return client information
-      res.writeHead(201, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-      res.end(JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uris: redirectUris,
-        grant_types: ['authorization_code', 'refresh_token'],
-        response_types: ['code'],
-        scope: body.scope || 'openid profile email',
-        client_name: body.client_name || 'MCP Client',
-        client_id_issued_at: Math.floor(Date.now() / 1000),
-        client_secret_expires_at: 0 // Never expires
-      }));
-      return;
-    }
-    
     // Handle OAuth callback (support both /callback and /mcp/callback)
     if (OAUTH_ENABLED && (url.pathname === '/mcp/callback' || url.pathname === '/callback')) {
       handleOAuthCallback(url, res);
@@ -1095,14 +735,10 @@ server.listen(PORT, () => {
     const prov = getProviderConfig({ headers: {} });
     if (prov?.type === 'oidc') {
       console.log(`OAuth (OIDC) enabled. Issuer: ${prov.issuer || 'custom'} Client ID: ${prov.client_id || ''}`);
-    } else if (prov?.type === 'github') {
-      console.log(`OAuth (GitHub) enabled. Client ID: ${GITHUB_CLIENT_ID}`);
-    } else if (OAUTH_ALLOW_ANY) {
-      console.log(`OAuth allow-any mode enabled (NOT recommended for public use).`);
     } else {
-      console.log(`OAuth enabled but no provider configured. Set TOKEN_AI_OIDC_* envs.`);
+      console.log(`OAuth enabled but provider configuration is incomplete.`);
     }
-    const base = PUBLIC_URL || 'http://localhost:'+PORT+'/mcp';
+    const base = PUBLIC_URL || `http://localhost:${PORT}/mcp`;
     console.log(`OAuth metadata: ${base.replace(/\/$/,'')}/.well-known/oauth-authorization-server`);
   }
 });
