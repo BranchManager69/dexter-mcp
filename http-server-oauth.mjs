@@ -8,14 +8,21 @@ import { buildMcpServer } from './common.mjs';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import dotenv from 'dotenv';
 import path from 'node:path';
+import fs from 'node:fs';
 
 // Load env from repo root and local MCP overrides
 try {
   const HERE = path.resolve(path.dirname(new URL(import.meta.url).pathname));
-  const ALPHA_ROOT = path.resolve(HERE, '..');
-  const REPO_ROOT = path.resolve(ALPHA_ROOT, '..');
-  dotenv.config({ path: path.join(REPO_ROOT, '.env') });
-  dotenv.config({ path: path.join(HERE, '.env') });
+  const CANDIDATES = [
+    path.resolve(HERE, '../dexter-ops/.env'),
+    path.resolve(HERE, '..', '.env'),
+    path.resolve(HERE, '.env'),
+  ];
+  for (const candidate of CANDIDATES) {
+    if (fs.existsSync(candidate)) {
+      dotenv.config({ path: candidate });
+    }
+  }
 } catch {}
 
 const PORT = Number(process.env.TOKEN_AI_MCP_PORT || 3930);
@@ -40,6 +47,23 @@ const OIDC_SCOPES = process.env.TOKEN_AI_OIDC_SCOPES || 'openid profile email';
 const OIDC_CLIENT_ID = process.env.TOKEN_AI_OIDC_CLIENT_ID || '';
 const OIDC_IDENTITY_CLAIM = process.env.TOKEN_AI_OIDC_IDENTITY_CLAIM || 'sub';
 const OIDC_ALLOWED_USERS = (process.env.TOKEN_AI_OIDC_ALLOWED_USERS || '').split(',').filter(Boolean);
+
+const USING_EXTERNAL_OIDC = Boolean(
+  OIDC_AUTHORIZATION_ENDPOINT ||
+  OIDC_TOKEN_ENDPOINT ||
+  OIDC_USERINFO_ENDPOINT ||
+  OIDC_ISSUER
+);
+
+if (OAUTH_ENABLED && !USING_EXTERNAL_OIDC) {
+  const missing = [];
+  if (!SUPABASE_URL) missing.push('SUPABASE_URL');
+  if (!SUPABASE_ANON_KEY) missing.push('SUPABASE_ANON_KEY');
+  if (missing.length) {
+    console.error(`[oauth] missing required env for Supabase-backed OAuth: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+}
 
 // Allowlist of known safe public redirect URIs (in addition to registered clients)
 // Defaults include Claude and ChatGPT connector callback URLs. Can be extended via env.
