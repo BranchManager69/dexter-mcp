@@ -57,7 +57,6 @@ const USING_EXTERNAL_OIDC = Boolean(
 
 if (OAUTH_ENABLED) {
   const missing = [];
-  if (!OIDC_CLIENT_ID) missing.push('TOKEN_AI_OIDC_CLIENT_ID');
 
   if (USING_EXTERNAL_OIDC) {
     if (!OIDC_AUTHORIZATION_ENDPOINT) missing.push('TOKEN_AI_OIDC_AUTHORIZATION_ENDPOINT');
@@ -71,6 +70,10 @@ if (OAUTH_ENABLED) {
   if (missing.length) {
     console.error(`[oauth] missing required env for OAuth provider: ${missing.join(', ')}`);
     process.exit(1);
+  }
+
+  if (!OIDC_CLIENT_ID) {
+    console.warn('[oauth] TOKEN_AI_OIDC_CLIENT_ID is not set; metadata will omit a default client_id.');
   }
 }
 
