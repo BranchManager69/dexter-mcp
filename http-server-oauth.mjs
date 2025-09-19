@@ -634,7 +634,7 @@ const server = http.createServer(async (req, res) => {
             if (ident.email && !req.headers['x-user-email']) req.headers['x-user-email'] = String(ident.email);
             // Seed per-session wallet override if not set yet
             try {
-              const { sessionWalletOverrides } = await import('./tools/wallet-auth.mjs');
+              const { sessionWalletOverrides } = await import('./toolsets/wallet/index.mjs');
               if (!sessionWalletOverrides.get(sessionId)) {
                 const { PrismaClient } = await import('@prisma/client');
                 const prisma = new PrismaClient();
@@ -701,7 +701,7 @@ const server = http.createServer(async (req, res) => {
           } catch {}
           // Seed per-session wallet override from OAuth mapping (if exists)
           try {
-            const { sessionWalletOverrides } = await import('./tools/wallet-auth.mjs');
+            const { sessionWalletOverrides } = await import('./toolsets/wallet/index.mjs');
             const { PrismaClient } = await import('@prisma/client');
             const prisma = new PrismaClient();
             const ident = sessionIdentity.get(sid) || {};

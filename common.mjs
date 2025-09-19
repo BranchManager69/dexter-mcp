@@ -1,15 +1,15 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { registerWalletAuthTools } from './tools/wallet-auth.mjs';
+import { registerSelectedToolsets } from './toolsets/index.mjs';
 
 const MCP_NAME = process.env.MCP_SERVER_NAME || 'dexter-mcp';
 const MCP_VERSION = process.env.MCP_SERVER_VERSION || '0.1.0';
 
 export function buildMcpServer(options = {}) {
   const instructions = [
-    'Dexter connector tools powered by Supabase authentication.',
-    '- Use resolve_wallet to determine the active managed wallet for the caller.',
-    '- list_my_wallets returns wallets linked to the authenticated Supabase user.',
+    'Dexter connector tools exposed via MCP.',
+    '- resolve_wallet provides the currently active managed wallet.',
+    '- auth_info returns diagnostics for Supabase-based authentication.',
   ].join('\n');
 
   const server = new McpServer(
@@ -19,7 +19,11 @@ export function buildMcpServer(options = {}) {
 
   wrapRegisterTool(server);
 
-  registerWalletAuthTools(server);
+  const requestedToolsets = options.includeToolsets;
+  const loaded = registerSelectedToolsets(server, requestedToolsets);
+  try {
+    console.log(`[mcp-toolsets] active: ${loaded.join(', ')}`);
+  } catch {}
 
   return server;
 }

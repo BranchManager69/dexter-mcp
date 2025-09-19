@@ -147,7 +147,7 @@ function sanitizeWalletList(wallets) {
   })).filter((wallet) => wallet.id && wallet.public_key);
 }
 
-export function registerWalletAuthTools(server) {
+export function registerWalletToolset(server) {
   server.registerTool('resolve_wallet', {
     title: 'Resolve Wallet',
     description: 'Resolve the effective managed wallet for this caller (session override, resolver default, or env fallback).',
