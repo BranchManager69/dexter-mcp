@@ -408,6 +408,9 @@ function serveOAuthMetadata(pathname, res, req) {
   if (isAuthMeta) {
     try { console.log(`[oauth-meta] serve auth metadata for ${pathname} ua=${req?.headers?.['user-agent']||''}`); } catch {}
     const prov = getProviderConfig(req);
+    const scopes = (prov?.scopes || '').split(/\s+/).filter(Boolean);
+    const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
+    const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
       issuer: prov?.issuer || 'custom',
@@ -419,7 +422,7 @@ function serveOAuthMetadata(pathname, res, req) {
       response_types_supported: ['code'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
       code_challenge_methods_supported: ['S256'],
-      scopes_supported: (prov?.scopes || '').split(/\s+/).filter(Boolean),
+      scopes_supported: publishScopes,
       id_token_signing_alg_values_supported: rsaPublicJwk ? ['RS256'] : (HS256_SECRET ? ['HS256'] : []),
       mcp: { client_id: prov?.client_id || '', redirect_uri: `${effectiveBaseUrl(req)}/callback` }
     }));
