@@ -1,0 +1,570 @@
+# Dexter - Token Analysis Dashboard (rebrand of Clanka)
+server {
+    server_name dexter.cash www.dexter.cash;
+    # Alias path to force fresh ChatGPT registration
+    location = /mcp2 {
+        proxy_pass http://127.0.0.1:3930/mcp;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        add_header X-Accel-Buffering no;
+    }
+
+    location ^~ /mcp2/ {
+        rewrite ^/mcp2/(.*)$ /mcp/$1 break;
+        proxy_pass http://127.0.0.1:3930;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # SSE support
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+
+        # Pass through MCP headers
+        proxy_pass_header Mcp-Session-Id;
+        proxy_pass_header Mcp-Protocol-Version;
+
+        # Long timeout for SSE connections
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+
+        # Allow CORS for MCP
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Authorization, Mcp-Session-Id, Mcp-Protocol-Version" always;
+        add_header Access-Control-Allow-Methods "POST, GET, DELETE, OPTIONS" always;
+        add_header Access-Control-Expose-Headers "Mcp-Session-Id" always;
+    }
+    auth_basic off;
+
+    # Root directory for Dexter dashboard
+    root /home/branchmanager/websites/dexter/public;
+    index agent-dashboard.html;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Content Security Policy (mirrors clanka.win, domain-adjusted)
+    add_header Content-Security-Policy "default-src 'self'; connect-src 'self' https://*.dexter.cash wss://*.dexter.cash https://dexter.cash wss://dexter.cash ws://dexter.cash http://localhost:3013 ws://localhost:3013 https://api.openai.com https://qdgumpoqnthrjfmqziwm.supabase.co https://challenges.cloudflare.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://*.challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://challenges.cloudflare.com; font-src 'self' https://fonts.gstatic.com; frame-src 'self' https://challenges.cloudflare.com; frame-ancestors 'self';" always;
+
+    # Disable caching for /js and /css (no asset stamping)
+    include /home/branchmanager/websites/dexter/ops/nginx-snippets/dexter-static-nocache.conf;
+
+    # Critical WebSocket endpoint for real-time token analysis streaming
+    location = /ws {
+        proxy_pass http://127.0.0.1:43017/ws;
+        proxy_http_version 1.1;
+
+        # WebSocket upgrade headers (required)
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # WebSocket timeouts
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_connect_timeout 30s;
+
+        # Disable buffering for WebSocket
+        proxy_buffering off;
+
+        # Logging
+        access_log /var/log/nginx/dexter-ws-access.log;
+        error_log /var/log/nginx/dexter-ws-error.log;
+    }
+
+    # API endpoint for agent events
+    location /events {
+        proxy_pass http://127.0.0.1:43017/events;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Important for event streaming
+        proxy_buffering off;
+        proxy_cache off;
+
+        # Allow larger payloads for analysis data
+        client_max_body_size 1M;
+    }
+
+    # Auth config + MCP user token (proxy to UI server)
+    location ^~ /auth/ {
+        proxy_pass http://127.0.0.1:43017/auth/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /mcp-user-token {
+        proxy_pass http://127.0.0.1:43017/mcp-user-token;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store" always;
+    }
+
+    # API endpoint to trigger new token analysis
+    location /run {
+        proxy_pass http://127.0.0.1:43017/run;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # API endpoints for run management
+    location ~ ^/runs {
+        proxy_pass http://127.0.0.1:43017$request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # API endpoint for recent analyses
+    location /recent-analyses {
+        proxy_pass http://127.0.0.1:43017/recent-analyses;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # API endpoint for latest analysis
+    location /latest-analysis {
+        proxy_pass http://127.0.0.1:43017/latest-analysis;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Realtime voice + debug endpoints
+    location ^~ /realtime/ {
+        proxy_pass http://127.0.0.1:43017/realtime/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache off;
+        client_max_body_size 2M;
+    }
+
+    # Agent env bootstrap script
+    location = /agent-env.js {
+        proxy_hide_header Cache-Control;
+        proxy_hide_header Expires;
+        proxy_hide_header Pragma;
+        add_header Cache-Control "no-store" always;
+        add_header Cache-Control "no-store" always;
+        proxy_pass http://127.0.0.1:43017/agent-env.js;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # OHLCV proxy (Birdeye fast path)
+    location ^~ /ohlcv {
+        proxy_pass http://127.0.0.1:43017/ohlcv;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache off;
+    }
+
+    # MCP Server endpoint (SSE/HTTP streaming with OAuth)
+    location = /mcp {
+        proxy_pass http://127.0.0.1:3930/mcp;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        add_header X-Accel-Buffering no;
+    }
+
+    location ^~ /mcp/ {
+        proxy_pass http://127.0.0.1:3930$request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # SSE support
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+
+        # Pass through MCP headers
+        proxy_pass_header Mcp-Session-Id;
+        proxy_pass_header Mcp-Protocol-Version;
+
+        # Long timeout for SSE connections
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+
+        # Allow CORS for MCP
+    # Alias path to force fresh ChatGPT registration
+
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Authorization, Mcp-Session-Id, Mcp-Protocol-Version" always;
+        add_header Access-Control-Allow-Methods "POST, GET, DELETE, OPTIONS" always;
+        add_header Access-Control-Expose-Headers "Mcp-Session-Id" always;
+    }
+
+    # Shortcuts
+    location = /live {
+        return 301 /agent-live.html;
+    }
+
+    location = /dashboard {
+        return 301 /agent-dashboard.html;
+    }
+
+    # Report JSON endpoints
+    location ~ ^/report/[^/]+\.json$ {
+        proxy_pass http://127.0.0.1:43017$request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        add_header Content-Type application/json;
+    }
+
+    location = /report-json {
+        proxy_pass http://127.0.0.1:43017/report-json;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        add_header Content-Type application/json;
+    }
+
+    # MCP proxy for report fallback
+    location = /mcp-proxy {
+        proxy_pass http://127.0.0.1:43017/mcp-proxy;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_buffering off;
+        proxy_cache off;
+    }
+
+    # Main location for static files
+    # Proxy HTML through UI server for dynamic asset versioning
+    location ~* \.(html)$ {
+        proxy_pass http://127.0.0.1:43017$request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_hide_header Cache-Control;
+        proxy_hide_header Expires;
+        proxy_hide_header Pragma;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
+    }
+    location / {
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_pass http://127.0.0.1:43017;
+    }
+
+    # OAuth/OIDC discovery for ChatGPT MCP (override hidden-file block)
+    location = /.well-known/oauth-authorization-server/mcp {
+        proxy_pass http://127.0.0.1:3930/mcp/.well-known/oauth-authorization-server;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store" always;
+    }
+
+    location ^~ /.well-known/oauth-authorization-server {
+        proxy_pass http://127.0.0.1:3930$request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store" always;
+    }
+
+    location = /.well-known/oauth-protected-resource/mcp {
+        proxy_pass http://127.0.0.1:3930/mcp/.well-known/oauth-protected-resource;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store" always;
+    }
+
+    location ^~ /.well-known/oauth-protected-resource {
+        proxy_pass http://127.0.0.1:3930$request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store" always;
+    }
+
+    location = /.well-known/openid-configuration/mcp {
+        proxy_pass http://127.0.0.1:3930/mcp/.well-known/openid-configuration;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store" always;
+    }
+
+    location ^~ /.well-known/openid-configuration {
+        proxy_pass http://127.0.0.1:3930$request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store" always;
+    }
+
+    # MCP manifest (mirror oauth/openid handling)
+    location = /.well-known/mcp.json/mcp {
+        proxy_pass http://127.0.0.1:3930/mcp/.well-known/mcp.json;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store" always;
+    }
+
+    location ^~ /.well-known/mcp.json {
+        proxy_pass http://127.0.0.1:3930$request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store" always;
+    }
+    # Exact match for MCP manifest to bypass hidden-file deny
+    location = /.well-known/mcp.json {
+        proxy_pass http://127.0.0.1:3930/.well-known/mcp.json;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store" always;
+    }
+
+
+    # Block hidden files
+    location ~ /\. {
+        deny all;
+        log_not_found off;
+    }
+
+    # Logging
+    access_log /var/log/nginx/dexter-access.log;
+    error_log /var/log/nginx/dexter-error.log;
+
+    # DISABLED!
+    ## Alpha API reverse proxy (safe path-based)
+    #location ^~ /api/ {
+    #    proxy_http_version 1.1;
+    #    proxy_set_header Upgrade $http_upgrade;
+    #    proxy_set_header Connection "upgrade";
+    #    proxy_set_header Host $host;
+    #    proxy_set_header X-Real-IP $remote_addr;
+    #    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #    proxy_set_header X-Forwarded-Proto $scheme;
+    #    proxy_pass http://127.0.0.1:3030/;
+    #}
+
+    listen [::]:443 ssl; # managed by Certbot
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/dexter.cash/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/dexter.cash/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+}
+
+# Beta realtime demo (beta.dexter.cash)
+server {
+    server_name beta.dexter.cash;
+
+    location / {
+        proxy_pass http://127.0.0.1:3210;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+
+    listen [::]:443 ssl; # managed by Certbot
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/beta.dexter.cash/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/beta.dexter.cash/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+}
+
+# Pumpstreams dashboard (subdomain pump.dexter.cash)
+server {
+    server_name pump.dexter.cash;
+
+    location / {
+        proxy_pass http://127.0.0.1:3050;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+
+    listen [::]:443 ssl; # managed by Certbot
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/pump.dexter.cash/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/pump.dexter.cash/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+}
+
+server {
+    server_name docs.dexter.cash;
+
+    root /var/www/docs.dexter.cash;
+    index index.html;
+
+    access_log /var/log/nginx/docs.dexter.cash.access.log;
+    error_log /var/log/nginx/docs.dexter.cash.error.log;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    listen [::]:443 ssl; # managed by Certbot
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/docs.dexter.cash/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/docs.dexter.cash/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+}
+
+server {
+    if ($host = www.dexter.cash) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    if ($host = dexter.cash) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    listen 80;
+    listen [::]:80;
+    server_name dexter.cash www.dexter.cash;
+    return 404; # managed by Certbot
+
+}
+
+server {
+    if ($host = pump.dexter.cash) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    listen 80;
+    listen [::]:80;
+    server_name pump.dexter.cash;
+    return 404; # managed by Certbot
+
+
+}
+
+server {
+    if ($host = docs.dexter.cash) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    server_name docs.dexter.cash;
+
+    listen 80;
+    listen [::]:80;
+    return 404; # managed by Certbot
+
+
+}
+
+server {
+    if ($host = beta.dexter.cash) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    server_name beta.dexter.cash;
+
+    listen 80;
+    listen [::]:80;
+    return 404; # managed by Certbot
+
+
+}

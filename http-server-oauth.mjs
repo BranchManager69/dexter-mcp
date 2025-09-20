@@ -607,6 +607,14 @@ function serveOAuthMetadata(pathname, res, req) {
 
   if (isAuthMeta) {
     try { console.log(`[oauth-meta] serve auth metadata for ${pathname} ua=${req?.headers?.['user-agent']||''}`); } catch {}
+    // Track 1: for Claude, redirect /mcp/.well-known/oauth-authorization-server to Supabase OIDC discovery
+    if (pathname === '/mcp/.well-known/oauth-authorization-server' && SUPABASE_URL) {
+      const supa = SUPABASE_URL.replace(/\/$/, '');
+      const target = `${supa}/auth/v1/.well-known/openid-configuration`;
+      res.writeHead(302, { Location: target, 'Cache-Control': 'no-store' });
+      res.end();
+      return true;
+    }
     const prov = getProviderConfig(req);
     const scopes = (prov?.scopes || '').split(/\s+/).filter(Boolean);
     const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
