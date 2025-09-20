@@ -1,6 +1,16 @@
+import { registerGeneralToolset } from './general/index.mjs';
+import { registerPumpstreamToolset } from './pumpstream/index.mjs';
 import { registerWalletToolset } from './wallet/index.mjs';
 
 const TOOLSET_REGISTRY = {
+  general: {
+    register: registerGeneralToolset,
+    description: 'General purpose search/fetch utilities for Dexter documentation.',
+  },
+  pumpstream: {
+    register: registerPumpstreamToolset,
+    description: 'Real-time summaries from pump.dexter.cash.',
+  },
   wallet: {
     register: registerWalletToolset,
     description: 'Supabase-backed wallet resolution and auth diagnostics.',

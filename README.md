@@ -162,6 +162,7 @@ pm2 logs dexter-mcp
 
 - **`common.mjs`** – builds the MCP server, normalizes Zod schemas, wraps tool registration with logging.
 - **`toolsets/`** – declarative manifest of tool bundles plus the wallet toolset implementation.
+- **Toolset authoring guide:** see `toolsets/ADDING_TOOLSETS.md` for step-by-step instructions and examples (including the `pumpstream` toolset).
 - **`server.mjs`** – stdio entrypoint (used by local agents and Codex); respects `--tools=` flags.
 - **`http-server-oauth.mjs`** – HTTPS transport with OAuth/OIDC, session caching, and metadata routes.
 - **`legacy-tools/`** – archived Token-AI tools kept for reference during migration.

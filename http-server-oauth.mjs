@@ -224,9 +224,11 @@ function unauthorized(res, message = 'Unauthorized', req){
       const authz = prov.authorization_endpoint || '';
       const token = prov.token_endpoint || '';
       const client = prov.client_id || '';
-      const scope = prov.scopes || '';
       const issuer = prov.issuer || '';
-      res.setHeader('WWW-Authenticate', `Bearer realm="MCP", authorization_uri="${authz}", token_uri="${token}", client_id="${client}", redirect_uri="${redirect}", scope="${scope}", issuer="${issuer}"`);
+      const rawScopes = (prov.scopes || '').split(/\s+/).filter(Boolean);
+      const walletScopes = rawScopes.filter((s) => s.startsWith('wallet.'));
+      const advertisedScope = (walletScopes.length ? walletScopes : rawScopes).join(' ');
+      res.setHeader('WWW-Authenticate', `Bearer realm="MCP", authorization_uri="${authz}", token_uri="${token}", client_id="${client}", redirect_uri="${redirect}", scope="${advertisedScope}", issuer="${issuer}"`);
     } else {
       res.setHeader('WWW-Authenticate', `Bearer realm="MCP"`);
     }
@@ -391,6 +393,7 @@ function serveOAuthMetadata(pathname, res, req) {
     || pathname === '/mcp/.well-known/oauth-protected-resource'
   );
   const isOidcMeta = (pathname === '/.well-known/openid-configuration' || pathname === '/mcp/.well-known/openid-configuration');
+  const isMcpManifest = (pathname === '/.well-known/mcp.json' || pathname === '/mcp/.well-known/mcp.json');
   const isJwks = (pathname === '/.well-known/jwks.json' || pathname === '/mcp/jwks.json' || pathname === '/jwks.json' || pathname === '/mcp/.well-known/jwks.json');
 
   if (isJwks) {
@@ -440,6 +443,8 @@ function serveOAuthMetadata(pathname, res, req) {
     try { console.log(`[oauth-meta] serve oidc metadata for ${pathname} ua=${req?.headers?.['user-agent']||''}`); } catch {}
     const prov = getProviderConfig(req);
     const scopes = (prov?.scopes || '').split(/\s+/).filter(Boolean);
+    const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
+    const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
       issuer: prov?.issuer || 'custom',
@@ -452,9 +457,36 @@ function serveOAuthMetadata(pathname, res, req) {
       response_types_supported: ['code'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
       code_challenge_methods_supported: ['S256'],
-      scopes_supported: scopes,
+      scopes_supported: publishScopes,
       id_token_signing_alg_values_supported: rsaPublicJwk ? ['RS256'] : (HS256_SECRET ? ['HS256'] : []),
       mcp: { client_id: prov?.client_id || '', redirect_uri: `${effectiveBaseUrl(req)}/callback` }
+    }));
+    return true;
+  }
+
+  if (isMcpManifest) {
+    try { console.log(`[oauth-meta] serve mcp manifest for ${pathname} ua=${req?.headers?.['user-agent']||''}`); } catch {}
+    const prov = getProviderConfig(req);
+    const base = effectiveBaseUrl(req);
+    const scopes = (prov?.scopes || '').split(/\s+/).filter(Boolean);
+    const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
+    const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
+    res.end(JSON.stringify({
+      name: process.env.MCP_SERVER_NAME || 'dexter-mcp',
+      url: base,
+      description: 'Dexter MCP toolsets',
+      version: process.env.MCP_SERVER_VERSION || '0.1.0',
+      authorization: prov ? {
+        type: 'oauth',
+        authorization_url: prov.authorization_endpoint || '',
+        token_url: prov.token_endpoint || '',
+        client_id: prov.client_id || '',
+        redirect_uri: `${base}/callback`,
+        scopes: publishScopes,
+        pkce_required: true,
+        code_challenge_methods: ['S256'],
+      } : null,
     }));
     return true;
   }
