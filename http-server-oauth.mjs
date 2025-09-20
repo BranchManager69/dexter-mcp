@@ -31,6 +31,8 @@ const CORS_ORIGIN = process.env.TOKEN_AI_MCP_CORS || '*';
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || '';
+const RAW_CONNECTOR_API_BASE = process.env.DEXTER_API_BASE_URL || process.env.API_BASE_URL || 'https://dexter.cash/api';
+const CONNECTOR_API_BASE = RAW_CONNECTOR_API_BASE.replace(/\/+$/, '');
 
 // OAuth Configuration (Generic OIDC)
 const OAUTH_ENABLED = process.env.TOKEN_AI_MCP_OAUTH === 'true';
@@ -122,6 +124,21 @@ function effectiveBaseUrl(req){
     if (host) return `${proto}://${host}/mcp`.replace(/\/$/, '');
   } catch {}
   return `http://localhost:${PORT}/mcp`;
+}
+
+function getAdvertisedOAuthEndpoints(req) {
+  const base = effectiveBaseUrl(req);
+  return {
+    authorization: `${base}/authorize`,
+    token: `${base}/token`,
+  };
+}
+
+function buildConnectorApiUrl(pathname, search) {
+  const normalizedPath = pathname.replace(/^\/+/, '');
+  const target = new URL(normalizedPath, `${CONNECTOR_API_BASE}/`);
+  if (search) target.search = search;
+  return target.toString();
 }
 
 function getProviderConfig(req) {
@@ -221,14 +238,13 @@ function unauthorized(res, message = 'Unauthorized', req){
     const redirect = `${base}/callback`;
     const prov = getProviderConfig(req);
     if (prov) {
-      const authz = prov.authorization_endpoint || '';
-      const token = prov.token_endpoint || '';
+      const advertised = getAdvertisedOAuthEndpoints(req);
       const client = prov.client_id || '';
       const issuer = prov.issuer || '';
       const rawScopes = (prov.scopes || '').split(/\s+/).filter(Boolean);
       const walletScopes = rawScopes.filter((s) => s.startsWith('wallet.'));
       const advertisedScope = (walletScopes.length ? walletScopes : rawScopes).join(' ');
-      res.setHeader('WWW-Authenticate', `Bearer realm="MCP", authorization_uri="${authz}", token_uri="${token}", client_id="${client}", redirect_uri="${redirect}", scope="${advertisedScope}", issuer="${issuer}"`);
+      res.setHeader('WWW-Authenticate', `Bearer realm="MCP", authorization_uri="${advertised.authorization}", token_uri="${advertised.token}", client_id="${client}", redirect_uri="${redirect}", scope="${advertisedScope}", issuer="${issuer}"`);
     } else {
       res.setHeader('WWW-Authenticate', `Bearer realm="MCP"`);
     }
@@ -246,6 +262,17 @@ async function readBody(req){
       if (!data) return resolve(undefined);
       try { resolve(JSON.parse(data)); } catch { resolve(undefined); }
     });
+    req.on('error', reject);
+  });
+}
+
+async function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) => {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
 }
@@ -292,6 +319,100 @@ function injectIdentityIntoBody(body, identity){
     }
   } catch {}
   return body;
+}
+
+function requestPrefersHtml(req) {
+  const accept = String(req.headers['accept'] || '').toLowerCase();
+  if (accept.includes('text/html') || accept.includes('text/plain')) return true;
+  const fetchMode = String(req.headers['sec-fetch-mode'] || '').toLowerCase();
+  return fetchMode === 'navigate';
+}
+
+async function forwardAuthorize(req, res) {
+  const url = new URL(req.url || '', `http://${req.headers.host}`);
+  const targetUrl = buildConnectorApiUrl('connector/oauth/authorize', url.search);
+  let apiResponse;
+  try {
+    apiResponse = await fetch(targetUrl, {
+      method: req.method,
+      headers: {
+        'accept': 'application/json',
+        'content-type': req.headers['content-type'] || undefined,
+        'authorization': req.headers['authorization'] || undefined,
+        'cookie': req.headers['cookie'] || undefined,
+      },
+    });
+  } catch (error) {
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'connector_authorize_unreachable', message: error?.message || String(error) }));
+    return;
+  }
+
+  const contentType = apiResponse.headers.get('content-type') || '';
+  const text = await apiResponse.text();
+
+  if (!apiResponse.ok) {
+    const status = apiResponse.status || 502;
+    if (requestPrefersHtml(req)) {
+      res.writeHead(status, { 'Content-Type': 'text/plain' });
+      res.end(text || 'Authorization failed');
+    } else {
+      res.writeHead(status, { 'Content-Type': contentType || 'application/json' });
+      res.end(text);
+    }
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = null;
+  }
+
+  if (requestPrefersHtml(req) && parsed?.login_url) {
+    res.writeHead(302, { Location: parsed.login_url });
+    res.end();
+    return;
+  }
+
+  res.writeHead(apiResponse.status, { 'Content-Type': contentType || 'application/json' });
+  res.end(text);
+}
+
+async function forwardToken(req, res) {
+  const url = new URL(req.url || '', `http://${req.headers.host}`);
+  const targetUrl = buildConnectorApiUrl('connector/oauth/token', url.search);
+  let body;
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    body = await readRawBody(req);
+  }
+  let apiResponse;
+  try {
+    apiResponse = await fetch(targetUrl, {
+      method: req.method,
+      headers: {
+        'accept': 'application/json',
+        'content-type': req.headers['content-type'] || undefined,
+        'authorization': req.headers['authorization'] || undefined,
+        'cookie': req.headers['cookie'] || undefined,
+      },
+      body,
+    });
+  } catch (error) {
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'connector_token_unreachable', message: error?.message || String(error) }));
+    return;
+  }
+
+  const headersObj = {};
+  apiResponse.headers.forEach((value, key) => {
+    if (key.toLowerCase() === 'transfer-encoding') return;
+    headersObj[key] = value;
+  });
+  const buffer = Buffer.from(await apiResponse.arrayBuffer());
+  res.writeHead(apiResponse.status, headersObj);
+  res.end(buffer);
 }
 
 // Validate OAuth token via OIDC userinfo endpoint (preferred) or GitHub API when configured.
@@ -411,11 +532,12 @@ function serveOAuthMetadata(pathname, res, req) {
     const scopes = (prov?.scopes || '').split(/\s+/).filter(Boolean);
     const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
+    const advertised = getAdvertisedOAuthEndpoints(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
       issuer: prov?.issuer || 'custom',
-      authorization_endpoint: prov?.authorization_endpoint || '',
-      token_endpoint: prov?.token_endpoint || '',
+      authorization_endpoint: advertised.authorization,
+      token_endpoint: advertised.token,
       registration_endpoint: prov?.registration_endpoint || undefined,
       userinfo_endpoint: prov?.userinfo_endpoint || '',
       token_endpoint_auth_methods_supported: ['none','client_secret_post', 'client_secret_basic'],
@@ -448,11 +570,12 @@ function serveOAuthMetadata(pathname, res, req) {
     const scopes = (prov?.scopes || '').split(/\s+/).filter(Boolean);
     const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
+    const advertised = getAdvertisedOAuthEndpoints(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
       issuer: prov?.issuer || 'custom',
-      authorization_endpoint: prov?.authorization_endpoint || '',
-      token_endpoint: prov?.token_endpoint || '',
+      authorization_endpoint: advertised.authorization,
+      token_endpoint: advertised.token,
       registration_endpoint: prov?.registration_endpoint || undefined,
       userinfo_endpoint: prov?.userinfo_endpoint || '',
       jwks_uri: rsaPublicJwk ? `${effectiveBaseUrl(req)}/jwks.json` : undefined,
@@ -474,6 +597,7 @@ function serveOAuthMetadata(pathname, res, req) {
     const scopes = (prov?.scopes || '').split(/\s+/).filter(Boolean);
     const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
+    const advertised = getAdvertisedOAuthEndpoints(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
       name: process.env.MCP_SERVER_NAME || 'dexter-mcp',
@@ -482,8 +606,8 @@ function serveOAuthMetadata(pathname, res, req) {
       version: process.env.MCP_SERVER_VERSION || '0.1.0',
       authorization: prov ? {
         type: 'oauth',
-        authorization_url: prov.authorization_endpoint || '',
-        token_url: prov.token_endpoint || '',
+        authorization_url: advertised.authorization,
+        token_url: advertised.token,
         client_id: prov.client_id || '',
         redirect_uri: `${base}/callback`,
         scopes: publishScopes,
@@ -552,6 +676,14 @@ const server = http.createServer(async (req, res) => {
 
     // Serve OAuth metadata
     if (OAUTH_ENABLED && serveOAuthMetadata(url.pathname, res, req)) {
+      return;
+    }
+    if (OAUTH_ENABLED && (url.pathname === '/authorize' || url.pathname === '/mcp/authorize')) {
+      await forwardAuthorize(req, res);
+      return;
+    }
+    if (OAUTH_ENABLED && (url.pathname === '/token' || url.pathname === '/mcp/token')) {
+      await forwardToken(req, res);
       return;
     }
     // Handle OAuth callback (support both /callback and /mcp/callback)
