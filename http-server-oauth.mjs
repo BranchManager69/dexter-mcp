@@ -139,6 +139,8 @@ const proto = protoHeader || (req?.connection?.encrypted ? 'https' : 'http');
     }
   })();
 
+  const pathSuffix = pathnameHint || '/mcp';
+
   if (PUBLIC_URL) {
     try {
       const configured = new URL(PUBLIC_URL);
@@ -150,13 +152,11 @@ const proto = protoHeader || (req?.connection?.encrypted ? 'https' : 'http');
   }
 
   if (rawHost) {
-    const path = pathnameHint || '';
-    const base = `${proto || 'http'}://${rawHost}${path}`;
+    const base = `${proto || 'http'}://${rawHost}${pathSuffix}`;
     return base.replace(/\/$/, '');
   }
 
-  const fallbackPath = pathnameHint || '/mcp';
-  return `http://localhost:${PORT}${fallbackPath}`.replace(/\/$/, '');
+  return `http://localhost:${PORT}${pathSuffix}`.replace(/\/$/, '');
 }
 
 function normalizedHost(req){
@@ -173,11 +173,19 @@ function resolveClientId(req){
   return OIDC_CLIENT_ID;
 }
 
-function getAdvertisedOAuthEndpoints() {
-  return {
-    authorization: `${CONNECTOR_API_BASE}/connector/oauth/authorize`,
-    token: `${CONNECTOR_API_BASE}/connector/oauth/token`,
-  };
+function getAdvertisedOAuthEndpoints(req) {
+  try {
+    const base = effectiveBaseUrl(req).replace(/\/$/, '');
+    return {
+      authorization: `${base}/authorize`,
+      token: `${base}/token`,
+    };
+  } catch {
+    return {
+      authorization: `${CONNECTOR_API_BASE}/connector/oauth/authorize`,
+      token: `${CONNECTOR_API_BASE}/connector/oauth/token`,
+    };
+  }
 }
 
 function buildConnectorApiUrl(pathname, search) {
