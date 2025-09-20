@@ -166,26 +166,16 @@ function normalizedHost(req){
 }
 
 function resolveClientId(req){
-  const host = normalizedHost(req);
-  if (host && CHATGPT_HOSTNAMES.has(host)) {
-    return OIDC_CLIENT_ID_CHATGPT || OIDC_CLIENT_ID;
-  }
+  // Revert to a single OIDC client id (cid_*). Do not vary by host.
   return OIDC_CLIENT_ID;
 }
 
 function getAdvertisedOAuthEndpoints(req) {
-  try {
-    const base = effectiveBaseUrl(req).replace(/\/$/, '');
-    return {
-      authorization: `${base}/authorize`,
-      token: `${base}/token`,
-    };
-  } catch {
-    return {
-      authorization: `${CONNECTOR_API_BASE}/connector/oauth/authorize`,
-      token: `${CONNECTOR_API_BASE}/connector/oauth/token`,
-    };
-  }
+  // Always advertise connector endpoints (dexter-api), not /mcp/*.
+  return {
+    authorization: `${CONNECTOR_API_BASE}/connector/oauth/authorize`,
+    token: `${CONNECTOR_API_BASE}/connector/oauth/token`,
+  };
 }
 
 function buildConnectorApiUrl(pathname, search) {
@@ -672,6 +662,8 @@ function serveOAuthMetadata(pathname, res, req) {
         pkce_required: true,
         code_challenge_methods: ['S256'],
       } : null,
+      // Expose client info here as well for clients that read only mcp.json
+      mcp: { client_id: clientId || '', redirect_uri: `${base}/callback` },
     }));
     return true;
   }
