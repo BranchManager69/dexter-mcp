@@ -171,10 +171,11 @@ function resolveClientId(req){
 }
 
 function getAdvertisedOAuthEndpoints(req) {
-  // Always advertise connector endpoints (dexter-api), not /mcp/*.
+  // Advertise OAuth under the same base as the MCP URL (per-client discovery expectations)
+  const base = effectiveBaseUrl(req).replace(/\/$/, '');
   return {
-    authorization: `${CONNECTOR_API_BASE}/connector/oauth/authorize`,
-    token: `${CONNECTOR_API_BASE}/connector/oauth/token`,
+    authorization: `${base}/authorize`,
+    token: `${base}/token`,
   };
 }
 
@@ -285,9 +286,10 @@ function unauthorized(res, message = 'Unauthorized', req){
       const advertised = getAdvertisedOAuthEndpoints(req);
       const client = resolveClientId(req) || prov.client_id || '';
       const issuer = prov.issuer || '';
-      const rawScopes = (prov.scopes || '').split(/\s+/).filter(Boolean);
-      const walletScopes = rawScopes.filter((s) => s.startsWith('wallet.'));
-      const advertisedScope = (walletScopes.length ? walletScopes : rawScopes).join(' ');
+    const rawScopes = (prov.scopes || '').split(/\s+/).filter(Boolean);
+    const walletScopes = rawScopes.filter((s) => s.startsWith('wallet.'));
+    const baseScopes = walletScopes.length ? walletScopes : rawScopes;
+    const advertisedScope = includeOpenId(baseScopes).join(' ');
       res.setHeader('WWW-Authenticate', `Bearer realm="MCP", authorization_uri="${advertised.authorization}", token_uri="${advertised.token}", client_id="${client}", redirect_uri="${redirect}", scope="${advertisedScope}", issuer="${issuer}"`);
     } else {
       res.setHeader('WWW-Authenticate', `Bearer realm="MCP"`);
@@ -365,6 +367,14 @@ function injectIdentityIntoBody(body, identity){
   return body;
 }
 
+function includeOpenId(scopesArr) {
+  try {
+    const set = new Set((scopesArr || []).map(String));
+    set.add('openid');
+    return Array.from(set);
+  } catch { return scopesArr || ['openid']; }
+}
+
 function requestPrefersHtml(req) {
   const accept = String(req.headers['accept'] || '').toLowerCase();
   if (accept.includes('text/html') || accept.includes('text/plain')) return true;
@@ -414,7 +424,9 @@ async function forwardAuthorize(req, res) {
     parsed = null;
   }
 
-  if (requestPrefersHtml(req) && parsed?.login_url) {
+  // Always issue a 302 to the IdP login_url when available so non-browser clients
+  // (like ChatGPT resolvers) see a proper redirect during discovery/validation.
+  if (parsed?.login_url) {
     res.writeHead(302, { Location: parsed.login_url });
     res.end();
     return;
@@ -576,6 +588,7 @@ function serveOAuthMetadata(pathname, res, req) {
     const scopes = (prov?.scopes || '').split(/\s+/).filter(Boolean);
     const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
+    const publishWithOpenId = includeOpenId(publishScopes);
     const advertised = getAdvertisedOAuthEndpoints(req);
     const issuer = prov?.issuer || SUPABASE_URL || effectiveBaseUrl(req);
     const clientId = resolveClientId(req);
@@ -590,7 +603,7 @@ function serveOAuthMetadata(pathname, res, req) {
       response_types_supported: ['code'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
       code_challenge_methods_supported: ['S256'],
-      scopes_supported: publishScopes,
+      scopes_supported: publishWithOpenId,
       id_token_signing_alg_values_supported: rsaPublicJwk ? ['RS256'] : (HS256_SECRET ? ['HS256'] : []),
       mcp: { client_id: clientId || '', redirect_uri: `${effectiveBaseUrl(req)}/callback` }
     }));
@@ -600,7 +613,7 @@ function serveOAuthMetadata(pathname, res, req) {
   if (isProtectedMeta) {
     try { console.log(`[oauth-meta] serve protected metadata for ${pathname} ua=${req?.headers?.['user-agent']||''}`); } catch {}
     const base = effectiveBaseUrl(req).replace(/\/$/, '');
-    const authMetadata = `${base.replace(/\/mcp$/, '')}/.well-known/oauth-authorization-server`;
+    const authMetadata = `${base}/.well-known/oauth-authorization-server`;
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
       resource: base,
@@ -616,6 +629,7 @@ function serveOAuthMetadata(pathname, res, req) {
     const scopes = (prov?.scopes || '').split(/\s+/).filter(Boolean);
     const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
+    const publishWithOpenId = includeOpenId(publishScopes);
     const advertised = getAdvertisedOAuthEndpoints(req);
     const clientId = resolveClientId(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
@@ -630,7 +644,7 @@ function serveOAuthMetadata(pathname, res, req) {
       response_types_supported: ['code'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
       code_challenge_methods_supported: ['S256'],
-      scopes_supported: publishScopes,
+      scopes_supported: publishWithOpenId,
       id_token_signing_alg_values_supported: rsaPublicJwk ? ['RS256'] : (HS256_SECRET ? ['HS256'] : []),
       mcp: { client_id: clientId || '', redirect_uri: `${effectiveBaseUrl(req)}/callback` }
     }));
@@ -644,6 +658,7 @@ function serveOAuthMetadata(pathname, res, req) {
     const scopes = (prov?.scopes || '').split(/\s+/).filter(Boolean);
     const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
+    const publishWithOpenId = includeOpenId(publishScopes);
     const advertised = getAdvertisedOAuthEndpoints(req);
     const clientId = resolveClientId(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
@@ -658,7 +673,7 @@ function serveOAuthMetadata(pathname, res, req) {
         token_url: advertised.token,
         client_id: clientId || '',
         redirect_uri: `${base}/callback`,
-        scopes: publishScopes,
+        scopes: publishWithOpenId,
         pkce_required: true,
         code_challenge_methods: ['S256'],
       } : null,
