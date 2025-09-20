@@ -126,11 +126,10 @@ function effectiveBaseUrl(req){
   return `http://localhost:${PORT}/mcp`;
 }
 
-function getAdvertisedOAuthEndpoints(req) {
-  const base = effectiveBaseUrl(req);
+function getAdvertisedOAuthEndpoints() {
   return {
-    authorization: `${base}/authorize`,
-    token: `${base}/token`,
+    authorization: `${CONNECTOR_API_BASE}/connector/oauth/authorize`,
+    token: `${CONNECTOR_API_BASE}/connector/oauth/token`,
   };
 }
 
@@ -533,13 +532,14 @@ function serveOAuthMetadata(pathname, res, req) {
     const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
     const advertised = getAdvertisedOAuthEndpoints(req);
+    const issuer = prov?.issuer || SUPABASE_URL || effectiveBaseUrl(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
-      issuer: prov?.issuer || 'custom',
+      issuer,
       authorization_endpoint: advertised.authorization,
       token_endpoint: advertised.token,
       registration_endpoint: prov?.registration_endpoint || undefined,
-      userinfo_endpoint: prov?.userinfo_endpoint || '',
+      userinfo_endpoint: prov?.userinfo_endpoint || (SUPABASE_URL ? `${SUPABASE_URL.replace(/\/$/,'')}/auth/v1/user` : ''),
       token_endpoint_auth_methods_supported: ['none','client_secret_post', 'client_secret_basic'],
       response_types_supported: ['code'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
@@ -573,11 +573,11 @@ function serveOAuthMetadata(pathname, res, req) {
     const advertised = getAdvertisedOAuthEndpoints(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
-      issuer: prov?.issuer || 'custom',
+      issuer: prov?.issuer || SUPABASE_URL || 'custom',
       authorization_endpoint: advertised.authorization,
       token_endpoint: advertised.token,
       registration_endpoint: prov?.registration_endpoint || undefined,
-      userinfo_endpoint: prov?.userinfo_endpoint || '',
+      userinfo_endpoint: prov?.userinfo_endpoint || (SUPABASE_URL ? `${SUPABASE_URL.replace(/\/$/,'')}/auth/v1/user` : ''),
       jwks_uri: rsaPublicJwk ? `${effectiveBaseUrl(req)}/jwks.json` : undefined,
       token_endpoint_auth_methods_supported: ['none','client_secret_post', 'client_secret_basic'],
       response_types_supported: ['code'],
