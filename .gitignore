@@ -15,4 +15,5 @@ yarn-error.log*
 /build/
 
 # Misc
+.commentary
 .DS_Store

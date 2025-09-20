@@ -280,6 +280,12 @@ function unauthorized(res, message = 'Unauthorized', req){
   writeCors(res);
   try {
     const base = effectiveBaseUrl(req);
+    const fwdHost = String(req?.headers?.['x-forwarded-host'] || '').split(',')[0].trim();
+    const rawHost = fwdHost || String(req?.headers?.host || '').split(',')[0].trim();
+    const protoHeader = String(req?.headers?.['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+    const scheme = protoHeader || (req?.connection?.encrypted ? 'https' : 'http');
+    const origin = rawHost ? `${scheme}://${rawHost}` : '';
+    const prmUrl = origin ? `${origin}/.well-known/oauth-protected-resource/mcp` : '';
     const redirect = `${base}/callback`;
     const prov = getProviderConfig(req);
     if (prov) {
@@ -295,6 +301,19 @@ function unauthorized(res, message = 'Unauthorized', req){
       res.setHeader('WWW-Authenticate', `Bearer realm="MCP"`);
     }
     res.setHeader('Cache-Control','no-store');
+    // Ensure MCP-required PRM pointer in WWW-Authenticate
+    try {
+      if (prmUrl && typeof res.getHeader === 'function') {
+        const curr = res.getHeader('WWW-Authenticate');
+        if (typeof curr === 'string') {
+          if (!curr.includes('resource_metadata=')) {
+            res.setHeader('WWW-Authenticate', `${curr}, resource_metadata="${prmUrl}"`);
+          }
+        } else if (!curr) {
+          res.setHeader('WWW-Authenticate', `Bearer realm="MCP", resource_metadata="${prmUrl}"`);
+        }
+      }
+    } catch {}
   } catch {}
   res.writeHead(401, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ jsonrpc:'2.0', error:{ code:-32000, message }, id:null }));
@@ -563,7 +582,11 @@ async function validateTokenAndClaims(token) {
 // OAuth metadata endpoints (served at both root and /mcp/.well-known for compatibility)
 function serveOAuthMetadata(pathname, res, req) {
   writeCors(res);
-  const isAuthMeta = (pathname === '/.well-known/oauth-authorization-server' || pathname === '/mcp/.well-known/oauth-authorization-server');
+  const isAuthMeta = (
+    pathname === '/.well-known/oauth-authorization-server' ||
+    pathname === '/mcp/.well-known/oauth-authorization-server' ||
+    pathname === '/.well-known/oauth-authorization-server/mcp'
+  );
   const isProtectedMeta = (
     pathname === '/.well-known/oauth-protected-resource'
     || pathname === '/.well-known/oauth-protected-resource/mcp'
@@ -590,7 +613,7 @@ function serveOAuthMetadata(pathname, res, req) {
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
     const publishWithOpenId = includeOpenId(publishScopes);
     const advertised = getAdvertisedOAuthEndpoints(req);
-    const issuer = prov?.issuer || SUPABASE_URL || effectiveBaseUrl(req);
+    const issuer = effectiveBaseUrl(req);
     const clientId = resolveClientId(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
@@ -613,11 +636,11 @@ function serveOAuthMetadata(pathname, res, req) {
   if (isProtectedMeta) {
     try { console.log(`[oauth-meta] serve protected metadata for ${pathname} ua=${req?.headers?.['user-agent']||''}`); } catch {}
     const base = effectiveBaseUrl(req).replace(/\/$/, '');
-    const authMetadata = `${base}/.well-known/oauth-authorization-server`;
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
       resource: base,
-      authorization_servers: [authMetadata],
+      // RFC 9728 requires authorization_servers to list AS issuer identifiers, not metadata URLs
+      authorization_servers: [base],
       scopes_supported: ['wallet.read', 'wallet.trade'],
     }));
     return true;
@@ -625,28 +648,30 @@ function serveOAuthMetadata(pathname, res, req) {
 
   if (isOidcMeta) {
     try { console.log(`[oauth-meta] serve oidc metadata for ${pathname} ua=${req?.headers?.['user-agent']||''}`); } catch {}
+    const supa = (SUPABASE_URL || '').replace(/\/$/, '');
+    if (supa) {
+      const target = `${supa}/auth/v1/.well-known/openid-configuration`;
+      res.writeHead(302, { Location: target, 'Cache-Control': 'no-store' });
+      res.end();
+      return true;
+    }
+    // Fallback if SUPABASE_URL not configured
     const prov = getProviderConfig(req);
     const scopes = (prov?.scopes || '').split(/\s+/).filter(Boolean);
     const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
     const publishWithOpenId = includeOpenId(publishScopes);
     const advertised = getAdvertisedOAuthEndpoints(req);
-    const clientId = resolveClientId(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
-      issuer: prov?.issuer || SUPABASE_URL || 'custom',
+      issuer: effectiveBaseUrl(req),
       authorization_endpoint: advertised.authorization,
       token_endpoint: advertised.token,
-      registration_endpoint: prov?.registration_endpoint || undefined,
-      userinfo_endpoint: prov?.userinfo_endpoint || (SUPABASE_URL ? `${SUPABASE_URL.replace(/\/$/,'')}/auth/v1/user` : ''),
-      jwks_uri: rsaPublicJwk ? `${effectiveBaseUrl(req)}/jwks.json` : undefined,
       token_endpoint_auth_methods_supported: ['none','client_secret_post', 'client_secret_basic'],
       response_types_supported: ['code'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
       code_challenge_methods_supported: ['S256'],
-      scopes_supported: publishWithOpenId,
-      id_token_signing_alg_values_supported: rsaPublicJwk ? ['RS256'] : (HS256_SECRET ? ['HS256'] : []),
-      mcp: { client_id: clientId || '', redirect_uri: `${effectiveBaseUrl(req)}/callback` }
+      scopes_supported: publishWithOpenId
     }));
     return true;
   }
