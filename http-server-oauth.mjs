@@ -47,8 +47,16 @@ const OIDC_JWKS_URI = process.env.TOKEN_AI_OIDC_JWKS_URI || '';
 const OIDC_REGISTRATION_ENDPOINT = process.env.TOKEN_AI_OIDC_REGISTRATION_ENDPOINT || '';
 const OIDC_SCOPES = process.env.TOKEN_AI_OIDC_SCOPES || 'openid profile email';
 const OIDC_CLIENT_ID = process.env.TOKEN_AI_OIDC_CLIENT_ID || '';
+const OIDC_CLIENT_ID_CHATGPT = process.env.TOKEN_AI_OIDC_CLIENT_ID_CHATGPT || '';
 const OIDC_IDENTITY_CLAIM = process.env.TOKEN_AI_OIDC_IDENTITY_CLAIM || 'sub';
 const OIDC_ALLOWED_USERS = (process.env.TOKEN_AI_OIDC_ALLOWED_USERS || '').split(',').filter(Boolean);
+
+const CHATGPT_HOSTNAMES = new Set(
+  (process.env.TOKEN_AI_OIDC_CHATGPT_HOSTS || 'mcp.dexter.cash')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean)
+);
 
 const USING_EXTERNAL_OIDC = Boolean(
   OIDC_AUTHORIZATION_ENDPOINT ||
@@ -116,14 +124,53 @@ function writeCors(res){
 }
 
 function effectiveBaseUrl(req){
-  // Prefer explicit PUBLIC_URL; else derive from request
-  if (PUBLIC_URL) return PUBLIC_URL.replace(/\/$/, '');
-  try {
-    const host = String(req.headers['x-forwarded-host'] || req.headers['host'] || '').trim();
-    const proto = String(req.headers['x-forwarded-proto'] || '').toLowerCase() || 'http';
-    if (host) return `${proto}://${host}/mcp`.replace(/\/$/, '');
-  } catch {}
-  return `http://localhost:${PORT}/mcp`;
+  const forwardedHost = String(req?.headers?.['x-forwarded-host'] || '').split(',')[0].trim();
+const rawHost = forwardedHost || String(req?.headers?.host || '').split(',')[0].trim();
+const protoHeader = String(req?.headers?.['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+const proto = protoHeader || (req?.connection?.encrypted ? 'https' : 'http');
+
+  const pathnameHint = (() => {
+    try {
+      const pathname = new URL(req?.url || '', 'http://local').pathname || '/';
+      if (pathname.startsWith('/mcp')) return '/mcp';
+      return '';
+    } catch {
+      return '';
+    }
+  })();
+
+  if (PUBLIC_URL) {
+    try {
+      const configured = new URL(PUBLIC_URL);
+      const configuredPath = configured.pathname.replace(/\/$/, '');
+      if (!rawHost || rawHost === configured.host) {
+        return `${configured.origin}${configuredPath}`;
+      }
+    } catch {}
+  }
+
+  if (rawHost) {
+    const path = pathnameHint || '';
+    const base = `${proto || 'http'}://${rawHost}${path}`;
+    return base.replace(/\/$/, '');
+  }
+
+  const fallbackPath = pathnameHint || '/mcp';
+  return `http://localhost:${PORT}${fallbackPath}`.replace(/\/$/, '');
+}
+
+function normalizedHost(req){
+  const forwardedHost = String(req?.headers?.['x-forwarded-host'] || '').split(',')[0].trim();
+  const rawHost = forwardedHost || String(req?.headers?.host || '').split(',')[0].trim();
+  return rawHost.toLowerCase();
+}
+
+function resolveClientId(req){
+  const host = normalizedHost(req);
+  if (host && CHATGPT_HOSTNAMES.has(host)) {
+    return OIDC_CLIENT_ID_CHATGPT || OIDC_CLIENT_ID;
+  }
+  return OIDC_CLIENT_ID;
 }
 
 function getAdvertisedOAuthEndpoints() {
@@ -152,7 +199,7 @@ function getProviderConfig(req) {
       registration_endpoint: OIDC_REGISTRATION_ENDPOINT || undefined,
       userinfo_endpoint: OIDC_USERINFO_ENDPOINT,
       jwks_uri: OIDC_JWKS_URI || undefined,
-      client_id: OIDC_CLIENT_ID,
+      client_id: resolveClientId(req),
       scopes: OIDC_SCOPES,
       identity_claim: OIDC_IDENTITY_CLAIM,
       allowed_users: OIDC_ALLOWED_USERS,
@@ -168,7 +215,7 @@ function getProviderConfig(req) {
       token_endpoint: `${base}/auth/v1/token`,
       userinfo_endpoint: `${base}/auth/v1/user`,
       jwks_uri: `${base}/auth/v1/jwks`,
-      client_id: OIDC_CLIENT_ID,
+      client_id: resolveClientId(req),
       scopes: OIDC_SCOPES,
       identity_claim: OIDC_IDENTITY_CLAIM,
       allowed_users: OIDC_ALLOWED_USERS,
@@ -238,7 +285,7 @@ function unauthorized(res, message = 'Unauthorized', req){
     const prov = getProviderConfig(req);
     if (prov) {
       const advertised = getAdvertisedOAuthEndpoints(req);
-      const client = prov.client_id || '';
+      const client = resolveClientId(req) || prov.client_id || '';
       const issuer = prov.issuer || '';
       const rawScopes = (prov.scopes || '').split(/\s+/).filter(Boolean);
       const walletScopes = rawScopes.filter((s) => s.startsWith('wallet.'));
@@ -533,6 +580,7 @@ function serveOAuthMetadata(pathname, res, req) {
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
     const advertised = getAdvertisedOAuthEndpoints(req);
     const issuer = prov?.issuer || SUPABASE_URL || effectiveBaseUrl(req);
+    const clientId = resolveClientId(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
       issuer,
@@ -546,7 +594,7 @@ function serveOAuthMetadata(pathname, res, req) {
       code_challenge_methods_supported: ['S256'],
       scopes_supported: publishScopes,
       id_token_signing_alg_values_supported: rsaPublicJwk ? ['RS256'] : (HS256_SECRET ? ['HS256'] : []),
-      mcp: { client_id: prov?.client_id || '', redirect_uri: `${effectiveBaseUrl(req)}/callback` }
+      mcp: { client_id: clientId || '', redirect_uri: `${effectiveBaseUrl(req)}/callback` }
     }));
     return true;
   }
@@ -571,6 +619,7 @@ function serveOAuthMetadata(pathname, res, req) {
     const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
     const advertised = getAdvertisedOAuthEndpoints(req);
+    const clientId = resolveClientId(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
       issuer: prov?.issuer || SUPABASE_URL || 'custom',
@@ -585,7 +634,7 @@ function serveOAuthMetadata(pathname, res, req) {
       code_challenge_methods_supported: ['S256'],
       scopes_supported: publishScopes,
       id_token_signing_alg_values_supported: rsaPublicJwk ? ['RS256'] : (HS256_SECRET ? ['HS256'] : []),
-      mcp: { client_id: prov?.client_id || '', redirect_uri: `${effectiveBaseUrl(req)}/callback` }
+      mcp: { client_id: clientId || '', redirect_uri: `${effectiveBaseUrl(req)}/callback` }
     }));
     return true;
   }
@@ -598,6 +647,7 @@ function serveOAuthMetadata(pathname, res, req) {
     const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
     const advertised = getAdvertisedOAuthEndpoints(req);
+    const clientId = resolveClientId(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
       name: process.env.MCP_SERVER_NAME || 'dexter-mcp',
@@ -608,7 +658,7 @@ function serveOAuthMetadata(pathname, res, req) {
         type: 'oauth',
         authorization_url: advertised.authorization,
         token_url: advertised.token,
-        client_id: prov.client_id || '',
+        client_id: clientId || '',
         redirect_uri: `${base}/callback`,
         scopes: publishScopes,
         pkce_required: true,
@@ -692,7 +742,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     
-    if (url.pathname !== '/mcp') { res.writeHead(404).end('Not Found'); return; }
+    const rawPath = url.pathname || '/';
+    const normalizedPath = rawPath === '/' ? '/' : rawPath.replace(/\/+$/, '');
+    const isRootEndpoint = normalizedPath === '/';
+    const isMcpEndpoint = normalizedPath === '/mcp';
+    if (!isRootEndpoint && !isMcpEndpoint) { res.writeHead(404).end('Not Found'); return; }
     
     // Authentication check (supports session reuse without repeating Authorization)
     const auth = String(req.headers['authorization'] || '');
