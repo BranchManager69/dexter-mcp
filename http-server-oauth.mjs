@@ -31,6 +31,8 @@ const CORS_ORIGIN = process.env.TOKEN_AI_MCP_CORS || '*';
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || '';
+const RAW_CONNECTOR_API_BASE = process.env.DEXTER_API_BASE_URL || process.env.API_BASE_URL || 'https://dexter.cash/api';
+const CONNECTOR_API_BASE = RAW_CONNECTOR_API_BASE.replace(/\/+$/, '');
 
 // OAuth Configuration (Generic OIDC)
 const OAUTH_ENABLED = process.env.TOKEN_AI_MCP_OAUTH === 'true';
@@ -122,6 +124,21 @@ function effectiveBaseUrl(req){
     if (host) return `${proto}://${host}/mcp`.replace(/\/$/, '');
   } catch {}
   return `http://localhost:${PORT}/mcp`;
+}
+
+function getAdvertisedOAuthEndpoints(req) {
+  const base = effectiveBaseUrl(req);
+  return {
+    authorization: `${base}/authorize`,
+    token: `${base}/token`,
+  };
+}
+
+function buildConnectorApiUrl(pathname, search) {
+  const normalized = pathname.replace(/^\/+/, '');
+  const target = new URL(normalized, `${CONNECTOR_API_BASE}/`);
+  if (search) target.search = search;
+  return target.toString();
 }
 
 function getProviderConfig(req) {
@@ -221,8 +238,9 @@ function unauthorized(res, message = 'Unauthorized', req){
     const redirect = `${base}/callback`;
     const prov = getProviderConfig(req);
     if (prov) {
-      const authz = prov.authorization_endpoint || '';
-      const token = prov.token_endpoint || '';
+      const advertised = getAdvertisedOAuthEndpoints(req);
+      const authz = advertised.authorization;
+      const token = advertised.token;
       const client = prov.client_id || '';
       const issuer = prov.issuer || '';
       const rawScopes = (prov.scopes || '').split(/\s+/).filter(Boolean);
@@ -246,6 +264,17 @@ async function readBody(req){
       if (!data) return resolve(undefined);
       try { resolve(JSON.parse(data)); } catch { resolve(undefined); }
     });
+    req.on('error', reject);
+  });
+}
+
+async function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) => {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
 }
@@ -292,6 +321,43 @@ function injectIdentityIntoBody(body, identity){
     }
   } catch {}
   return body;
+}
+
+async function proxyConnectorRequest(req, res, pathname) {
+  const url = new URL(req.url || '', `http://${req.headers.host}`);
+  const targetUrl = buildConnectorApiUrl(pathname, url.search);
+  const init = { method: req.method, headers: {} };
+  const forwardHeaders = ['content-type', 'accept', 'authorization', 'cookie'];
+  for (const header of forwardHeaders) {
+    const value = req.headers[header];
+    if (value !== undefined) {
+      init.headers[header] = value;
+    }
+  }
+
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    const bodyBuffer = await readRawBody(req);
+    if (bodyBuffer.length > 0) {
+      init.body = bodyBuffer;
+    }
+  }
+
+  try {
+    const response = await fetch(targetUrl, init);
+    const headersObj = {};
+    response.headers.forEach((value, key) => {
+      if (key.toLowerCase() === 'transfer-encoding') return;
+      headersObj[key] = value;
+    });
+    const buffer = Buffer.from(await response.arrayBuffer());
+    res.writeHead(response.status, headersObj);
+    res.end(buffer);
+  } catch (error) {
+    try {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'connector_proxy_failed', message: error?.message || String(error) }));
+    } catch {}
+  }
 }
 
 // Validate OAuth token via OIDC userinfo endpoint (preferred) or GitHub API when configured.
@@ -411,11 +477,12 @@ function serveOAuthMetadata(pathname, res, req) {
     const scopes = (prov?.scopes || '').split(/\s+/).filter(Boolean);
     const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
+    const advertised = getAdvertisedOAuthEndpoints(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
       issuer: prov?.issuer || 'custom',
-      authorization_endpoint: prov?.authorization_endpoint || '',
-      token_endpoint: prov?.token_endpoint || '',
+      authorization_endpoint: advertised.authorization,
+      token_endpoint: advertised.token,
       registration_endpoint: prov?.registration_endpoint || undefined,
       userinfo_endpoint: prov?.userinfo_endpoint || '',
       token_endpoint_auth_methods_supported: ['none','client_secret_post', 'client_secret_basic'],
@@ -448,11 +515,12 @@ function serveOAuthMetadata(pathname, res, req) {
     const scopes = (prov?.scopes || '').split(/\s+/).filter(Boolean);
     const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
+    const advertised = getAdvertisedOAuthEndpoints(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
       issuer: prov?.issuer || 'custom',
-      authorization_endpoint: prov?.authorization_endpoint || '',
-      token_endpoint: prov?.token_endpoint || '',
+      authorization_endpoint: advertised.authorization,
+      token_endpoint: advertised.token,
       registration_endpoint: prov?.registration_endpoint || undefined,
       userinfo_endpoint: prov?.userinfo_endpoint || '',
       jwks_uri: rsaPublicJwk ? `${effectiveBaseUrl(req)}/jwks.json` : undefined,
@@ -474,6 +542,7 @@ function serveOAuthMetadata(pathname, res, req) {
     const scopes = (prov?.scopes || '').split(/\s+/).filter(Boolean);
     const advertisedScopes = scopes.filter((scope) => scope.startsWith('wallet.'));
     const publishScopes = advertisedScopes.length ? advertisedScopes : scopes;
+    const advertised = getAdvertisedOAuthEndpoints(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
     res.end(JSON.stringify({
       name: process.env.MCP_SERVER_NAME || 'dexter-mcp',
@@ -482,8 +551,8 @@ function serveOAuthMetadata(pathname, res, req) {
       version: process.env.MCP_SERVER_VERSION || '0.1.0',
       authorization: prov ? {
         type: 'oauth',
-        authorization_url: prov.authorization_endpoint || '',
-        token_url: prov.token_endpoint || '',
+        authorization_url: advertised.authorization,
+        token_url: advertised.token,
         client_id: prov.client_id || '',
         redirect_uri: `${base}/callback`,
         scopes: publishScopes,
@@ -552,6 +621,14 @@ const server = http.createServer(async (req, res) => {
 
     // Serve OAuth metadata
     if (OAUTH_ENABLED && serveOAuthMetadata(url.pathname, res, req)) {
+      return;
+    }
+    if (OAUTH_ENABLED && url.pathname === '/mcp/authorize') {
+      await proxyConnectorRequest(req, res, 'connector/oauth/authorize');
+      return;
+    }
+    if (OAUTH_ENABLED && url.pathname === '/mcp/token') {
+      await proxyConnectorRequest(req, res, 'connector/oauth/token');
       return;
     }
     // Handle OAuth callback (support both /callback and /mcp/callback)
