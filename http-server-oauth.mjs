@@ -684,7 +684,8 @@ function serveOAuthMetadata(pathname, res, req) {
       issuer,
       authorization_endpoint: advertised.authorization,
       token_endpoint: advertised.token,
-      registration_endpoint: prov?.registration_endpoint || undefined,
+      // Always advertise our DCR endpoint for ChatGPT resolver
+      registration_endpoint: `${issuer}/register`,
       userinfo_endpoint: prov?.userinfo_endpoint || (SUPABASE_URL ? `${SUPABASE_URL.replace(/\/$/,'')}/auth/v1/user` : ''),
       token_endpoint_auth_methods_supported: ['none','client_secret_post', 'client_secret_basic'],
       response_types_supported: ['code'],
@@ -834,7 +835,7 @@ const server = http.createServer(async (req, res) => {
     if (OAUTH_ENABLED && serveOAuthMetadata(url.pathname, res, req)) {
       return;
     }
-    if (OAUTH_ENABLED && (url.pathname === '/register' || url.pathname === '/mcp/register')) {
+    if (OAUTH_ENABLED && (url.pathname === '/register' || url.pathname === '/mcp/register' || url.pathname === '/mcp/dcr/register' || url.pathname === '/dcr/register')) {
       if (req.method !== 'POST') { res.writeHead(405).end('Method not allowed'); return; }
       await forwardRegister(req, res);
       return;
