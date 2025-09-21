@@ -312,7 +312,7 @@ server {
 
     # OAuth/OIDC discovery for ChatGPT MCP (override hidden-file block)
     location = /.well-known/oauth-authorization-server/mcp {
-        proxy_pass http://127.0.0.1:3930/mcp/.well-known/oauth-authorization-server;
+        proxy_pass http://127.0.0.1:3930/.well-known/oauth-authorization-server/mcp;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
