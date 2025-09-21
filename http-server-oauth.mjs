@@ -278,6 +278,30 @@ async function validateSupabaseToken(token) {
 
 function unauthorized(res, message = 'Unauthorized', req){
   writeCors(res);
+  // Optional detailed audit on 401 to see what headers were present (no secrets)
+  try {
+    const auditOn = ['1','true','yes','on'].includes(String(process.env.MCP_AUTH_AUDIT||'1').toLowerCase());
+    if (auditOn && req && req.headers) {
+      const auth = String(req.headers['authorization'] || '');
+      const xauth = String(req.headers['x-authorization'] || '');
+      const xuser = String(req.headers['x-user-token'] || '');
+      const bearerLen = auth.startsWith('Bearer ')? auth.slice(7).trim().length : 0;
+      const xauthLen = xauth.replace(/^Bearer\s+/i,'').trim().length;
+      const xuserLen = xuser.replace(/^Bearer\s+/i,'').trim().length;
+      const sid = String(req.headers['mcp-session-id']||'');
+      const ua = String(req.headers['user-agent']||'');
+      const path = (()=>{ try { return new URL(req.url||'', 'http://local').pathname || ''; } catch { return ''; }})();
+      const host = String(req.headers['x-forwarded-host']||req.headers['host']||'');
+      const proto = String(req.headers['x-forwarded-proto']||'');
+      console.log('[mcp-auth-audit]', JSON.stringify({
+        ts: new Date().toISOString(), path, method: req.method,
+        host, proto, sid_present: !!sid, ua,
+        has_auth: !!auth, has_x_authorization: !!xauth, has_x_user_token: !!xuser,
+        auth_len: bearerLen, x_authorization_len: xauthLen, x_user_token_len: xuserLen,
+        message
+      }));
+    }
+  } catch {}
   try {
     const base = effectiveBaseUrl(req);
     const fwdHost = String(req?.headers?.['x-forwarded-host'] || '').split(',')[0].trim();
@@ -798,6 +822,18 @@ const server = http.createServer(async (req, res) => {
     
     // Authentication check (supports session reuse without repeating Authorization)
     const auth = String(req.headers['authorization'] || '');
+    // Some clients cannot set Authorization; accept alternate headers
+    const xAuth = String(req.headers['x-authorization'] || '');
+    const xUserToken = String(req.headers['x-user-token'] || '');
+    const incomingToken = (() => {
+      const fromAuth = auth.startsWith('Bearer ') ? auth.substring(7).trim() : '';
+      if (fromAuth) return fromAuth;
+      const rawXAuth = xAuth.replace(/^Bearer\s+/i, '').trim();
+      if (rawXAuth) return rawXAuth;
+      const rawXUser = xUserToken.replace(/^Bearer\s+/i, '').trim();
+      if (rawXUser) return rawXUser;
+      return '';
+    })();
     const sidIn = req.headers['mcp-session-id'];
     const hasSession = sidIn && transports.has(sidIn);
     if (OAUTH_ENABLED) {
@@ -805,8 +841,8 @@ const server = http.createServer(async (req, res) => {
         // New session: require bearer. Accept either:
         // 1) Server bearer (TOKEN_AI_MCP_TOKEN) for non-OAuth clients
         // 2) OAuth bearer validated via external OIDC provider
-        if (!auth.startsWith('Bearer ')) return unauthorized(res, 'OAuth token required', req);
-        const token = auth.substring(7).trim();
+        if (!incomingToken) return unauthorized(res, 'OAuth token required', req);
+        const token = incomingToken;
         if (!token || token === 'undefined') {
           try { console.log('[oauth] empty bearer for new session', { sid: sidIn || '∅' }); } catch {}
           return unauthorized(res, 'Invalid token or user not authorized', req);
@@ -839,8 +875,8 @@ const server = http.createServer(async (req, res) => {
           } catch {}
         }
         // If Authorization present, refresh identity cache
-        if (auth.startsWith('Bearer ')) {
-          const token = auth.substring(7).trim();
+        if (incomingToken) {
+          const token = incomingToken;
           if (!token || token === 'undefined') {
             try { console.log('[oauth] empty bearer on existing session', { sid: sidIn || '∅' }); } catch {}
           } else {
