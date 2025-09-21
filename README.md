@@ -99,11 +99,13 @@ Tool bundles live under `toolsets/<name>/index.mjs` and register themselves thro
 
 Currently shipped:
 
+- **general** – Static `search` / `fetch` helpers that surface curated Dexter OAuth + connector docs.
+- **pumpstream** – `pumpstream_live_summary` wrapper for `https://pump.dexter.cash/api/live` with optional filters.
 - **wallet** – Supabase-backed wallet resolution, diagnostics, and per-session overrides (used by all Dexter connectors).
 
 Selection options:
 
-- **Environment default:** `TOKEN_AI_MCP_TOOLSETS=wallet,trading` (comma-separated; default loads everything registered).
+- **Environment default:** leave `TOKEN_AI_MCP_TOOLSETS` unset to load every registered bundle (`general,pumpstream,wallet`). Set it (comma-separated) to restrict the selection, e.g. `TOKEN_AI_MCP_TOOLSETS=wallet`.
 - **CLI/stdio:** `node server.mjs --tools=wallet`.
 - **HTTP query:** `POST /mcp?tools=wallet`.
 - **Codex:** set `TOKEN_AI_MCP_TOOLSETS` in the env before launching, or add `includeToolsets` when invoking `buildMcpServer` manually.
@@ -164,10 +166,10 @@ pm2 logs dexter-mcp
 - **`toolsets/`** – declarative manifest of tool bundles plus the wallet toolset implementation.
 - **Toolset authoring guide:** see `toolsets/ADDING_TOOLSETS.md` for step-by-step instructions and examples (including the `pumpstream` toolset).
 - **`server.mjs`** – stdio entrypoint (used by local agents and Codex); respects `--tools=` flags.
-- **`http-server-oauth.mjs`** – HTTPS transport with OAuth/OIDC, session caching, and metadata routes.
+- **`http-server-oauth.mjs`** – HTTPS transport with OAuth/OIDC, session caching, and metadata routes (still contains a Prisma-backed fallback to seed per-session wallet overrides).
 - **`legacy-tools/`** – archived Token-AI tools kept for reference during migration.
 
-The service no longer talks to Prisma directly; all Supabase interactions go through Dexter API helpers so we can enforce the same authorization rules regardless of transport.
+Supabase interactions flow through Dexter API helpers for consistent auth enforcement. The only remaining Prisma access is the wallet-override seeding noted above; retire it when the resolver exposes a "default wallet" flag.
 
 ---
 
