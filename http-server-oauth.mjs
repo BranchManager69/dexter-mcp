@@ -514,6 +514,38 @@ async function forwardToken(req, res) {
   res.end(buffer);
 }
 
+async function forwardRegister(req, res) {
+  const url = new URL(req.url || '', `http://${req.headers.host}`);
+  const targetUrl = buildConnectorApiUrl('mcp/dcr/register', url.search);
+  let body;
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    body = await readRawBody(req);
+  }
+  let apiResponse;
+  try {
+    apiResponse = await fetch(targetUrl, {
+      method: req.method,
+      headers: {
+        'accept': 'application/json',
+        'content-type': req.headers['content-type'] || 'application/json',
+      },
+      body,
+    });
+  } catch (error) {
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'dcr_register_unreachable', message: error?.message || String(error) }));
+    return;
+  }
+  const headersObj = {};
+  apiResponse.headers.forEach((value, key) => {
+    if (key.toLowerCase() === 'transfer-encoding') return;
+    headersObj[key] = value;
+  });
+  const buffer = Buffer.from(await apiResponse.arrayBuffer());
+  res.writeHead(apiResponse.status, headersObj);
+  res.end(buffer);
+}
+
 // Validate OAuth token via OIDC userinfo endpoint (preferred) or GitHub API when configured.
 async function validateTokenAndClaims(token) {
   const cached = tokenCache.get(token);
@@ -695,10 +727,12 @@ function serveOAuthMetadata(pathname, res, req) {
     const publishWithOpenId = includeOpenId(publishScopes);
     const advertised = getAdvertisedOAuthEndpoints(req);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control':'no-store' });
+    const base = effectiveBaseUrl(req);
     res.end(JSON.stringify({
-      issuer: effectiveBaseUrl(req),
+      issuer: base,
       authorization_endpoint: advertised.authorization,
       token_endpoint: advertised.token,
+      registration_endpoint: `${base}/register`,
       token_endpoint_auth_methods_supported: ['none','client_secret_post', 'client_secret_basic'],
       response_types_supported: ['code'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
@@ -798,6 +832,11 @@ const server = http.createServer(async (req, res) => {
 
     // Serve OAuth metadata
     if (OAUTH_ENABLED && serveOAuthMetadata(url.pathname, res, req)) {
+      return;
+    }
+    if (OAUTH_ENABLED && (url.pathname === '/register' || url.pathname === '/mcp/register')) {
+      if (req.method !== 'POST') { res.writeHead(405).end('Method not allowed'); return; }
+      await forwardRegister(req, res);
       return;
     }
     if (OAUTH_ENABLED && (url.pathname === '/authorize' || url.pathname === '/mcp/authorize')) {
