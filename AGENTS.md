@@ -8,12 +8,12 @@
 All toolsets register through `toolsets/index.mjs`. If `TOKEN_AI_MCP_TOOLSETS` is unset, every registered group loads; set the variable (comma-separated keys or `all`) to control selection.
 
 ## Harness Operations
-- **Location** – `../dexter-fe/examples/openai-realtime-agents/scripts/runHarness.js` with CLI entry `scripts/dexchat.js` (npm script `dexchat`).
+- **Location** – `../dexter-agents/scripts/runHarness.js` with CLI entry `scripts/dexchat.js` (npm script `dexchat`).
 - **Standard run** –
   ```bash
   npm run dexchat -- --prompt "<prompt>" --wait 15000
   ```
-- **Artifacts** – Saved under `examples/openai-realtime-agents/harness-results/` unless `--no-artifact` is provided. Each JSON artifact records prompt, console logs, rendered transcript bubbles, and the structured event payloads from the app.
+- **Artifacts** – Saved under `dexter-agents/harness-results/` unless `--no-artifact` is provided. Each JSON artifact records prompt, console logs, rendered transcript bubbles, and the structured event payloads from the app.
 - **Monitoring** – Review console output for schema warnings (e.g., Zod `.optional()` without `.nullable()`) and treat them as regressions to be cleared before release.
 
 ## Operating Notes
