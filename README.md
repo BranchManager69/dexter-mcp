@@ -100,7 +100,7 @@ Tool bundles live under `toolsets/<name>/index.mjs` and register themselves thro
 Currently shipped:
 
 - **general** – Static `search` / `fetch` helpers that surface curated Dexter OAuth + connector docs.
-- **pumpstream** – `pumpstream_live_summary` wrapper for `https://pump.dexter.cash/api/live` with optional filters.
+- **pumpstream** – `pumpstream_live_summary` wrapper for `https://pump.dexter.cash/api/live` with paging, search, and filter controls.
 - **wallet** – Supabase-backed wallet resolution, diagnostics, and per-session overrides (used by all Dexter connectors).
 
 Selection options:
@@ -150,6 +150,28 @@ node server.mjs --tools=wallet
 # url = "https://mcp.dexter.cash/mcp"
 # headers = { Authorization = "Bearer <TOKEN_AI_MCP_TOKEN>" }
 ```
+
+### Harness smoke (UI + API)
+
+The helper script can exercise the new pagination either through the Playwright UI flow or directly via the MCP API:
+
+```bash
+# UI + API (default)
+export HARNESS_COOKIE='cf_clearance=...; sb-xyz-auth-token=...; sb-xyz-refresh-token=...'
+npm run test:pumpstream -- --prompt "Give me a pumpstream summary with page size 5 and show the next page."
+
+# UI only
+npm run test:pumpstream -- --mode ui --headful --prompt "List pump streams"
+
+# API only (no browser)
+export HARNESS_MCP_TOKEN='Bearer <mcp bearer>'   # if session response redacts the header
+export HARNESS_SESSION_URL='https://api.dexter.cash/realtime/sessions'  # optional override
+npm run test:pumpstream -- --mode api --page-size 10 --json --no-artifact
+```
+
+The harness auto-loads `.env`, so you can keep `HARNESS_COOKIE`, `HARNESS_AUTHORIZATION`, `HARNESS_MCP_TOKEN`, and other overrides there instead of exporting them per run (see `.env.example`). When running `--mode both`, the script will still execute API mode even if UI credentials are missing or the Playwright run fails—it logs the UI error and continues.
+
+Flags (`--prompt`, `--url`, `--wait`, `--headful`, `--no-artifact`, `--json`, `--mode`, `--page-size`) are forwarded to the underlying runners. UI mode requires a fresh Supabase session (`HARNESS_COOKIE` or `HARNESS_AUTHORIZATION`). API mode falls back to guest sessions but can reuse the same cookies/headers to hop past Cloudflare; if the session payload redacts the MCP header, provide `HARNESS_MCP_TOKEN` (or reuse `TOKEN_AI_MCP_TOKEN`).
 
 For production, PM2 is managed through `dexter-ops/ops/ecosystem.config.cjs`. The config already forwards `TOKEN_AI_MCP_OAUTH=true` and supporting variables; restart via:
 

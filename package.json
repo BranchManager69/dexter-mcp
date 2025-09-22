@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Dexter MCP HTTP server with Supabase OAuth",
   "scripts": {
-    "start": "node http-server-oauth.mjs"
+    "start": "node http-server-oauth.mjs",
+    "test:pumpstream": "node scripts/run-pumpstream-harness.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.4",

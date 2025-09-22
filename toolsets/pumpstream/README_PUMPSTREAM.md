@@ -14,7 +14,10 @@ This folder contains the MCP toolset that calls `https://pump.dexter.cash/api/li
 |---------|-------------|
 | Name    | `pumpstream_live_summary` |
 | Purpose | Fetch a real-time summary from the Pumpstream API |
-| Input   | Supports `limit` (1–50), `sort` (`marketCap` or `viewers`), `status` filters, minimum viewer / USD market-cap thresholds, and `includeSpotlight` to append the highlight list |
-| Output  | JSON (as text) with generator metadata, aggregate totals, filtered streams, and optional spotlight entries |
+| Input   | `pageSize`/`limit` (1–100), `offset` or `page` for pagination, `sort` (`marketCap` or `viewers`), `status`, `minMarketCapUsd`, `minViewers`, free-text `search`, `symbols`/`mintIds` filters, and `includeSpotlight` |
+| Output  | JSON (as text) with generator metadata, aggregate totals, paging metadata (`pageSize`, `offset`, `currentPage`, `totalPages`, `hasMore`), filtered streams, and optional spotlight entries |
 
-**Note:** The tool normalizes both SOL and USD market caps from the Pumpstream payload so callers can pick their preferred denomination.
+**Notes**
+- Both SOL and USD market caps are included for each stream.
+- `pageSize` defaults to 25 when omitted; `page` overrides `offset` for 1-based navigation.
+- `symbols`/`mintIds` accept either a comma-separated string or an array of strings.
