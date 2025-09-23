@@ -25,3 +25,6 @@ state/
 # Harness results
 harness-results/
 dexter-agents/harness-results/
+
+# Local extensions / subrepos
+capsolver-browser-extension/
