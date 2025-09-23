@@ -106,14 +106,24 @@ function resolvePageSize(cliSize) {
 }
 
 async function runUiHarness({ prompt, targetUrl, waitMs, headless, saveArtifact, outputDir }) {
-  const { artifact, artifactPath } = await runHarness({
+  const options = {
     prompt,
     targetUrl,
     waitMs,
     headless,
     saveArtifact,
     outputDir,
-  });
+  };
+
+  const storageStatePath = typeof process.env.HARNESS_STORAGE_STATE === 'string'
+    ? process.env.HARNESS_STORAGE_STATE.trim()
+    : '';
+  if (storageStatePath) {
+    options.storageState = storageStatePath;
+    process.stdout.write(`Using HARNESS_STORAGE_STATE: ${storageStatePath}\n`);
+  }
+
+  const { artifact, artifactPath } = await runHarness(options);
   if (artifactPath) {
     process.stdout.write(`Saved artifact: ${artifactPath}\n`);
   } else if (saveArtifact) {

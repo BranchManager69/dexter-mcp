@@ -17,3 +17,11 @@ yarn-error.log*
 # Misc
 .commentary
 .DS_Store
+
+# State files
+state.json
+state/
+
+# Harness results
+harness-results/
+dexter-agents/harness-results/
