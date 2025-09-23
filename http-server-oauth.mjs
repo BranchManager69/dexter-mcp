@@ -1137,6 +1137,12 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
+  // Log per-user JWT support status first so operators see it immediately
+  if (!MCP_JWT_SECRET) {
+    console.warn('[auth] MCP_JWT_SECRET not set — per-user Dexter MCP JWTs will be rejected (static TOKEN_AI_MCP_TOKEN and external OAuth still supported).');
+  } else {
+    console.log('[auth] MCP_JWT_SECRET configured — accepting Dexter MCP JWTs (HS256)');
+  }
   console.log(`MCP HTTP listening on http://localhost:${PORT}/mcp`);
   if (OAUTH_ENABLED) {
     const prov = getProviderConfig({ headers: {} });
