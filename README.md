@@ -151,16 +151,16 @@ node server.mjs --tools=wallet
 # headers = { Authorization = "Bearer <TOKEN_AI_MCP_TOKEN>" }
 ```
 
-### Harness smoke (UI + API)
+### Harness smoke (API default)
 
 The helper script can exercise the new pagination either through the Playwright UI flow or directly via the MCP API:
 
 ```bash
-# UI + API (default)
-export HARNESS_COOKIE='cf_clearance=...; sb-xyz-auth-token=...; sb-xyz-refresh-token=...'
-npm run test:pumpstream -- --prompt "Give me a pumpstream summary with page size 5 and show the next page."
+# API only (default)
+npm run test:pumpstream -- --page-size 5 --json --no-artifact
 
-# UI only
+# UI only (optional)
+export HARNESS_COOKIE='cf_clearance=...; sb-xyz-auth-token=...; sb-xyz-refresh-token=...'
 npm run test:pumpstream -- --mode ui --headful --prompt "List pump streams"
 
 # API only (no browser)
@@ -169,7 +169,7 @@ export HARNESS_SESSION_URL='https://api.dexter.cash/realtime/sessions'  # option
 npm run test:pumpstream -- --mode api --page-size 10 --json --no-artifact
 ```
 
-The harness auto-loads `.env`, so you can keep `HARNESS_COOKIE`, `HARNESS_AUTHORIZATION`, `HARNESS_MCP_TOKEN`, and other overrides there instead of exporting them per run (see `.env.example`). When running `--mode both`, the script will still execute API mode even if UI credentials are missing or the Playwright run fails—it logs the UI error and continues.
+The harness auto-loads `.env`, so you can keep `HARNESS_COOKIE`, `HARNESS_AUTHORIZATION`, `HARNESS_MCP_TOKEN`, and other overrides there instead of exporting them per run (see `.env.example`). Default mode is API-only; when you explicitly run `--mode both`, the script still executes API mode even if UI credentials are missing or the Playwright run fails—it logs the UI error and continues.
 
 Flags (`--prompt`, `--url`, `--wait`, `--headful`, `--no-artifact`, `--json`, `--mode`, `--page-size`) are forwarded to the underlying runners. UI mode requires a fresh Supabase session (`HARNESS_COOKIE` or `HARNESS_AUTHORIZATION`). API mode falls back to guest sessions but can reuse the same cookies/headers to hop past Cloudflare; if the session payload redacts the MCP header, provide `HARNESS_MCP_TOKEN` (or reuse `TOKEN_AI_MCP_TOKEN`).
 

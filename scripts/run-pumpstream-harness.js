@@ -39,7 +39,7 @@ function parseArgs(argv) {
     headful: false,
     artifact: true,
     json: false,
-    mode: 'both',
+    mode: 'api',
     pageSize: null,
   };
   for (let i = 0; i < argv.length; i += 1) {
