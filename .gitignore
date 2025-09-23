@@ -28,3 +28,6 @@ dexter-agents/harness-results/
 
 # Local extensions / subrepos
 capsolver-browser-extension/
+
+# Never commit a literal tilde directory (safety)
+/~

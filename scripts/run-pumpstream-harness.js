@@ -18,6 +18,19 @@ const { runHarness } = require('../../dexter-agents/scripts/runHarness.js');
 // Auto-load repo .env so HARNESS_* values can be defined once.
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
+function resolveOutputDir(raw) {
+  const defaultDir = path.resolve(process.cwd(), 'harness-results');
+  if (!raw || typeof raw !== 'string') return defaultDir;
+  const trimmed = raw.trim();
+  // Never allow a literal tilde path; it can lead to dangerous shell deletions.
+  if (trimmed === '~' || trimmed === '~/' || trimmed.startsWith('~/') || trimmed === '~\\' || trimmed.startsWith('~\\')) {
+    process.stderr.write('HARNESS_OUTPUT_DIR starting with "~" is unsafe; using default harness-results/ instead.\n');
+    return defaultDir;
+  }
+  // Resolve relative/absolute safely
+  return path.resolve(trimmed);
+}
+
 function parseArgs(argv) {
   const args = {
     prompt: null,
@@ -332,9 +345,7 @@ async function main() {
   const headless = args.headful ? false : headlessEnv === 'false' ? false : true;
   const saveArtifact = args.artifact ? (saveArtifactEnv === 'false' ? false : true) : false;
 
-  const outputDir = process.env.HARNESS_OUTPUT_DIR
-    ? path.resolve(process.env.HARNESS_OUTPUT_DIR)
-    : path.resolve(process.cwd(), 'harness-results');
+  const outputDir = resolveOutputDir(process.env.HARNESS_OUTPUT_DIR);
 
   const hasCookie = typeof process.env.HARNESS_COOKIE === 'string' && process.env.HARNESS_COOKIE.trim().length > 0;
   const hasBearer = typeof process.env.HARNESS_AUTHORIZATION === 'string' && process.env.HARNESS_AUTHORIZATION.trim().length > 0;
