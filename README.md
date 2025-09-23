@@ -123,6 +123,7 @@ Populate `.env` (or inject via process manager) with at least:
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET` | Supabase project credentials used by the wallet resolver. |
 | `DEXTER_API_BASE_URL` | Dexter API base URL (e.g. `https://api.dexter.cash`). Wallet resolver requests are routed through this API. |
 | `TOKEN_AI_MCP_PUBLIC_URL`, `TOKEN_AI_MCP_PORT` | Public HTTPS URL + bind port for the HTTP transport. |
+| `MCP_JWT_SECRET` | HS256 secret used to validate per-user Dexter MCP JWTs from dexter-api. When set, Authorization: Bearer <dexter_mcp_jwt> is accepted. |
 | `TOKEN_AI_OIDC_*` | External IdP endpoints when `TOKEN_AI_MCP_OAUTH=true` (authorization, token, userinfo, issuer, JWKS, scopes, client ID). |
 | `TOKEN_AI_MCP_TOKEN` | Optional static bearer for service-to-service access. |
 | `TOKEN_AI_MCP_TOOLSETS` | Comma-separated list of toolsets to auto-load. Defaults to all registered sets. |

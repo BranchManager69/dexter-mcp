@@ -3,7 +3,7 @@
 
 import http from 'node:http';
 import https from 'node:https';
-import { randomUUID, createPrivateKey, createPublicKey } from 'node:crypto';
+import { randomUUID, createPrivateKey, createPublicKey, createHmac } from 'node:crypto';
 import { buildMcpServer } from './common.mjs';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import dotenv from 'dotenv';
@@ -31,6 +31,8 @@ const CORS_ORIGIN = process.env.TOKEN_AI_MCP_CORS || '*';
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || '';
+// Accept per-user Dexter MCP JWTs (HS256) issued by dexter-api when configured there.
+const MCP_JWT_SECRET = process.env.MCP_JWT_SECRET || '';
 const RAW_CONNECTOR_API_BASE = process.env.DEXTER_API_BASE_URL || process.env.API_BASE_URL || 'https://dexter.cash/api';
 const CONNECTOR_API_BASE = RAW_CONNECTOR_API_BASE.replace(/\/+$/, '');
 
@@ -548,6 +550,22 @@ async function forwardRegister(req, res) {
 
 // Validate OAuth token via OIDC userinfo endpoint (preferred) or GitHub API when configured.
 async function validateTokenAndClaims(token) {
+  // 0) Accept Dexter-signed MCP JWT (HS256) when MCP_JWT_SECRET is configured
+  //    This is a short-lived per-user bearer minted by dexter-api.
+  if (MCP_JWT_SECRET && typeof token === 'string' && token.split('.').length === 3) {
+    try {
+      const verified = verifyHs256Jwt(token, MCP_JWT_SECRET);
+      if (verified && verified.payload) {
+        const claims = verified.payload;
+        const user = String(claims.sub || claims.supabase_user_id || '');
+        if (user) {
+          const entry = { user, claims, expires: (claims.exp ? claims.exp * 1000 : Date.now() + 5 * 60 * 1000) };
+          tokenCache.set(token, entry);
+          return entry;
+        }
+      }
+    } catch {}
+  }
   const cached = tokenCache.get(token);
   if (cached && cached.expires > Date.now()) {
     return cached;
@@ -633,6 +651,47 @@ async function validateTokenAndClaims(token) {
   }
 
   return null;
+}
+
+// Minimal HS256 JWT verifier (no external deps). Returns { header, payload } if valid and not expired.
+function verifyHs256Jwt(token, secret) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const [headerB64, payloadB64, sigB64] = parts;
+    const data = `${headerB64}.${payloadB64}`;
+    const expected = base64UrlEncode(createHmac('sha256', secret).update(data).digest());
+    if (!timingSafeEqualB64(expected, sigB64)) return null;
+    const header = JSON.parse(base64UrlDecode(headerB64));
+    const payload = JSON.parse(base64UrlDecode(payloadB64));
+    // exp check (seconds since epoch)
+    if (payload && typeof payload.exp === 'number') {
+      const nowSec = Math.floor(Date.now() / 1000);
+      if (nowSec >= payload.exp) return null;
+    }
+    return { header, payload };
+  } catch {
+    return null;
+  }
+}
+
+function base64UrlDecode(b64url) {
+  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(b64url.length / 4) * 4, '=');
+  return Buffer.from(b64, 'base64').toString('utf8');
+}
+
+function base64UrlEncode(buf) {
+  return Buffer.from(buf).toString('base64').replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_');
+}
+
+function timingSafeEqualB64(a, b) {
+  // Compare two base64url strings in constant-time-ish manner
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return out === 0;
 }
 
 // OAuth metadata endpoints (served at both root and /mcp/.well-known for compatibility)
