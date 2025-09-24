@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const sessionWalletOverrides = new Map(); // sessionKey -> wallet_id
+export const sessionWalletOverrides = new Map(); // sessionKey -> wallet_address
 
 const RESOLVER_CACHE = new Map(); // cacheKey -> { data, fetchedAt }
 const RESOLVER_CACHE_MS = Number(process.env.MCP_WALLET_RESOLVER_CACHE_MS || 5000);
@@ -100,36 +100,36 @@ export async function resolveWalletForRequest(extra) {
   const headers = headersFromExtra(extra);
   const sessionId = String(headers['mcp-session-id'] || headers['Mcp-Session-Id'] || 'stdio');
   if (sessionWalletOverrides.has(sessionId)) {
-    const walletId = sessionWalletOverrides.get(sessionId);
-    return { wallet_id: walletId || null, source: 'session', userId: null, wallets: null };
+    const walletAddress = sessionWalletOverrides.get(sessionId);
+    return { wallet_address: walletAddress || null, source: 'session', userId: null, wallets: null };
   }
 
   const context = await fetchWalletContext(extra);
   if (context && context.wallets?.length) {
     const defaultWallet = pickDefaultWallet(context);
     return {
-      wallet_id: defaultWallet ? defaultWallet.walletId || defaultWallet.id || null : null,
+      wallet_address: defaultWallet ? defaultWallet.publicKey || defaultWallet.public_key || defaultWallet.publicAddress || null : null,
       source: 'resolver',
       userId: context.user?.id || null,
       wallets: context.wallets,
     };
   }
 
-  const envDefault = String(process.env.TOKEN_AI_DEFAULT_WALLET_ID || '').trim();
+  const envDefault = String(process.env.TOKEN_AI_DEFAULT_WALLET_ID || process.env.TOKEN_AI_DEFAULT_WALLET_ADDRESS || '').trim();
   if (envDefault) {
-    return { wallet_id: envDefault, source: 'env', userId: context?.user?.id || null, wallets: context?.wallets || [] };
+    return { wallet_address: envDefault, source: 'env', userId: context?.user?.id || null, wallets: context?.wallets || [] };
   }
 
-  return { wallet_id: null, source: 'none', userId: context?.user?.id || null, wallets: context?.wallets || [] };
+  return { wallet_address: null, source: 'none', userId: context?.user?.id || null, wallets: context?.wallets || [] };
 }
 
-export async function userOwnsWallet(walletId, extra) {
+export async function userOwnsWallet(walletAddress, extra) {
   try {
     const context = await fetchWalletContext(extra);
     if (!context?.wallets?.length) return false;
     return context.wallets.some((wallet) => {
-      const id = wallet.walletId || wallet.id;
-      return id && String(id) === String(walletId);
+      const address = wallet.publicKey || wallet.public_key || wallet.publicAddress || null;
+      return address && String(address) === String(walletAddress);
     });
   } catch {
     return false;
@@ -139,12 +139,12 @@ export async function userOwnsWallet(walletId, extra) {
 function sanitizeWalletList(wallets) {
   if (!Array.isArray(wallets)) return [];
   return wallets.map((wallet) => ({
-    id: wallet.walletId || wallet.id || null,
-    public_key: wallet.publicAddress || wallet.public_key || null,
+    address: wallet.publicKey || wallet.public_key || wallet.publicAddress || null,
+    public_key: wallet.publicKey || wallet.public_key || wallet.publicAddress || null,
     label: wallet.label || wallet.wallet_name || null,
     is_default: Boolean(wallet.isDefault ?? wallet.is_default ?? false),
     status: wallet.status || null,
-  })).filter((wallet) => wallet.id && wallet.public_key);
+  })).filter((wallet) => wallet.address && wallet.public_key);
 }
 
 export function registerWalletToolset(server) {
@@ -157,15 +157,19 @@ export function registerWalletToolset(server) {
       tags: ['resolver', 'identity']
     },
     outputSchema: {
-      wallet_id: z.string().nullable(),
+      wallet_address: z.string().nullable(),
       source: z.string(),
       user_id: z.string().nullable().optional()
     }
   }, async (_args, extra) => {
     const resolved = await resolveWalletForRequest(extra);
     return {
-      structuredContent: { wallet_id: resolved.wallet_id, source: resolved.source, user_id: resolved.userId || null },
-      content: [{ type: 'text', text: resolved.wallet_id || 'none' }],
+      structuredContent: {
+        wallet_address: resolved.wallet_address,
+        source: resolved.source,
+        user_id: resolved.userId || null,
+      },
+      content: [{ type: 'text', text: resolved.wallet_address || 'none' }],
     };
   });
 
@@ -180,7 +184,7 @@ export function registerWalletToolset(server) {
     outputSchema: {
       user: z.object({ id: z.string().optional().nullable() }).nullable(),
       wallets: z.array(z.object({
-        id: z.string(),
+        address: z.string(),
         public_key: z.string(),
         label: z.string().nullable(),
         is_default: z.boolean(),
@@ -208,30 +212,30 @@ export function registerWalletToolset(server) {
       tags: ['session', 'override']
     },
     inputSchema: {
-      wallet_id: z.string().optional(),
+      wallet_address: z.string().optional(),
       clear: z.boolean().optional(),
     },
     outputSchema: {
       ok: z.boolean(),
-      wallet_id: z.string().nullable(),
+      wallet_address: z.string().nullable(),
       cleared: z.boolean().optional(),
     }
-  }, async ({ wallet_id, clear }, extra) => {
+  }, async ({ wallet_address, clear }, extra) => {
     const headers = headersFromExtra(extra);
     const sessionId = String(headers['mcp-session-id'] || headers['Mcp-Session-Id'] || 'stdio');
     if (clear) {
       sessionWalletOverrides.delete(sessionId);
-      return { structuredContent: { ok: true, wallet_id: null, cleared: true }, content: [{ type: 'text', text: 'cleared' }] };
+      return { structuredContent: { ok: true, wallet_address: null, cleared: true }, content: [{ type: 'text', text: 'cleared' }] };
     }
-    if (!wallet_id) {
-      return { content: [{ type: 'text', text: 'wallet_id_required' }], isError: true };
+    if (!wallet_address) {
+      return { content: [{ type: 'text', text: 'wallet_address_required' }], isError: true };
     }
-    const owns = await userOwnsWallet(String(wallet_id), extra);
+    const owns = await userOwnsWallet(String(wallet_address), extra);
     if (!owns) {
       return { content: [{ type: 'text', text: 'forbidden_wallet' }], isError: true };
     }
-    sessionWalletOverrides.set(sessionId, String(wallet_id));
-    return { structuredContent: { ok: true, wallet_id: String(wallet_id) }, content: [{ type: 'text', text: String(wallet_id) }] };
+    sessionWalletOverrides.set(sessionId, String(wallet_address));
+    return { structuredContent: { ok: true, wallet_address: String(wallet_address) }, content: [{ type: 'text', text: String(wallet_address) }] };
   });
 
   server.registerTool('auth_info', {
@@ -243,7 +247,7 @@ export function registerWalletToolset(server) {
       tags: ['diagnostics']
     },
     outputSchema: {
-      wallet_id: z.string().nullable(),
+      wallet_address: z.string().nullable(),
       source: z.string(),
       user_id: z.string().nullable().optional(),
       bearer_source: z.string().nullable().optional(),
@@ -259,7 +263,7 @@ export function registerWalletToolset(server) {
     const context = token ? await fetchWalletContext(extra) : null;
     return {
       structuredContent: {
-        wallet_id: resolved.wallet_id,
+        wallet_address: resolved.wallet_address,
         source: resolved.source,
         user_id: resolved.userId || null,
         bearer_source: source,
@@ -267,7 +271,7 @@ export function registerWalletToolset(server) {
         override_session: sessionWalletOverrides.has(sessionId) ? sessionId : null,
         wallets_cached: context?.wallets?.length || 0,
       },
-      content: [{ type: 'text', text: JSON.stringify({ wallet_id: resolved.wallet_id, source: resolved.source, token: source || 'none' }) }],
+      content: [{ type: 'text', text: JSON.stringify({ wallet_address: resolved.wallet_address, source: resolved.source, token: source || 'none' }) }],
     };
   });
 }

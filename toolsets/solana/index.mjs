@@ -72,12 +72,15 @@ export function registerSolanaToolset(server) {
       tags: ['balances', 'spl']
     },
     inputSchema: {
-      wallet_id: z.string(),
+      wallet_address: z.string(),
       min_ui: z.number().optional(),
       limit: z.number().int().optional(),
     },
-  }, async ({ wallet_id, min_ui, limit }, extra) => {
-    const params = new URLSearchParams({ walletId: wallet_id });
+  }, async ({ wallet_address, min_ui, limit }, extra) => {
+    if (!wallet_address) {
+      return { content: [{ type: 'text', text: 'wallet_address_required' }], isError: true };
+    }
+    const params = new URLSearchParams({ walletAddress: wallet_address });
     if (min_ui != null) params.set('minUi', String(min_ui));
     if (limit != null) params.set('limit', String(limit));
     const result = await apiFetch(`/api/solana/balances?${params.toString()}`, { method: 'GET' }, extra);
@@ -93,13 +96,13 @@ export function registerSolanaToolset(server) {
       tags: ['sell', 'preview']
     },
     inputSchema: {
-      wallet_id: z.string().optional(),
+      wallet_address: z.string().optional(),
       mint: z.string(),
       slippage_bps: z.number().int().optional(),
     },
-  }, async ({ wallet_id, mint, slippage_bps }, extra) => {
+  }, async ({ wallet_address, mint, slippage_bps }, extra) => {
     const params = new URLSearchParams({ mint });
-    if (wallet_id) params.set('walletId', wallet_id);
+    if (wallet_address) params.set('walletAddress', wallet_address);
     if (slippage_bps != null) params.set('slippageBps', String(slippage_bps));
     const result = await apiFetch(`/api/solana/preview-sell?${params.toString()}`, { method: 'GET' }, extra);
     return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.result || {}) }] };
@@ -114,14 +117,14 @@ export function registerSolanaToolset(server) {
       tags: ['buy', 'execution']
     },
     inputSchema: {
-      wallet_id: z.string().optional(),
+      wallet_address: z.string().optional(),
       mint: z.string(),
       amount_sol: z.number().positive(),
       slippage_bps: z.number().int().optional(),
     },
-  }, async ({ wallet_id, mint, amount_sol, slippage_bps }, extra) => {
+  }, async ({ wallet_address, mint, amount_sol, slippage_bps }, extra) => {
     const body = {
-      walletId: wallet_id ?? null,
+      walletAddress: wallet_address ?? null,
       mint,
       amountSol: amount_sol,
       slippageBps: slippage_bps ?? undefined,
@@ -143,15 +146,15 @@ export function registerSolanaToolset(server) {
       tags: ['sell', 'execution']
     },
     inputSchema: {
-      wallet_id: z.string().optional(),
+      wallet_address: z.string().optional(),
       mint: z.string(),
       amount_raw: z.string().optional(),
       percentage: z.number().min(1).max(100).optional(),
       slippage_bps: z.number().int().optional(),
     },
-  }, async ({ wallet_id, mint, amount_raw, percentage, slippage_bps }, extra) => {
+  }, async ({ wallet_address, mint, amount_raw, percentage, slippage_bps }, extra) => {
     const body = {
-      walletId: wallet_id ?? null,
+      walletAddress: wallet_address ?? null,
       mint,
       amountRaw: amount_raw ?? undefined,
       percentage: percentage ?? undefined,

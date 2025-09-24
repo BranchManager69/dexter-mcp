@@ -1128,7 +1128,7 @@ const server = http.createServer(async (req, res) => {
                 const { PrismaClient } = await import('@prisma/client');
                 const prisma = new PrismaClient();
                 const link = await prisma.oauth_user_wallets.findFirst({ where: { provider: String(ident.issuer), subject: String(ident.sub), default_wallet: true } });
-                if (link?.wallet_id) sessionWalletOverrides.set(sessionId, String(link.wallet_id));
+                if (link?.wallet_public_key) sessionWalletOverrides.set(sessionId, String(link.wallet_public_key));
               }
             } catch {}
           }
@@ -1195,7 +1195,7 @@ const server = http.createServer(async (req, res) => {
             const prisma = new PrismaClient();
             const ident = sessionIdentity.get(sid) || {};
             const link = ident.issuer && ident.sub ? await prisma.oauth_user_wallets.findFirst({ where: { provider: String(ident.issuer), subject: String(ident.sub), default_wallet: true } }) : null;
-            if (link?.wallet_id) sessionWalletOverrides.set(sid, String(link.wallet_id));
+            if (link?.wallet_public_key) sessionWalletOverrides.set(sid, String(link.wallet_public_key));
           } catch {}
           try { console.log(`[mcp] initialize ok user=${req.oauthUser} sid=${sid}`); } catch {}
         } else {
