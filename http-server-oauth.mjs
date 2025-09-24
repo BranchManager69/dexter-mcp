@@ -9,6 +9,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import dotenv from 'dotenv';
 import path from 'node:path';
 import fs from 'node:fs';
+import chalk, { Chalk } from 'chalk';
 
 // Load env from repo root and local MCP overrides
 try {
@@ -24,6 +25,64 @@ try {
     }
   }
 } catch {}
+
+const passthrough = (value) => String(value);
+
+const chalkStub = {
+  cyan: passthrough,
+  cyanBright: passthrough,
+  magenta: passthrough,
+  magentaBright: passthrough,
+  green: passthrough,
+  yellow: passthrough,
+  red: passthrough,
+  blue: passthrough,
+  blueBright: passthrough,
+  white: passthrough,
+  gray: passthrough,
+  bold: passthrough,
+  dim: passthrough,
+  underline: passthrough,
+};
+
+function resolveColor() {
+  const force = ['1','true','yes','on'].includes(String(process.env.MCP_LOG_FORCE_COLOR || '').toLowerCase());
+  if (force && !process.env.FORCE_COLOR) process.env.FORCE_COLOR = '1';
+  const enabled = force || process.stdout.isTTY || process.env.FORCE_COLOR === '1';
+  if (!enabled) return { ...chalkStub };
+  const instance = force ? new Chalk({ level: 1 }) : chalk;
+  const wrap = (...fns) => (val) => {
+    const str = String(val);
+    for (const fn of fns) {
+      if (typeof fn === 'function') {
+        try {
+          return fn(str);
+        } catch {}
+      }
+    }
+    return str;
+  };
+  return {
+    ...chalkStub,
+    cyan: wrap(instance?.cyan),
+    cyanBright: wrap(instance?.cyanBright, instance?.cyan),
+    magenta: wrap(instance?.magenta),
+    magentaBright: wrap(instance?.magentaBright, instance?.magenta),
+    green: wrap(instance?.green),
+    yellow: wrap(instance?.yellow),
+    red: wrap(instance?.red),
+    blue: wrap(instance?.blue),
+    blueBright: wrap(instance?.blueBright, instance?.blue),
+    white: wrap(instance?.white),
+    gray: wrap(instance?.gray, instance?.white),
+    bold: wrap(instance?.bold),
+    dim: wrap(instance?.dim),
+    underline: wrap(instance?.underline, instance?.bold),
+  };
+}
+
+const color = resolveColor();
+const labelColor = color.bold ? color.bold : ((v) => v);
 
 const PORT = Number(process.env.TOKEN_AI_MCP_PORT || 3930);
 const TOKEN = process.env.TOKEN_AI_MCP_TOKEN || '';
@@ -123,6 +182,17 @@ function writeCors(res){
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, DELETE, OPTIONS');
     res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
   } catch {}
+}
+
+function ensureBearerPrefix(raw) {
+  if (!raw) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return null;
+  if (/^bearer\s+/i.test(trimmed)) {
+    const token = trimmed.replace(/^bearer\s+/i, '').trim();
+    return token ? `Bearer ${token}` : null;
+  }
+  return `Bearer ${trimmed}`;
 }
 
 function effectiveBaseUrl(req){
@@ -675,11 +745,6 @@ function verifyHs256Jwt(token, secret) {
   }
 }
 
-function base64UrlDecode(b64url) {
-  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(b64url.length / 4) * 4, '=');
-  return Buffer.from(b64, 'base64').toString('utf8');
-}
-
 function base64UrlEncode(buf) {
   return Buffer.from(buf).toString('base64').replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_');
 }
@@ -858,6 +923,26 @@ function handleOAuthCallback(url, res) {
     </body>
     </html>
   `);
+}
+
+const divider = color.blue('────────────────────────────────────────────────────────────');
+
+function logStartupBanner({ localUrl, apiBaseUrl, oauthEnabled, issuer, clientId, chatgptClientId, metadataUrl, jwtEnabled }) {
+  console.log(divider);
+  console.log(color.green('🚀 MCP HTTP transport ready'));
+  console.log(`   ${labelColor('• Local endpoint')} : ${color.blueBright(localUrl)}`);
+  console.log(`   ${labelColor('• Dexter API base')}: ${color.blueBright(apiBaseUrl)}`);
+  console.log(`   • OAuth enabled  : ${oauthEnabled ? color.green('yes') : color.yellow('no')}`);
+  if (oauthEnabled) {
+    console.log(`   ${labelColor('• OAuth issuer')}   : ${color.white ? color.white(issuer || 'n/a') : issuer || 'n/a'}`);
+    console.log(`   ${labelColor('• OAuth client')}   : ${color.white ? color.white(clientId || 'n/a') : clientId || 'n/a'}`);
+    if (chatgptClientId) {
+      console.log(`   ${labelColor('• ChatGPT client')} : ${color.white ? color.white(chatgptClientId) : chatgptClientId}`);
+    }
+    console.log(`   ${labelColor('• Metadata URL')}   : ${color.white ? color.white(metadataUrl) : metadataUrl}`);
+  }
+  console.log(`   • MCP JWT HS256  : ${jwtEnabled ? color.green('enabled') : color.yellow('disabled')}`);
+  console.log(divider);
 }
 
 const server = http.createServer(async (req, res) => {
@@ -1137,22 +1222,102 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  // Log per-user JWT support status first so operators see it immediately
-  if (!MCP_JWT_SECRET) {
+  const jwtEnabled = Boolean(MCP_JWT_SECRET);
+  if (!jwtEnabled) {
     console.warn('[auth] MCP_JWT_SECRET not set — per-user Dexter MCP JWTs will be rejected (static TOKEN_AI_MCP_TOKEN and external OAuth still supported).');
-  } else {
-    console.log('[auth] MCP_JWT_SECRET configured — accepting Dexter MCP JWTs (HS256)');
   }
-  console.log(`MCP HTTP listening on http://localhost:${PORT}/mcp`);
-  if (OAUTH_ENABLED) {
-    const prov = getProviderConfig({ headers: {} });
-    if (prov?.type === 'oidc') {
-      console.log(`OAuth (OIDC) enabled. Issuer: ${prov.issuer || 'custom'} Client ID: ${prov.client_id || ''}`);
-    } else {
-      console.log(`OAuth enabled but provider configuration is incomplete.`);
+
+  const localUrl = `http://localhost:${PORT}/mcp`;
+  const effectivePublic = (PUBLIC_URL || localUrl).replace(/\/$/, '');
+  const prov = OAUTH_ENABLED ? getProviderConfig({ headers: {} }) : null;
+  const issuer = prov?.issuer || (OAUTH_ENABLED ? effectivePublic : null);
+  const clientId = prov?.client_id || (OAUTH_ENABLED ? OIDC_CLIENT_ID || '' : null);
+  const metadataUrl = `${effectivePublic}/.well-known/oauth-authorization-server`;
+
+  logStartupBanner({
+    localUrl,
+    apiBaseUrl: CONNECTOR_API_BASE,
+    oauthEnabled: OAUTH_ENABLED,
+    issuer,
+    clientId,
+    chatgptClientId: OIDC_CLIENT_ID_CHATGPT || null,
+    metadataUrl,
+    jwtEnabled,
+  });
+
+  // Post-start diagnostics
+  setTimeout(() => {
+    fetch(`${localUrl.replace('/mcp', '')}/health`)
+      .then(async (resp) => {
+        const status = resp.status;
+        const body = await resp.json().catch(() => null);
+        const statusText = status === 200 ? color.green('ok') : color.red('fail');
+        console.log(`${color.magentaBright('[diag]')} health check -> ${status} ${statusText}`);
+        if (body?.sessions) {
+          console.log(`       sessions: transports=${color.blueBright(body.sessions.transports ?? 'n/a')} servers=${color.blueBright(body.sessions.servers ?? 'n/a')}`);
+        }
+      })
+      .catch((err) => {
+        console.warn(`${color.magentaBright('[diag]')} health check failed: ${color.red(err?.message || err)}`);
+      });
+
+    try {
+      const diagServer = buildMcpServer({ includeToolsets: process.env.TOKEN_AI_MCP_TOOLSETS });
+      const groups = Array.isArray(diagServer?.__dexterToolGroups) ? diagServer.__dexterToolGroups : null;
+      if (groups && groups.length) {
+        console.log(`${color.magentaBright('[diag]')} toolsets`);
+        const arrow = color.dim ? color.dim('>') : '>';
+        const separator = color.dim ? color.dim(', ') : ', ';
+        for (const entry of groups) {
+          const key = entry?.key || 'unknown';
+          const tools = Array.isArray(entry?.tools) ? entry.tools : [];
+          const groupLabel = color.bold ? color.bold(color.cyanBright ? color.cyanBright(`• ${key}`) : `• ${key}`) : `• ${key}`;
+          const formattedTools = tools.length
+            ? tools.map((name) => (color.cyan ? color.cyan(name) : name)).join(separator)
+            : color.yellow('none');
+          console.log(`       ${groupLabel} ${arrow} ${formattedTools}`);
+        }
+      } else {
+        const registered = diagServer?._registeredTools || {};
+        const toolNames = Object.keys(registered).join(', ');
+        console.log(`${color.magentaBright('[diag]')} tools -> ${toolNames ? color.cyan(toolNames) : color.yellow('none')}`);
+      }
+    } catch (err) {
+      console.warn(`${color.magentaBright('[diag]')} tools listing failed: ${color.red(err?.message || err)}`);
     }
-    const base = PUBLIC_URL || `http://localhost:${PORT}/mcp`;
-    console.log(`OAuth metadata: ${base.replace(/\/$/,'')}/.well-known/oauth-authorization-server`);
+  }, 1000);
+});
+
+let shutdownNoted = false;
+
+const handleShutdown = (reason, code) => {
+  if (shutdownNoted) return;
+  shutdownNoted = true;
+  const note = reason || `exit:${code ?? 0}`;
+  console.warn(divider);
+  console.warn(`${color.magentaBright('[diag]')} shutting down (${color.red(note)})`);
+  console.warn(divider);
+  try {
+    server.close(() => {
+      if (typeof code === 'number') {
+        process.exit(code);
+      }
+    });
+    setTimeout(() => process.exit(code ?? 0), 5000).unref();
+  } catch (err) {
+    console.warn(`${color.magentaBright('[diag]')} shutdown error: ${color.red(err?.message || err)}`);
+    process.exit(code ?? 1);
+  }
+};
+
+process.once('SIGINT', () => handleShutdown('SIGINT'));
+process.once('SIGTERM', () => handleShutdown('SIGTERM'));
+process.once('exit', (code) => {
+  if (!shutdownNoted) {
+    const note = `exit:${code ?? 0}`;
+    console.warn(divider);
+    console.warn(`${color.magentaBright('[diag]')} exiting (${color.red(note)})`);
+    console.warn(divider);
   }
 });
 

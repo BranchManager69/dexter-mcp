@@ -8,7 +8,7 @@
 All toolsets register through `toolsets/index.mjs`. If `TOKEN_AI_MCP_TOOLSETS` is unset, every registered group loads; set the variable (comma-separated keys or `all`) to control selection.
 
 ## Harness Operations
-- **Location** – `../dexter-agents/scripts/runHarness.js` with CLI entry `scripts/dexchat.js` (npm script `dexchat`).
+- **Location** – `../dexter-agents/scripts/runHarness.js` with CLI entry `scripts/dexchat.js` (npm script `dexchat`). Append `--guest` to skip stored auth and test the anonymous path—the API leg still uses the shared demo bearer (`TOKEN_AI_MCP_TOKEN`).
 - **Standard run** –
   ```bash
   npm run dexchat -- --prompt "<prompt>" --wait 15000
@@ -16,6 +16,26 @@ All toolsets register through `toolsets/index.mjs`. If `TOKEN_AI_MCP_TOOLSETS` i
 - **From this repo** – `npm run test:pumpstream -- --mode both --prompt "List pump streams"` (UI + API). Use `--mode ui` or `--mode api` for single-path runs.
 - **Artifacts** – Saved under `dexter-agents/harness-results/` unless `--no-artifact` is provided. Each JSON artifact records prompt, console logs, rendered transcript bubbles, and the structured event payloads from the app.
 - **Monitoring** – Review console output for schema warnings (e.g., Zod `.optional()` without `.nullable()`) and treat them as regressions to be cleared before release.
+
+### Session Maintenance
+
+```
+Turnstile + Supabase login (desktop helper)
+           │  generates encoded cookie + state.json
+           ▼
+HARNESS_COOKIE in repos (.env)
+           │  injected into Playwright runs
+           ▼
+Dexchat / pumpstream harness executions
+```
+
+- Use `dexchat refresh` (in `dexter-agents`) whenever you obtain a new encoded cookie string. It updates both `.env` files and regenerates `~/websites/dexter-mcp/state.json` locally.
+- When `dexchat refresh` starts failing due to auth, run the desktop helper `refresh-supabase-session.ps1` to rebuild the Supabase session via SOCKS + Chrome. It will print a fresh cookie; rerun `dexchat refresh` with that value.
+- Storage state only changes when the harness runs with `--storage`, which the helper handles automatically.
+- Add `--guest` to upcoming runs when you want to ignore stored auth without clearing env files; the API portion will continue to use the demo bearer so regressions surface consistently.
+- The cookie helper emits a warning if the pasted value lacks `sb-…-refresh-token`; in that case per-user MCP tokens can’t be minted.
+
+See `dexter-agents/scripts/README.md` for concrete commands and troubleshooting tips.
 
 ## Operating Notes
 - Keep this document evergreen: update tool descriptions when schemas, endpoints, or behaviors change.

@@ -1,6 +1,62 @@
+import chalk, { Chalk } from 'chalk';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { registerSelectedToolsets } from './toolsets/index.mjs';
+
+const passthrough = (value) => String(value);
+
+const chalkStub = {
+  cyan: passthrough,
+  cyanBright: passthrough,
+  magenta: passthrough,
+  magentaBright: passthrough,
+  green: passthrough,
+  yellow: passthrough,
+  red: passthrough,
+  blue: passthrough,
+  blueBright: passthrough,
+  white: passthrough,
+  gray: passthrough,
+  bold: passthrough,
+  dim: passthrough,
+  underline: passthrough,
+};
+
+function getColor() {
+  const force = ['1','true','yes','on'].includes(String(process.env.MCP_LOG_FORCE_COLOR || '').toLowerCase());
+  if (force && !process.env.FORCE_COLOR) process.env.FORCE_COLOR = '1';
+  const enabled = force || process.stdout.isTTY || process.env.FORCE_COLOR === '1';
+  if (!enabled) return { ...chalkStub };
+  const instance = force ? new Chalk({ level: 1 }) : chalk;
+  const wrap = (...fns) => (val) => {
+    const str = String(val);
+    for (const fn of fns) {
+      if (typeof fn === 'function') {
+        try {
+          return fn(str);
+        } catch {}
+      }
+    }
+    return str;
+  };
+  return {
+    ...chalkStub,
+    cyan: wrap(instance?.cyan),
+    cyanBright: wrap(instance?.cyanBright, instance?.cyan),
+    magenta: wrap(instance?.magenta),
+    magentaBright: wrap(instance?.magentaBright, instance?.magenta),
+    green: wrap(instance?.green),
+    yellow: wrap(instance?.yellow),
+    red: wrap(instance?.red),
+    blue: wrap(instance?.blue),
+    blueBright: wrap(instance?.blueBright, instance?.blue),
+    white: wrap(instance?.white),
+    gray: wrap(instance?.gray, instance?.white),
+    bold: wrap(instance?.bold),
+    dim: wrap(instance?.dim),
+    underline: wrap(instance?.underline, instance?.bold),
+  };
+}
 
 const MCP_NAME = process.env.MCP_SERVER_NAME || 'dexter-mcp';
 const MCP_VERSION = process.env.MCP_SERVER_VERSION || '0.1.0';
@@ -22,7 +78,10 @@ export function buildMcpServer(options = {}) {
   const requestedToolsets = options.includeToolsets;
   const loaded = registerSelectedToolsets(server, requestedToolsets);
   try {
-    console.log(`[mcp-toolsets] active: ${loaded.join(', ')}`);
+    const color = getColor();
+    const label = color.cyan('[mcp-toolsets]');
+    const separator = color.dim ? color.dim(', ') : ', ';
+    console.log(`${label} active: ${loaded.map((key) => color.cyanBright(key)).join(separator)}`);
   } catch {}
 
   return server;
@@ -32,6 +91,8 @@ function wrapRegisterTool(server) {
   const original = server.registerTool.bind(server);
 
   server.registerTool = (name, meta, handler) => {
+    const color = getColor();
+    const label = color.blue('[mcp-tool]');
     const normalized = {
       ...meta,
       inputSchema: normalizeSchema(meta.inputSchema, {}),
@@ -41,15 +102,15 @@ function wrapRegisterTool(server) {
     const wrapped = async (args, extra) => {
       const started = Date.now();
       try {
-        console.log(`[mcp-tool] start name=${name}`);
+        console.log(`${label} ${color.yellow('start')} name=${color.blueBright(name)}`);
         const result = await handler(args, extra);
         const duration = Date.now() - started;
-        console.log(`[mcp-tool] ok name=${name} ms=${duration}`);
+        console.log(`${label} ${color.green('ok')} name=${color.blueBright(name)} ms=${color.cyan(duration)}`);
         return result;
       } catch (error) {
         const duration = Date.now() - started;
         const message = error?.stack || error?.message || String(error);
-        console.error(`[mcp-tool] err name=${name} ms=${duration} error=${message}`);
+        console.error(`${label} ${color.red('err')} name=${color.blueBright(name)} ms=${color.cyan(duration)} error=${color.red(message)}`);
         throw error;
       }
     };

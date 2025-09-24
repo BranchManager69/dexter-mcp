@@ -31,3 +31,5 @@ capsolver-browser-extension/
 
 # Never commit a literal tilde directory (safety)
 /~
+
+env-change-notes.md

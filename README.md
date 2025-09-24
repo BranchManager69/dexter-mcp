@@ -181,6 +181,27 @@ pm2 restart dexter-mcp
 pm2 logs dexter-mcp
 ```
 
+### Session Maintenance Cheatsheet
+
+```
+Turnstile + Supabase login (desktop helper)
+           │  generates encoded cookie + state.json
+           ▼
+HARNESS_COOKIE in repos (.env)
+           │  injected into Playwright runs
+           ▼
+Dexchat / pumpstream harness executions
+```
+
+| Situation | Run this | Result |
+|-----------|----------|--------|
+| Have a new encoded cookie string | `dexchat refresh` (in `dexter-agents`) | Updates both repos’ `.env` files and rewrites `~/websites/dexter-mcp/state.json` through a local Playwright run. |
+| Want a scripted variant | `npm run dexchat:refresh -- --cookie $(cat cookie.txt)` | Same as above without the interactive prompt. |
+| Supabase session has expired / cookie immediately fails | `refresh-supabase-session.ps1` (desktop helper) | Spins up SOCKS proxy + Chrome for Turnstile + Supabase login, prints the cookie, and can refresh storage automatically. Afterwards run `dexchat refresh` with the new value. |
+| Validate guest behaviour | `npm run dexchat -- --prompt "..." --guest` (or add `--guest` to `npm run pumpstream:harness ...`) | Runs the UI anonymously while the API leg reuses the shared demo bearer (`TOKEN_AI_MCP_TOKEN`). |
+
+Remember: the desktop helper is rare (weeks between runs). `dexchat refresh` is the lightweight, local option you’ll use most often. Additional command details live in `dexter-agents/scripts/README.md`.
+
 ---
 
 ## Architecture Notes
