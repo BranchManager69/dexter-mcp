@@ -77,6 +77,11 @@ export function registerGeneralToolset(server) {
     {
       title: 'Search Dexter Knowledge',
       description: 'Search Dexter operator and developer notes for troubleshooting connectors.',
+      _meta: {
+        category: 'knowledge-base',
+        access: 'public',
+        tags: ['docs', 'search']
+      },
       inputSchema: {
         query: z.string().describe('Natural language search string.').optional(),
       },
@@ -96,6 +101,11 @@ export function registerGeneralToolset(server) {
     {
       title: 'Fetch Dexter Knowledge Document',
       description: 'Retrieve full text for a previously discovered Dexter knowledge snippet.',
+      _meta: {
+        category: 'knowledge-base',
+        access: 'public',
+        tags: ['docs', 'fetch']
+      },
       inputSchema: {
         id: z.string().describe('Identifier returned by the search tool.'),
       },

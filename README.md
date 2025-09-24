@@ -102,6 +102,28 @@ Currently shipped:
 - **general** – Static `search` / `fetch` helpers that surface curated Dexter OAuth + connector docs.
 - **pumpstream** – `pumpstream_live_summary` wrapper for `https://pump.dexter.cash/api/live` with paging, search, and filter controls.
 - **wallet** – Supabase-backed wallet resolution, diagnostics, and per-session overrides (used by all Dexter connectors).
+- **solana** – Token resolution, portfolio balances, and managed-wallet buy/sell execution (proxied through `dexter-api`).
+
+Each tool definition exposes an `_meta` block so downstream clients can group or gate consistently:
+
+```json
+{
+  "name": "solana_execute_buy",
+  "title": "Execute Buy",
+  "description": "Buy a token using SOL from a managed wallet.",
+  "_meta": {
+    "category": "solana.trading",
+    "access": "managed",
+    "tags": ["buy", "execution"]
+  }
+}
+```
+
+- `category` – high-level grouping for UX (e.g. `wallets`, `analytics`, `solana.trading`).
+- `access` – current entitlement level (`public`, `free`, `pro`, `managed`, `internal`).
+- `tags` – free-form labels for filtering/badging.
+
+The `/tools` API simply relays this metadata so UIs (including `dexter-fe`) pick it up automatically. Add new values conservatively and document them if third-party clients depend on them.
 
 Selection options:
 

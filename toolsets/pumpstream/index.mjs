@@ -265,6 +265,11 @@ export function registerPumpstreamToolset(server) {
     {
       title: 'Pumpstream Live Summary',
       description: 'Return a quick snapshot of live pump streams from pump.dexter.cash.',
+      _meta: {
+        category: 'analytics',
+        access: 'pro',
+        tags: ['pump.fun', 'streams']
+      },
       inputSchema: {
         pageSize: z
           .number()

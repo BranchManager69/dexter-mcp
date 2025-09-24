@@ -2,6 +2,7 @@ import chalk, { Chalk } from 'chalk';
 import { registerGeneralToolset } from './general/index.mjs';
 import { registerPumpstreamToolset } from './pumpstream/index.mjs';
 import { registerWalletToolset } from './wallet/index.mjs';
+import { registerSolanaToolset } from './solana/index.mjs';
 
 const passthrough = (value) => String(value);
 
@@ -70,6 +71,10 @@ const TOOLSET_REGISTRY = {
   wallet: {
     register: registerWalletToolset,
     description: 'Supabase-backed wallet resolution and auth diagnostics.',
+  },
+  solana: {
+    register: registerSolanaToolset,
+    description: 'Managed Solana trading tools (buy, sell, resolve tokens).',
   },
 };
 
