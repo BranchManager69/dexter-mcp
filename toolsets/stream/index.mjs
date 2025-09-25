@@ -11,7 +11,13 @@ function resolveBaseUrl() {
     DEFAULT_API_BASE_URL;
   return raw.replace(/\/$/, '');
 }
-const ENV_PASSWORD = process.env.MCP_STREAM_SCENE_PASSWORD || process.env.STREAM_SCENE_PASSWORD || '';
+function resolveEnvPassword() {
+  return (
+    process.env.MCP_STREAM_SCENE_PASSWORD ||
+    process.env.STREAM_SCENE_PASSWORD ||
+    ''
+  );
+}
 
 function headersFromExtra(extra) {
   try {
@@ -124,7 +130,8 @@ export function registerStreamToolset(server) {
 
       const passwordFromInput = typeof parsed.password === 'string' ? parsed.password.trim() : '';
       const shouldUseEnv = parsed.use_env_password !== false;
-      const chosenPassword = passwordFromInput || (shouldUseEnv ? ENV_PASSWORD : '');
+      const envPassword = shouldUseEnv ? resolveEnvPassword().trim() : '';
+      const chosenPassword = passwordFromInput || envPassword;
 
       const body = { scene };
       if (chosenPassword) {
