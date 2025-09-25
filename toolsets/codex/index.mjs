@@ -17,6 +17,14 @@ const REPLY_KEY_MAP = {
   include_plan_tool: 'include-plan-tool',
 };
 
+const EXEC_KEY_MAP = {
+  output_schema: 'outputSchema',
+  metadata: 'metadata',
+  approval_policy: 'approval-policy',
+  base_instructions: 'base-instructions',
+  include_plan_tool: 'include-plan-tool',
+};
+
 function mapArguments(source, keyMap = {}, { omit = [] } = {}) {
   const out = {};
   for (const [key, value] of Object.entries(source || {})) {
@@ -44,6 +52,21 @@ const replySchema = z
   .object({
     conversation_id: z.string().min(1, 'conversation_id_required'),
     prompt: z.string().min(1, 'prompt_required'),
+    approval_policy: z.string().optional(),
+    base_instructions: z.string().optional(),
+    config: z.record(z.any()).optional(),
+    include_plan_tool: z.boolean().optional(),
+    model: z.string().optional(),
+    profile: z.string().optional(),
+    sandbox: z.string().optional(),
+  })
+  .passthrough();
+
+const execSchema = z
+  .object({
+    prompt: z.string().min(1, 'prompt_required'),
+    output_schema: z.union([z.string(), z.record(z.any())]).optional(),
+    metadata: z.record(z.any()).optional(),
     approval_policy: z.string().optional(),
     base_instructions: z.string().optional(),
     config: z.record(z.any()).optional(),
@@ -133,6 +156,47 @@ export function registerCodexToolset(server) {
             text: buildTextResponse(structured),
           },
         ],
+      };
+    },
+  );
+
+  server.registerTool(
+    'codex_exec',
+    {
+      title: 'Codex Exec Session',
+      description:
+        'Run Codex exec with optional JSON schema. Returns structuredContent when the schema is provided.',
+      _meta: {
+        category: 'codex.session',
+        access: 'managed',
+        tags: ['codex', 'exec', 'structured'],
+      },
+      inputSchema: execSchema.shape,
+    },
+    async (input, extra) => {
+      const parsed = execSchema.parse(input || {});
+      const { sandbox, ...rest } = parsed;
+      if (sandbox && sandbox !== 'read-only') {
+        warnSandboxOverride('codex_exec', sandbox);
+      }
+      const args = mapArguments(rest, EXEC_KEY_MAP, { omit: ['sandbox'] });
+      const result = await bridge.execSession(args, extra);
+      const structured = formatStructuredResult(result);
+      const { structuredContent, raw, ...summary } = result;
+      return {
+        structuredContent: structuredContent || summary,
+        content: [
+          {
+            type: 'text',
+            text: buildTextResponse(structured),
+          },
+        ],
+        metadata: {
+          conversationId: structured.conversationId,
+          durationMs: structured.durationMs,
+          structuredContent: structuredContent || null,
+          raw: raw || null,
+        },
       };
     },
   );

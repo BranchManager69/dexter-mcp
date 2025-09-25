@@ -4,6 +4,7 @@
 - **general** – `search` and `fetch` surface curated Dexter connector/OAuth documentation from a static in-memory index (`toolsets/general/index.mjs`). Update the `DOCUMENTS` array when knowledge sources change.
 - **pumpstream** – `pumpstream_live_summary` queries `https://pump.dexter.cash/api/live` and returns a condensed, paged stream snapshot. Schema supports `pageSize`/`offset`/`page`, search, symbol & mint filters, sort, status, min viewer / USD market-cap thresholds, plus optional spotlight data.
 - **wallet** – Session-aware wallet helpers (`resolve_wallet`, `list_my_wallets`, `set_session_wallet_override`, `auth_info`) backed by `/api/wallets/resolver`. Session overrides are stored in-memory and keyed by the MCP session header.
+- **codex** – Conversational (`codex_start`, `codex_reply`) and exec-mode (`codex_exec`) bridges to the Codex CLI. Exec mode supports optional JSON schemas for structured output.
 
 All toolsets register through `toolsets/index.mjs`. If `TOKEN_AI_MCP_TOOLSETS` is unset, every registered group loads; set the variable (comma-separated keys or `all`) to control selection.
 

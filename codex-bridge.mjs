@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { performance } from 'node:perf_hooks';
+import { spawn } from 'node:child_process';
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -340,6 +341,87 @@ class CodexBridge {
     };
   }
 
+  async execSession(input, extra) {
+    const { prompt, output_schema: outputSchema, metadata } = input || {};
+    if (!prompt || !prompt.trim()) {
+      throw new Error('codex_prompt_required');
+    }
+
+    const started = performance.now();
+    const contextualPrefix = buildPromptPreface(metadata);
+    const fullPrompt = contextualPrefix ? `${contextualPrefix}\n\n${prompt}` : prompt;
+
+    let tempDir;
+    let schemaPath;
+    try {
+      const execArgs = ['exec', '--json', '-c', 'mcp_servers={}'];
+
+      // Keep exec sandboxed/read-only by default to match our other tools.
+      execArgs.push('--sandbox', 'read-only');
+
+      if (outputSchema !== undefined) {
+        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-schema-'));
+        schemaPath = path.join(tempDir, 'schema.json');
+        const schemaString =
+          typeof outputSchema === 'string'
+            ? outputSchema
+            : JSON.stringify(outputSchema, null, 2);
+        await fs.writeFile(schemaPath, schemaString, 'utf8');
+        execArgs.push('--output-schema', schemaPath);
+      }
+
+      execArgs.push(fullPrompt);
+
+      const stdoutChunks = [];
+      const stderrChunks = [];
+
+      const child = spawn(DEFAULT_COMMAND, execArgs, {
+        env: process.env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      child.stdout.on('data', (chunk) => stdoutChunks.push(chunk));
+      child.stderr.on('data', (chunk) => stderrChunks.push(chunk));
+
+      const exitCode = await new Promise((resolve, reject) => {
+        child.on('error', reject);
+        child.on('close', resolve);
+      });
+
+      const stdout = Buffer.concat(stdoutChunks).toString('utf8');
+      const stderr = Buffer.concat(stderrChunks).toString('utf8');
+
+      if (exitCode !== 0) {
+        throw new Error(`codex exec failed (code ${exitCode}): ${stderr || stdout}`);
+      }
+
+      const parsedEvents = parseCodexExecOutput(stdout);
+      const summary = summarizeEvents(parsedEvents);
+      const message = getFinalMessage(parsedEvents) || '';
+      const structuredContent = parseJsonSafely(message);
+      const durationMs = performance.now() - started;
+
+      return {
+        conversationId: null,
+        message,
+        summary,
+        durationMs,
+        structuredContent,
+        raw: {
+          events: parsedEvents,
+          stderr: stderr || null,
+        },
+      };
+    } finally {
+      try {
+        if (schemaPath) await fs.rm(schemaPath, { force: true });
+        if (tempDir) await fs.rm(tempDir, { recursive: true, force: true });
+      } catch (cleanupError) {
+        warn('failed to cleanup exec schema artifacts', cleanupError);
+      }
+    }
+  }
+
   async shutdown() {
     if (this.client) {
       try {
@@ -389,6 +471,62 @@ export function formatStructuredResult({ conversationId, message, summary, durat
     timeline: trimmedTimeline,
     durationMs,
   };
+}
+
+function buildPromptPreface(metadata) {
+  if (!metadata || typeof metadata !== 'object') return '';
+  const entries = Object.entries(metadata).filter(([, value]) => value !== undefined);
+  if (!entries.length) return '';
+  const lines = entries.map(([key, value]) => `- ${key}: ${formatMetadataValue(value)}`);
+  return `Context:\n${lines.join('\n')}`;
+}
+
+function formatMetadataValue(value) {
+  if (value === null) return 'null';
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+}
+
+function parseCodexExecOutput(stdout) {
+  const events = [];
+  for (const line of stdout.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('{')) continue;
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === 'object') {
+        events.push(parsed);
+      }
+    } catch (err) {
+      warn('failed to parse codex exec line', { line: trimmed, err: err?.message });
+    }
+  }
+  return events;
+}
+
+function getFinalMessage(events) {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const msg = events[i]?.msg;
+    if (msg?.type === 'agent_message') {
+      return msg.message ?? '';
+    }
+  }
+  return '';
+}
+
+function parseJsonSafely(text) {
+  if (!text || typeof text !== 'string') return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 export default singleton;
