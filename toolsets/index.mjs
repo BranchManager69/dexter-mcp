@@ -3,6 +3,7 @@ import { registerGeneralToolset } from './general/index.mjs';
 import { registerPumpstreamToolset } from './pumpstream/index.mjs';
 import { registerWalletToolset } from './wallet/index.mjs';
 import { registerSolanaToolset } from './solana/index.mjs';
+import { registerCodexToolset } from './codex/index.mjs';
 
 const passthrough = (value) => String(value);
 
@@ -75,6 +76,10 @@ const TOOLSET_REGISTRY = {
   solana: {
     register: registerSolanaToolset,
     description: 'Managed Solana trading tools (buy, sell, resolve tokens).',
+  },
+  codex: {
+    register: registerCodexToolset,
+    description: 'Codex sessions (read-only, search-enabled) proxied through Dexter.',
   },
 };
 

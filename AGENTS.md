@@ -41,3 +41,4 @@ See `dexter-agents/scripts/README.md` for concrete commands and troubleshooting 
 - Keep this document evergreen: update tool descriptions when schemas, endpoints, or behaviors change.
 - When adding tools, follow the conventions in `toolsets/ADDING_TOOLSETS.md` and document the new capabilities here.
 - Harness artifacts provide the source of truth for recent behavioral checks; store long-lived analyses elsewhere so this guide remains an operating manual rather than a task list.
+- **Tool guidance split:** Public-facing tool descriptions/metadata belong in the MCP specs; detailed usage patterns (multi-step orchestration, guardrails, etc.) stay inside our private realtime agent prompts/config so clients only see the high-level contract.
