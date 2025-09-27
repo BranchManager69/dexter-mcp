@@ -6,6 +6,20 @@ const RESOLVER_CACHE = new Map(); // cacheKey -> { data, fetchedAt }
 const RESOLVER_CACHE_MS = Number(process.env.MCP_WALLET_RESOLVER_CACHE_MS || 5000);
 const DEFAULT_API_BASE_URL = process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || 'http://localhost:3030';
 
+function buildApiUrl(base, path) {
+  const normalizedBase = (base || '').replace(/\/+$/, '');
+  if (!path) return normalizedBase || '';
+  let normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (normalizedBase.endsWith('/api')) {
+    if (normalizedPath === '/api') {
+      normalizedPath = '';
+    } else if (normalizedPath.startsWith('/api/')) {
+      normalizedPath = normalizedPath.slice(4);
+    }
+  }
+  return `${normalizedBase}${normalizedPath}` || normalizedPath;
+}
+
 function headersFromExtra(extra) {
   try {
     if (extra?.requestInfo?.headers) return extra.requestInfo.headers;
@@ -68,7 +82,8 @@ async function fetchWalletContext(extra) {
   }
 
   try {
-    const resp = await fetch(`${apiBase}/api/wallets/resolver`, {
+    const url = buildApiUrl(apiBase, '/api/wallets/resolver');
+    const resp = await fetch(url, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -254,33 +269,65 @@ export function registerWalletToolset(server) {
       has_token: z.boolean(),
       override_session: z.string().nullable(),
       wallets_cached: z.number().int().optional(),
+      detail: z.string().nullable().optional(),
     }
   }, async (_args, extra) => {
     const headers = headersFromExtra(extra);
     const sessionId = String(headers['mcp-session-id'] || headers['Mcp-Session-Id'] || 'stdio');
     const { token, source } = getSupabaseBearer(extra);
-  const resolved = await resolveWalletForRequest(extra);
-  const context = token ? await fetchWalletContext(extra) : null;
-  try {
-    console.log('[wallet-auth]', JSON.stringify({
-      wallet_address: resolved.wallet_address || null,
-      source: resolved.source || null,
-      bearer_source: source || null,
-      user_id: resolved.userId || null,
-      wallets_cached: context?.wallets?.length || 0,
-    }));
-  } catch {}
-  return {
-    structuredContent: {
-      wallet_address: resolved.wallet_address,
-        source: resolved.source,
+    const resolved = await resolveWalletForRequest(extra);
+    const context = token ? await fetchWalletContext(extra) : null;
+
+    let detail;
+    if (!token) {
+      detail = 'missing_bearer_token';
+    } else if (!context) {
+      detail = 'resolver_unreachable';
+    } else if (!context.wallets?.length) {
+      detail = 'no_wallets_assigned';
+    } else {
+      detail = 'resolver_ok';
+    }
+
+    if (resolved.source === 'env') {
+      detail = detail === 'resolver_ok' ? 'env_override' : `env_fallback:${detail}`;
+    } else if (resolved.source === 'none') {
+      detail = detail === 'resolver_ok' ? 'no_resolver_source' : detail;
+    }
+
+    try {
+      console.log('[wallet-auth]', JSON.stringify({
+        wallet_address: resolved.wallet_address || null,
+        source: resolved.source || null,
+        bearer_source: source || null,
         user_id: resolved.userId || null,
-        bearer_source: source,
-        has_token: Boolean(token),
-        override_session: sessionWalletOverrides.has(sessionId) ? sessionId : null,
         wallets_cached: context?.wallets?.length || 0,
-      },
-      content: [{ type: 'text', text: JSON.stringify({ wallet_address: resolved.wallet_address, source: resolved.source, token: source || 'none' }) }],
+        detail,
+      }));
+    } catch {}
+
+    const receipt = {
+      wallet_address: resolved.wallet_address,
+      source: resolved.source,
+      user_id: resolved.userId || null,
+      bearer_source: source,
+      has_token: Boolean(token),
+      override_session: sessionWalletOverrides.has(sessionId) ? sessionId : null,
+      wallets_cached: context?.wallets?.length || 0,
+      detail,
+    };
+
+    return {
+      structuredContent: receipt,
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          wallet_address: receipt.wallet_address,
+          source: receipt.source,
+          detail: receipt.detail,
+          bearer: receipt.bearer_source || 'none',
+        }),
+      }],
     };
   });
 }

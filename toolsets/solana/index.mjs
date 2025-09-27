@@ -2,6 +2,20 @@ import { z } from 'zod';
 
 const DEFAULT_API_BASE_URL = process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || 'http://localhost:3030';
 
+function buildApiUrl(base, path) {
+  const normalizedBase = (base || '').replace(/\/+$/, '');
+  if (!path) return normalizedBase || '';
+  let normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (normalizedBase.endsWith('/api')) {
+    if (normalizedPath === '/api') {
+      normalizedPath = '';
+    } else if (normalizedPath.startsWith('/api/')) {
+      normalizedPath = normalizedPath.slice(4);
+    }
+  }
+  return `${normalizedBase}${normalizedPath}` || normalizedPath;
+}
+
 function headersFromExtra(extra) {
   try {
     if (extra?.requestInfo?.headers) return extra.requestInfo.headers;
@@ -33,7 +47,8 @@ async function apiFetch(path, init, extra) {
   const base = (process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '');
   const token = getSupabaseBearer(extra);
   const headers = Object.assign({}, init?.headers || {}, token ? { Authorization: `Bearer ${token}` } : {});
-  const response = await fetch(`${base}${path}`, { ...init, headers });
+  const url = buildApiUrl(base, path);
+  const response = await fetch(url, { ...init, headers });
   const text = await response.text();
   if (!response.ok) {
     let payload = text;
