@@ -93,9 +93,15 @@ function wrapRegisterTool(server) {
   server.registerTool = (name, meta, handler) => {
     const color = getColor();
     const label = color.blue('[mcp-tool]');
+    const inputSchemaNormalized = normalizeSchema(meta.inputSchema, {});
+    if (name && name.startsWith('codex_')) {
+      try {
+        console.log('[codex-schema-debug]', name, JSON.stringify(inputSchemaNormalized));
+      } catch {}
+    }
     const normalized = {
       ...meta,
-      inputSchema: normalizeSchema(meta.inputSchema, {}),
+      inputSchema: inputSchemaNormalized,
       outputSchema: normalizeSchema(meta.outputSchema, undefined),
     };
 
@@ -133,6 +139,13 @@ function normalizeSchema(schema, fallback) {
   }
 
   if (schema && typeof schema === 'object') {
+    const looksLikeJsonSchema =
+      Object.prototype.hasOwnProperty.call(schema, 'type') ||
+      Object.prototype.hasOwnProperty.call(schema, '$schema') ||
+      Object.prototype.hasOwnProperty.call(schema, 'properties');
+    if (looksLikeJsonSchema) {
+      return schema;
+    }
     const out = {};
     for (const [key, value] of Object.entries(schema)) {
       if (!(value instanceof z.ZodType)) {

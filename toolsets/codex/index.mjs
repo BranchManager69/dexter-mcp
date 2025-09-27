@@ -48,6 +48,23 @@ const startSchema = z
   })
   .passthrough();
 
+const START_JSON_SCHEMA = {
+  type: 'object',
+  properties: {
+    prompt: { type: 'string', minLength: 1 },
+    approval_policy: { type: 'string' },
+    base_instructions: { type: 'string' },
+    config: { type: 'object', additionalProperties: true },
+    include_plan_tool: { type: 'boolean' },
+    model: { type: 'string' },
+    profile: { type: 'string' },
+    sandbox: { type: 'string' },
+  },
+  required: ['prompt'],
+  additionalProperties: false,
+  $schema: 'http://json-schema.org/draft-07/schema#',
+};
+
 const replySchema = z
   .object({
     conversation_id: z.string().min(1, 'conversation_id_required'),
@@ -61,6 +78,24 @@ const replySchema = z
     sandbox: z.string().optional(),
   })
   .passthrough();
+
+const REPLY_JSON_SCHEMA = {
+  type: 'object',
+  properties: {
+    conversation_id: { type: 'string', minLength: 1 },
+    prompt: { type: 'string', minLength: 1 },
+    approval_policy: { type: 'string' },
+    base_instructions: { type: 'string' },
+    config: { type: 'object', additionalProperties: true },
+    include_plan_tool: { type: 'boolean' },
+    model: { type: 'string' },
+    profile: { type: 'string' },
+    sandbox: { type: 'string' },
+  },
+  required: ['conversation_id', 'prompt'],
+  additionalProperties: false,
+  $schema: 'http://json-schema.org/draft-07/schema#',
+};
 
 const execSchema = z
   .object({
@@ -76,6 +111,30 @@ const execSchema = z
     sandbox: z.string().optional(),
   })
   .passthrough();
+
+const EXEC_JSON_SCHEMA = {
+  type: 'object',
+  properties: {
+    prompt: { type: 'string', minLength: 1 },
+    output_schema: {
+      anyOf: [
+        { type: 'string' },
+        { type: 'object', additionalProperties: true },
+      ],
+    },
+    metadata: { type: 'object', additionalProperties: true },
+    approval_policy: { type: 'string' },
+    base_instructions: { type: 'string' },
+    config: { type: 'object', additionalProperties: true },
+    include_plan_tool: { type: 'boolean' },
+    model: { type: 'string' },
+    profile: { type: 'string' },
+    sandbox: { type: 'string' },
+  },
+  required: ['prompt'],
+  additionalProperties: false,
+  $schema: 'http://json-schema.org/draft-07/schema#',
+};
 
 function buildTextResponse({ conversationId, message }) {
   const lines = [];
@@ -104,7 +163,7 @@ export function registerCodexToolset(server) {
         access: 'managed',
         tags: ['codex', 'session', 'start'],
       },
-      inputSchema: startSchema.shape,
+      inputSchema: START_JSON_SCHEMA,
     },
     async (input, extra) => {
       const parsed = startSchema.parse(input || {});
@@ -137,7 +196,7 @@ export function registerCodexToolset(server) {
         access: 'managed',
         tags: ['codex', 'session', 'reply'],
       },
-      inputSchema: replySchema.shape,
+      inputSchema: REPLY_JSON_SCHEMA,
     },
     async (input, extra) => {
       const parsed = replySchema.parse(input || {});
@@ -171,7 +230,7 @@ export function registerCodexToolset(server) {
         access: 'managed',
         tags: ['codex', 'exec', 'structured'],
       },
-      inputSchema: execSchema.shape,
+      inputSchema: EXEC_JSON_SCHEMA,
     },
     async (input, extra) => {
       const parsed = execSchema.parse(input || {});

@@ -232,6 +232,7 @@ Remember: the desktop helper is rare (weeks between runs). `dexchat refresh` is 
 - **`toolsets/`** – declarative manifest of tool bundles plus the wallet toolset implementation.
 - **Toolset authoring guide:** see `toolsets/ADDING_TOOLSETS.md` for step-by-step instructions and examples (including the `pumpstream` toolset).
 - **`server.mjs`** – stdio entrypoint (used by local agents and Codex); respects `--tools=` flags.
+- **`dexter-mcp-stdio-bridge.mjs`** – bridges stdio clients to the hosted OAuth HTTP transport (handy for Codex/Cursor when they only support stdio).
 - **`http-server-oauth.mjs`** – HTTPS transport with OAuth/OIDC, session caching, and metadata routes (still contains a Prisma-backed fallback to seed per-session wallet overrides).
 - **`legacy-tools/`** – archived Token-AI tools kept for reference during migration.
 
