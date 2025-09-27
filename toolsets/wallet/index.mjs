@@ -259,11 +259,20 @@ export function registerWalletToolset(server) {
     const headers = headersFromExtra(extra);
     const sessionId = String(headers['mcp-session-id'] || headers['Mcp-Session-Id'] || 'stdio');
     const { token, source } = getSupabaseBearer(extra);
-    const resolved = await resolveWalletForRequest(extra);
-    const context = token ? await fetchWalletContext(extra) : null;
-    return {
-      structuredContent: {
-        wallet_address: resolved.wallet_address,
+  const resolved = await resolveWalletForRequest(extra);
+  const context = token ? await fetchWalletContext(extra) : null;
+  try {
+    console.log('[wallet-auth]', JSON.stringify({
+      wallet_address: resolved.wallet_address || null,
+      source: resolved.source || null,
+      bearer_source: source || null,
+      user_id: resolved.userId || null,
+      wallets_cached: context?.wallets?.length || 0,
+    }));
+  } catch {}
+  return {
+    structuredContent: {
+      wallet_address: resolved.wallet_address,
         source: resolved.source,
         user_id: resolved.userId || null,
         bearer_source: source,
