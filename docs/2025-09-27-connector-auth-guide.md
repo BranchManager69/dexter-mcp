@@ -124,3 +124,10 @@ The response mirrors the code exchange schema. We also pre-cache the per-user wa
 | `CONNECTOR_ALLOWED_REDIRECTS`, `CONNECTOR_ALLOWED_CLIENT_IDS` | Optional comma-separated overrides for DCR output |
 
 Keep this guide with the ChatGPT forensics note so anyone building a connector (Alexa skill, desktop client, etc.) can plug into the flow without reverse-engineering the logs again.
+
+## 9. Validation snapshots (2025‑09‑27)
+
+- **Claude** – completed the authorization + token flow at `18:23Z` and began calling `wallet_auth_info` with `detail:"resolver_ok"`. Evidence: `~/.pm2/logs/dexter-api-out-48.log` (`token_code_success` for client `dcr_5f8df…`) followed by `~/.pm2/logs/dexter-mcp-out-67.log:2025-09-27 19:57:33` (`source:"resolver"`, wallet `DEXVS3…`).
+- **ChatGPT** – reconnected at `20:17Z`; OAuth cycle (`dcr_353fd…`) succeeded and subsequent prompts confirmed the same wallet via resolver (no env fallback). See `dexter-api-out-48.log:2025-09-27 20:17:16` and the companion MCP log for the `[wallet-auth] detail:"resolver_ok"` entry.
+
+Both connectors now rely on the resolver-backed wallet assignment introduced with release `v0.3.0` (`dexter-api` 4f01e10, `dexter-mcp` 802eec6).
