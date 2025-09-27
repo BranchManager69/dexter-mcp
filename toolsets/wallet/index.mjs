@@ -162,6 +162,56 @@ function sanitizeWalletList(wallets) {
   })).filter((wallet) => wallet.address && wallet.public_key);
 }
 
+async function collectWalletStatus(extra) {
+  const headers = headersFromExtra(extra);
+  const sessionId = String(headers['mcp-session-id'] || headers['Mcp-Session-Id'] || 'stdio');
+  const { token, source: bearerSource } = getSupabaseBearer(extra);
+  const resolved = await resolveWalletForRequest(extra);
+  const context = token ? await fetchWalletContext(extra) : null;
+
+  let detail;
+  if (!token) {
+    detail = 'missing_bearer_token';
+  } else if (!context) {
+    detail = 'resolver_unreachable';
+  } else if (!context.wallets?.length) {
+    detail = 'no_wallets_assigned';
+  } else {
+    detail = 'resolver_ok';
+  }
+
+  if (resolved.source === 'env') {
+    detail = detail === 'resolver_ok' ? 'env_override' : `env_fallback:${detail}`;
+  } else if (resolved.source === 'none') {
+    detail = detail === 'resolver_ok' ? 'no_resolver_source' : detail;
+  }
+
+  const summary = {
+    wallet_address: resolved.wallet_address,
+    source: resolved.source,
+    user_id: resolved.userId || null,
+  };
+
+  const diagnostics = {
+    bearer_source: bearerSource || null,
+    has_token: Boolean(token),
+    override_session: sessionWalletOverrides.has(sessionId) ? sessionId : null,
+    wallets_cached: context?.wallets?.length || 0,
+    detail,
+  };
+
+  const logPayload = {
+    wallet_address: summary.wallet_address || null,
+    source: summary.source || null,
+    bearer_source: diagnostics.bearer_source,
+    user_id: summary.user_id,
+    wallets_cached: diagnostics.wallets_cached,
+    detail,
+  };
+
+  return { summary, diagnostics, logPayload };
+}
+
 export function registerWalletToolset(server) {
   server.registerTool('resolve_wallet', {
     title: 'Resolve Wallet',
@@ -177,14 +227,14 @@ export function registerWalletToolset(server) {
       user_id: z.string().nullable().optional()
     }
   }, async (_args, extra) => {
-    const resolved = await resolveWalletForRequest(extra);
+    const { summary } = await collectWalletStatus(extra);
     return {
       structuredContent: {
-        wallet_address: resolved.wallet_address,
-        source: resolved.source,
-        user_id: resolved.userId || null,
+        wallet_address: summary.wallet_address,
+        source: summary.source,
+        user_id: summary.user_id,
       },
-      content: [{ type: 'text', text: resolved.wallet_address || 'none' }],
+      content: [{ type: 'text', text: summary.wallet_address || 'none' }],
     };
   });
 
@@ -261,71 +311,47 @@ export function registerWalletToolset(server) {
       access: 'internal',
       tags: ['diagnostics']
     },
+    inputSchema: {
+      include_diagnostics: z.boolean().optional(),
+    },
     outputSchema: {
       wallet_address: z.string().nullable(),
       source: z.string(),
       user_id: z.string().nullable().optional(),
       bearer_source: z.string().nullable().optional(),
-      has_token: z.boolean(),
-      override_session: z.string().nullable(),
+      has_token: z.boolean().optional(),
+      override_session: z.string().nullable().optional(),
       wallets_cached: z.number().int().optional(),
       detail: z.string().nullable().optional(),
+      diagnostics: z.object({
+        bearer_source: z.string().nullable(),
+        has_token: z.boolean(),
+        override_session: z.string().nullable(),
+        wallets_cached: z.number().int(),
+        detail: z.string().nullable(),
+      }).optional(),
     }
-  }, async (_args, extra) => {
-    const headers = headersFromExtra(extra);
-    const sessionId = String(headers['mcp-session-id'] || headers['Mcp-Session-Id'] || 'stdio');
-    const { token, source } = getSupabaseBearer(extra);
-    const resolved = await resolveWalletForRequest(extra);
-    const context = token ? await fetchWalletContext(extra) : null;
-
-    let detail;
-    if (!token) {
-      detail = 'missing_bearer_token';
-    } else if (!context) {
-      detail = 'resolver_unreachable';
-    } else if (!context.wallets?.length) {
-      detail = 'no_wallets_assigned';
-    } else {
-      detail = 'resolver_ok';
-    }
-
-    if (resolved.source === 'env') {
-      detail = detail === 'resolver_ok' ? 'env_override' : `env_fallback:${detail}`;
-    } else if (resolved.source === 'none') {
-      detail = detail === 'resolver_ok' ? 'no_resolver_source' : detail;
-    }
+  }, async (args = {}, extra) => {
+    const includeDiagnostics = args?.include_diagnostics !== false;
+    const { summary, diagnostics, logPayload } = await collectWalletStatus(extra);
 
     try {
-      console.log('[wallet-auth]', JSON.stringify({
-        wallet_address: resolved.wallet_address || null,
-        source: resolved.source || null,
-        bearer_source: source || null,
-        user_id: resolved.userId || null,
-        wallets_cached: context?.wallets?.length || 0,
-        detail,
-      }));
+      console.log('[wallet-auth]', JSON.stringify(logPayload));
     } catch {}
 
-    const receipt = {
-      wallet_address: resolved.wallet_address,
-      source: resolved.source,
-      user_id: resolved.userId || null,
-      bearer_source: source,
-      has_token: Boolean(token),
-      override_session: sessionWalletOverrides.has(sessionId) ? sessionId : null,
-      wallets_cached: context?.wallets?.length || 0,
-      detail,
-    };
+    const structured = includeDiagnostics
+      ? { ...summary, ...diagnostics, diagnostics }
+      : summary;
 
     return {
-      structuredContent: receipt,
+      structuredContent: structured,
       content: [{
         type: 'text',
         text: JSON.stringify({
-          wallet_address: receipt.wallet_address,
-          source: receipt.source,
-          detail: receipt.detail,
-          bearer: receipt.bearer_source || 'none',
+          wallet_address: summary.wallet_address,
+          source: summary.source,
+          detail: diagnostics.detail,
+          bearer: diagnostics.bearer_source || 'none',
         }),
       }],
     };
