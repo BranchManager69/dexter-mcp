@@ -79,7 +79,7 @@ export function registerGeneralToolset(server) {
       description: 'Search Dexter operator and developer notes for troubleshooting connectors.',
       _meta: {
         category: 'knowledge-base',
-        access: 'public',
+        access: 'guest',
         tags: ['docs', 'search']
       },
       inputSchema: {
@@ -103,7 +103,7 @@ export function registerGeneralToolset(server) {
       description: 'Retrieve full text for a previously discovered Dexter knowledge snippet.',
       _meta: {
         category: 'knowledge-base',
-        access: 'public',
+        access: 'guest',
         tags: ['docs', 'fetch']
       },
       inputSchema: {

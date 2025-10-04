@@ -123,6 +123,77 @@ export function registerSolanaToolset(server) {
     return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.result || {}) }] };
   });
 
+  const swapInputSchema = z.object({
+    input_mint: z.string().min(1),
+    output_mint: z.string().min(1),
+    amount_ui: z.union([z.string(), z.number()]).nullable().optional(),
+    wallet_address: z.string().min(1).optional(),
+    slippage_bps: z.number().int().optional(),
+    mode: z.enum(['ExactIn', 'ExactOut']),
+    desired_output_ui: z.union([z.string(), z.number()]).nullable().optional(),
+  }).superRefine((value, ctx) => {
+    if (value.mode === 'ExactIn' && (value.amount_ui == null || value.amount_ui === '')) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'amount_ui is required for ExactIn swaps.' });
+    }
+    if (value.mode === 'ExactOut' && (value.desired_output_ui == null || value.desired_output_ui === '')) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'desired_output_ui is required for ExactOut swaps.' });
+    }
+  });
+
+  server.registerTool('solana_swap_preview', {
+    title: 'Preview Solana Swap',
+    description: 'Preview a SOL-token swap using UI-denominated amounts before execution.',
+    _meta: {
+      category: 'solana.trading',
+      access: 'managed',
+      tags: ['swap', 'preview']
+    },
+    inputSchema: swapInputSchema,
+  }, async ({ input_mint, output_mint, amount_ui, wallet_address, slippage_bps, mode, desired_output_ui }, extra) => {
+    const body = {
+      inputMint: input_mint,
+      outputMint: output_mint,
+      amountUi: amount_ui,
+      ...(wallet_address ? { walletAddress: wallet_address } : {}),
+      ...(slippage_bps != null ? { slippageBps: slippage_bps } : {}),
+      ...(mode ? { mode } : {}),
+      ...(desired_output_ui != null ? { desiredOutputUi: desired_output_ui } : {}),
+    };
+    const result = await apiFetch('/api/solana/swap/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }, extra);
+    return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.result || {}) }] };
+  });
+
+  server.registerTool('solana_swap_execute', {
+    title: 'Execute Solana Swap',
+    description: 'Execute a SOL-token swap after previewing the expected output.',
+    _meta: {
+      category: 'solana.trading',
+      access: 'managed',
+      tags: ['swap', 'execution']
+    },
+    inputSchema: swapInputSchema,
+  }, async ({ input_mint, output_mint, amount_ui, wallet_address, slippage_bps, mode, desired_output_ui }, extra) => {
+    const body = {
+      inputMint: input_mint,
+      outputMint: output_mint,
+      amountUi: amount_ui,
+      ...(wallet_address ? { walletAddress: wallet_address } : {}),
+      ...(slippage_bps != null ? { slippageBps: slippage_bps } : {}),
+      ...(mode ? { mode } : {}),
+      ...(desired_output_ui != null ? { desiredOutputUi: desired_output_ui } : {}),
+    };
+    const result = await apiFetch('/api/solana/swap/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }, extra);
+    return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.result || {}) }] };
+  });
+
   server.registerTool('solana_execute_buy', {
     title: 'Execute Buy',
     description: 'Buy a token using SOL from a managed wallet.',

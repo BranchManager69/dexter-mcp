@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 const DEFAULT_API_BASE_URL = 'http://localhost:3030';
+const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
+const SUPABASE_ANON_KEY = (process.env.SUPABASE_ANON_KEY || '').trim();
 
 function resolveBaseUrl() {
   const raw =
@@ -78,6 +80,60 @@ function normalizeScene(scene) {
   return typeof scene === 'string' ? scene.trim().toLowerCase() : '';
 }
 
+function extractRoles(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map((entry) => String(entry || '').toLowerCase());
+  if (typeof value === 'string') return [value.toLowerCase()];
+  return [];
+}
+
+function normalizeBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const lowered = value.trim().toLowerCase();
+    return lowered === 'true' || lowered === '1' || lowered === 'yes';
+  }
+  if (typeof value === 'number') {
+    return value === 1;
+  }
+  return false;
+}
+
+async function ensureProAccess(extra) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn('[stream-toolset] SUPABASE_URL/ANON_KEY not configured; refusing stream access');
+    throw new Error('pro_membership_required');
+  }
+  const token = getSupabaseBearer(extra);
+  if (!token) {
+    throw new Error('pro_membership_required');
+  }
+  try {
+    const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/auth/v1/user`, {
+      method: 'GET',
+      headers: {
+        authorization: `Bearer ${token}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+    });
+    if (!response.ok) {
+      throw new Error('pro_membership_required');
+    }
+    const user = await response.json().catch(() => null);
+    if (!user) {
+      throw new Error('pro_membership_required');
+    }
+    const roles = extractRoles(user.app_metadata?.roles);
+    const isSuperAdmin = roles.includes('superadmin') || normalizeBoolean(user.user_metadata?.isSuperAdmin);
+    const isPro = roles.includes('pro') || normalizeBoolean(user.user_metadata?.isProMember);
+    if (!isSuperAdmin && !isPro) {
+      throw new Error('pro_membership_required');
+    }
+  } catch (error) {
+    throw new Error('pro_membership_required');
+  }
+}
+
 export function registerStreamToolset(server) {
   server.registerTool(
     'stream_get_scene',
@@ -86,12 +142,13 @@ export function registerStreamToolset(server) {
       description: 'Fetch the current DexterVision scene and available options.',
       _meta: {
         category: 'stream.management',
-        access: 'managed',
+        access: 'pro',
         tags: ['scene', 'status'],
       },
       inputSchema: getSceneSchema.shape,
     },
     async (_input, extra) => {
+      await ensureProAccess(extra);
       const result = await apiFetch('/stream/scene', { method: 'GET' }, extra);
       return {
         structuredContent: result,
@@ -116,7 +173,7 @@ export function registerStreamToolset(server) {
       description: 'Switch the DexterVision scene (requires scene password).',
       _meta: {
         category: 'stream.management',
-        access: 'restricted',
+        access: 'pro',
         tags: ['scene', 'control'],
       },
       inputSchema: setSceneSchema.shape,
@@ -138,6 +195,7 @@ export function registerStreamToolset(server) {
         body.password = chosenPassword;
       }
 
+      await ensureProAccess(extra);
       const result = await apiFetch(
         '/stream/scene',
         {

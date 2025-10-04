@@ -32,6 +32,20 @@ Fully managed Model Context Protocol (MCP) bridge for Dexter. The service expose
 
 ---
 
+## Access Tiers
+
+| Label | Who can call | Notes | Examples |
+|-------|--------------|-------|----------|
+| `guest` | Shared demo bearer (`TOKEN_AI_MCP_TOKEN`), no login required | Backed by the communal managed wallet; live trading is enabled so prospects can try buys/sells immediately. | `solana_*`, `wallet/resolve_wallet`, `wallet/list_my_wallets`, `general/search`, `pumpstream_live_summary` |
+| `member` | Authenticated Supabase session / `dexter_mcp_jwt` | Uses the user-specific resolver wallet and unlocks session overrides. | `wallet/set_session_wallet_override` |
+| `pro` | Role-gated (Pro or Super Admin) | Calls Supabase to verify `pro`/`superadmin` before running. | `stream_get_scene`, `stream_set_scene` |
+| `dev` | Super Admins only | Protected experimental surfaces. | `codex_*` |
+| `internal` | Diagnostic tooling | Not exposed to end users. | `wallet/auth_info` |
+
+Guest/demo/member terminology maps to marketing: the shared bearer is a full managed wallet so prospects experience real trades without creating an account, while member-tier tools expect the per-user wallet provisioned at signup.
+
+---
+
 ## Dexter Stack
 
 | Repo | Role |

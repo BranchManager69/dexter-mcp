@@ -218,7 +218,7 @@ export function registerWalletToolset(server) {
     description: 'Resolve the effective managed wallet for this caller (session override, resolver default, or env fallback).',
     _meta: {
       category: 'wallets',
-      access: 'managed',
+      access: 'guest',
       tags: ['resolver', 'identity']
     },
     outputSchema: {
@@ -243,7 +243,7 @@ export function registerWalletToolset(server) {
     description: 'List wallets linked to the authenticated Supabase user.',
     _meta: {
       category: 'wallets',
-      access: 'managed',
+      access: 'guest',
       tags: ['resolver', 'listing']
     },
     outputSchema: {
@@ -273,7 +273,7 @@ export function registerWalletToolset(server) {
     description: 'Override the wallet used for this MCP session (until cleared).',
     _meta: {
       category: 'wallets',
-      access: 'managed',
+      access: 'member',
       tags: ['session', 'override']
     },
     inputSchema: {

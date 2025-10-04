@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 import { getCodexBridge, formatStructuredResult } from '../../codex-bridge.mjs';
 
+const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
+const SUPABASE_ANON_KEY = (process.env.SUPABASE_ANON_KEY || '').trim();
+
 const bridge = getCodexBridge();
 
 const START_KEY_MAP = {
@@ -152,6 +155,96 @@ function warnSandboxOverride(tool, sandbox) {
   );
 }
 
+function headersFromExtra(extra) {
+  try {
+    if (extra?.requestInfo?.headers) return extra.requestInfo.headers;
+  } catch {}
+  try {
+    if (extra?.request?.headers) return extra.request.headers;
+  } catch {}
+  try {
+    if (extra?.httpRequest?.headers) return extra.httpRequest.headers;
+  } catch {}
+  return {};
+}
+
+function extractBearer(extra) {
+  const headers = headersFromExtra(extra);
+  const auth = headers?.authorization || headers?.Authorization;
+  if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
+    return auth.slice(7).trim();
+  }
+  const xAuth = headers?.['x-authorization'] || headers?.['X-Authorization'];
+  if (typeof xAuth === 'string' && xAuth.startsWith('Bearer ')) {
+    return xAuth.slice(7).trim();
+  }
+  const envToken = process.env.MCP_SUPABASE_BEARER;
+  return envToken ? String(envToken).trim() : '';
+}
+
+function extractRoles(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map((entry) => String(entry || '').toLowerCase());
+  if (typeof value === 'string') return [value.toLowerCase()];
+  return [];
+}
+
+function normalizeBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const lowered = value.trim().toLowerCase();
+    return lowered === 'true' || lowered === '1' || lowered === 'yes';
+  }
+  if (typeof value === 'number') {
+    return value === 1;
+  }
+  return false;
+}
+
+async function fetchSupabaseUser(token) {
+  if (!token || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return null;
+  }
+  try {
+    const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/auth/v1/user`, {
+      method: 'GET',
+      headers: {
+        authorization: `Bearer ${token}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json().catch(() => null);
+    return data || null;
+  } catch (error) {
+    console.warn('[codex-toolset] failed to fetch supabase user', error?.message || error);
+    return null;
+  }
+}
+
+async function ensureSuperAdmin(extra) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn('[codex-toolset] SUPABASE_URL/ANON_KEY not configured; refusing codex access');
+    throw new Error('superadmin_required');
+  }
+  const token = extractBearer(extra);
+  if (!token) {
+    throw new Error('superadmin_required');
+  }
+  const user = await fetchSupabaseUser(token);
+  if (!user) {
+    throw new Error('superadmin_required');
+  }
+  const roles = extractRoles(user.app_metadata?.roles);
+  const roleAllows = roles.includes('superadmin');
+  const metaAllows = normalizeBoolean(user.user_metadata?.isSuperAdmin);
+  if (!roleAllows && !metaAllows) {
+    throw new Error('superadmin_required');
+  }
+}
+
 export function registerCodexToolset(server) {
   server.registerTool(
     'codex_start',
@@ -160,12 +253,13 @@ export function registerCodexToolset(server) {
       description: 'Begin a new Codex conversation (read-only, search-enabled).',
       _meta: {
         category: 'codex.session',
-        access: 'managed',
+        access: 'dev',
         tags: ['codex', 'session', 'start'],
       },
       inputSchema: START_JSON_SCHEMA,
     },
     async (input, extra) => {
+      await ensureSuperAdmin(extra);
       const parsed = startSchema.parse(input || {});
       const { prompt, sandbox, ...rest } = parsed;
       if (sandbox && sandbox !== 'read-only') {
@@ -193,12 +287,13 @@ export function registerCodexToolset(server) {
       description: 'Send a follow-up prompt to an existing Codex conversation.',
       _meta: {
         category: 'codex.session',
-        access: 'managed',
+        access: 'dev',
         tags: ['codex', 'session', 'reply'],
       },
       inputSchema: REPLY_JSON_SCHEMA,
     },
     async (input, extra) => {
+      await ensureSuperAdmin(extra);
       const parsed = replySchema.parse(input || {});
       const { conversation_id, sandbox, ...rest } = parsed;
       if (sandbox && sandbox !== 'read-only') {
@@ -227,12 +322,13 @@ export function registerCodexToolset(server) {
         'Run Codex exec with optional JSON schema. Returns structuredContent when the schema is provided.',
       _meta: {
         category: 'codex.session',
-        access: 'managed',
+        access: 'dev',
         tags: ['codex', 'exec', 'structured'],
       },
       inputSchema: EXEC_JSON_SCHEMA,
     },
     async (input, extra) => {
+      await ensureSuperAdmin(extra);
       const parsed = execSchema.parse(input || {});
       const { sandbox, ...rest } = parsed;
       if (sandbox && sandbox !== 'read-only') {
