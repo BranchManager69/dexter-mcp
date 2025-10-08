@@ -1,9 +1,11 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 
 import { getCodexBridge, formatStructuredResult } from '../../codex-bridge.mjs';
 
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
 const SUPABASE_ANON_KEY = (process.env.SUPABASE_ANON_KEY || '').trim();
+const MCP_JWT_SECRET = (process.env.MCP_JWT_SECRET || '').trim();
 
 const bridge = getCodexBridge();
 
@@ -189,6 +191,35 @@ function extractRoles(value) {
   return [];
 }
 
+function base64UrlToBuffer(value) {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padLength = normalized.length % 4 === 0 ? 0 : 4 - (normalized.length % 4);
+  const padded = normalized + '='.repeat(padLength);
+  return Buffer.from(padded, 'base64');
+}
+
+function decodeDexterJwt(token) {
+  if (!token || !MCP_JWT_SECRET) return null;
+  try {
+    const segments = token.split('.');
+    if (segments.length !== 3) return null;
+    const [headerB64, payloadB64, signatureB64] = segments;
+    const data = `${headerB64}.${payloadB64}`;
+    const expected = createHmac('sha256', MCP_JWT_SECRET).update(data).digest();
+    const signature = base64UrlToBuffer(signatureB64);
+    if (signature.length !== expected.length) {
+      return null;
+    }
+    if (!timingSafeEqual(signature, expected)) {
+      return null;
+    }
+    const payloadJson = base64UrlToBuffer(payloadB64).toString('utf8');
+    return JSON.parse(payloadJson);
+  } catch {
+    return null;
+  }
+}
+
 function normalizeBoolean(value) {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'string') {
@@ -232,6 +263,13 @@ async function ensureSuperAdmin(extra) {
   const token = extractBearer(extra);
   if (!token) {
     throw new Error('superadmin_required');
+  }
+  const jwtClaims = decodeDexterJwt(token);
+  if (jwtClaims) {
+    const claimRoles = extractRoles(jwtClaims.roles);
+    if (claimRoles.includes('superadmin')) {
+      return;
+    }
   }
   const user = await fetchSupabaseUser(token);
   if (!user) {

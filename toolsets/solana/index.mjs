@@ -123,7 +123,7 @@ export function registerSolanaToolset(server) {
     return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.result || {}) }] };
   });
 
-  const swapInputSchema = z.object({
+  const swapInputShape = z.object({
     input_mint: z.string().min(1),
     output_mint: z.string().min(1),
     amount_ui: z.union([z.string(), z.number()]).nullable().optional(),
@@ -131,7 +131,9 @@ export function registerSolanaToolset(server) {
     slippage_bps: z.number().int().optional(),
     mode: z.enum(['ExactIn', 'ExactOut']),
     desired_output_ui: z.union([z.string(), z.number()]).nullable().optional(),
-  }).superRefine((value, ctx) => {
+  });
+
+  const swapInputSchema = swapInputShape.superRefine((value, ctx) => {
     if (value.mode === 'ExactIn' && (value.amount_ui == null || value.amount_ui === '')) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'amount_ui is required for ExactIn swaps.' });
     }
@@ -148,8 +150,9 @@ export function registerSolanaToolset(server) {
       access: 'managed',
       tags: ['swap', 'preview']
     },
-    inputSchema: swapInputSchema,
-  }, async ({ input_mint, output_mint, amount_ui, wallet_address, slippage_bps, mode, desired_output_ui }, extra) => {
+    inputSchema: swapInputShape,
+  }, async (input, extra) => {
+    const { input_mint, output_mint, amount_ui, wallet_address, slippage_bps, mode, desired_output_ui } = swapInputSchema.parse(input);
     const body = {
       inputMint: input_mint,
       outputMint: output_mint,
@@ -175,8 +178,9 @@ export function registerSolanaToolset(server) {
       access: 'managed',
       tags: ['swap', 'execution']
     },
-    inputSchema: swapInputSchema,
-  }, async ({ input_mint, output_mint, amount_ui, wallet_address, slippage_bps, mode, desired_output_ui }, extra) => {
+    inputSchema: swapInputShape,
+  }, async (input, extra) => {
+    const { input_mint, output_mint, amount_ui, wallet_address, slippage_bps, mode, desired_output_ui } = swapInputSchema.parse(input);
     const body = {
       inputMint: input_mint,
       outputMint: output_mint,

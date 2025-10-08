@@ -1,5 +1,11 @@
 <p align="center">
-  <img src="https://docs.dexter.cash/previews/dexter-stack-wordmark.svg" alt="Dexter Stack wordmark" width="360">
+  <img src="./public/wordmarks/dexter-wordmark.svg" alt="Dexter wordmark" width="360">
+</p>
+
+<p align="center">
+  <a href="https://nodejs.org/en/download"><img src="https://img.shields.io/badge/node-%3E=20.0-green.svg" alt="Node >= 20"></a>
+  <a href="https://mcp.dexter.cash/mcp"><img src="https://img.shields.io/badge/MCP-https%3A%2F%2Fmcp.dexter.cash%2Fmcp-blue.svg" alt="MCP endpoint"></a>
+  <a href="https://dexter.cash"><img src="https://img.shields.io/badge/stack-Dexter%20Connectors-purple.svg" alt="Dexter connectors"></a>
 </p>
 
 <p align="center">
@@ -8,14 +14,6 @@
   · <strong>Dexter MCP</strong>
   · <a href="https://github.com/BranchManager69/dexter-ops">Dexter Ops</a>
   · <a href="https://github.com/BranchManager69/pumpstreams">PumpStreams</a>
-</p>
-
-<h1 align="center">Dexter MCP</h1>
-
-<p align="center">
-  <a href="https://nodejs.org/en/download"><img src="https://img.shields.io/badge/node-%3E=20.0-green.svg" alt="Node >= 20"></a>
-  <a href="https://mcp.dexter.cash/mcp"><img src="https://img.shields.io/badge/MCP-https%3A%2F%2Fmcp.dexter.cash%2Fmcp-blue.svg" alt="MCP endpoint"></a>
-  <a href="https://dexter.cash"><img src="https://img.shields.io/badge/stack-Dexter%20Connectors-purple.svg" alt="Dexter connectors"></a>
 </p>
 
 Fully managed Model Context Protocol (MCP) bridge for Dexter. The service exposes a curated set of connector tools (wallet resolution, diagnostics, session overrides) over both stdio and HTTPS, reusing the Dexter OAuth infrastructure for user-level access control.
