@@ -5,6 +5,8 @@ import { registerWalletToolset } from './wallet/index.mjs';
 import { registerSolanaToolset } from './solana/index.mjs';
 import { registerCodexToolset } from './codex/index.mjs';
 import { registerStreamToolset } from './stream/index.mjs';
+import { registerMarketsToolset } from './markets/index.mjs';
+import { registerTwitterToolset } from './twitter/index.mjs';
 
 const passthrough = (value) => String(value);
 
@@ -85,6 +87,14 @@ const TOOLSET_REGISTRY = {
   stream: {
     register: registerStreamToolset,
     description: 'DexterVision stream controls (scene status and switching).',
+  },
+  markets: {
+    register: registerMarketsToolset,
+    description: 'Market data utilities (Birdeye OHLCV, analytics).',
+  },
+  twitter: {
+    register: registerTwitterToolset,
+    description: 'Twitter/X scraping utilities (session-backed search).',
   },
 };
 

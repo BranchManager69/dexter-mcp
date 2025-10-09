@@ -115,6 +115,8 @@ Currently shipped:
 - **pumpstream** – `pumpstream_live_summary` wrapper for `https://pump.dexter.cash/api/live` with paging, search, and filter controls.
 - **wallet** – Supabase-backed wallet resolution, diagnostics, and per-session overrides (used by all Dexter connectors).
 - **solana** – Token resolution, portfolio balances, and managed-wallet buy/sell execution (proxied through `dexter-api`).
+- **markets** – Birdeye pair-backed OHLCV retrieval for plotting price history lines (auto-selects top pair when only a mint is provided).
+- **twitter** – Session-backed Twitter search via Playwright (multi-query presets, optional language/reply filters, media-only + verified-only toggles, enriched author metadata).
 
 Each tool definition exposes an `_meta` block so downstream clients can group or gate consistently:
 
@@ -156,6 +158,10 @@ Populate `.env` (or inject via process manager) with at least:
 |----------|---------|
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET` | Supabase project credentials used by the wallet resolver. |
 | `DEXTER_API_BASE_URL` | Dexter API base URL (e.g. `https://api.dexter.cash`). Wallet resolver requests are routed through this API. |
+| `BIRDEYE_API_KEY` | Required for `markets_fetch_ohlcv`; Birdeye public API key used for OHLCV candles. |
+| `BIRDEYE_DEFAULT_CHAIN` | Optional default chain header for Birdeye calls (defaults to `solana`). |
+| `TWITTER_SESSION_PATH` | Absolute path to the Playwright storageState JSON for the logged-in X session (required for `twitter_search`). |
+| `TWITTER_PROFILE_LOOKUP_LIMIT` | Max profiles per search (default 10) enriched for metadata. Optional. |
 | `TOKEN_AI_MCP_PUBLIC_URL`, `TOKEN_AI_MCP_PORT` | Public HTTPS URL + bind port for the HTTP transport. |
 | `MCP_JWT_SECRET` | HS256 secret used to validate per-user Dexter MCP JWTs from dexter-api. When set, Authorization: Bearer <dexter_mcp_jwt> is accepted. |
 | `TOKEN_AI_OIDC_*` | External IdP endpoints when `TOKEN_AI_MCP_OAUTH=true` (authorization, token, userinfo, issuer, JWKS, scopes, client ID). |
