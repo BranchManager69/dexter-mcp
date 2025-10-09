@@ -60,7 +60,7 @@ export function registerGeneralToolset(server) {
     'search',
     {
       title: 'Search the Web',
-      description: 'Perform a realtime web search using Tavily.',
+      description: 'Find up-to-date information from across the web.',
       _meta: {
         category: 'knowledge-base',
         access: 'guest',
@@ -133,7 +133,7 @@ export function registerGeneralToolset(server) {
     'fetch',
     {
       title: 'Fetch Web Page',
-      description: 'Fetch and summarize the contents of a web page via Tavily.',
+      description: 'Retrieve and summarize a web page by URL.',
       _meta: {
         category: 'knowledge-base',
         access: 'guest',

@@ -28,8 +28,8 @@ export function registerTwitterToolset(server) {
   server.registerTool(
     'twitter_search',
     {
-      title: 'Search Twitter',
-      description: 'Search Twitter/X for recent tweets using the shared session (Playwright-powered).',
+      title: 'Search X/Twitter',
+      description: 'Find recent tweets about a topic on X (Twitter).',
       _meta: {
         category: 'social.search',
         access: 'member',
