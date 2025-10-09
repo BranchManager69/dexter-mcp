@@ -111,7 +111,7 @@ Tool bundles live under `toolsets/<name>/index.mjs` and register themselves thro
 
 Currently shipped:
 
-- **general** – Tavily-backed web search (`search`) and page extraction (`fetch`) for realtime external research (requires `TAVILY_API_KEY`).
+- **general** – Tavily-backed web search (`search`) and page extraction (`fetch`) for realtime external research (requires `TAVILY_API_KEY`). Results include `snippet`, `favicon`, and `response_time`; extracts expose full `text` plus the raw payload for UI renderers.
 - **pumpstream** – `pumpstream_live_summary` wrapper for `https://pump.dexter.cash/api/live` with paging, search, and filter controls.
 - **wallet** – Supabase-backed wallet resolution, diagnostics, and per-session overrides (used by all Dexter connectors).
 - **solana** – Token resolution, portfolio balances, and managed-wallet buy/sell execution (proxied through `dexter-api`).

@@ -39,16 +39,20 @@ function getTavilyClient() {
 
 function summariseSearchResults(results, maxResults = DEFAULT_SEARCH_MAX_RESULTS) {
   if (!Array.isArray(results)) return [];
-  return results.slice(0, maxResults).map((item) => ({
-    id: item.url || item.title || item.id,
-    title: item.title || null,
-    url: item.url || null,
-    content: item.content || null,
-    raw_content: item.rawContent || null,
-    score: item.score ?? null,
-    published_at: item.publishedDate || null,
-    favicon: item.favicon || null,
-  }));
+  return results.slice(0, maxResults).map((item) => {
+    const snippet = item.content || item.rawContent || null;
+    return {
+      id: item.url || item.title || item.id,
+      title: item.title || null,
+      url: item.url || null,
+      snippet,
+      content: item.content || null,
+      raw_content: item.rawContent || null,
+      score: item.score ?? null,
+      published_at: item.publishedDate || null,
+      favicon: item.favicon || null,
+    };
+  });
 }
 
 export function registerGeneralToolset(server) {
@@ -184,6 +188,8 @@ export function registerGeneralToolset(server) {
       const structured = {
         url,
         title: result?.title ?? null,
+        snippet: result?.content ?? null,
+        text: result?.rawContent ?? null,
         content: result?.rawContent ?? null,
         images: result?.images ?? [],
         favicon: result?.favicon ?? null,
