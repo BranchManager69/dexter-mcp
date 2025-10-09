@@ -111,7 +111,7 @@ Tool bundles live under `toolsets/<name>/index.mjs` and register themselves thro
 
 Currently shipped:
 
-- **general** – Static `search` / `fetch` helpers that surface curated Dexter OAuth + connector docs.
+- **general** – Tavily-backed web search (`search`) and page extraction (`fetch`) for realtime external research (requires `TAVILY_API_KEY`).
 - **pumpstream** – `pumpstream_live_summary` wrapper for `https://pump.dexter.cash/api/live` with paging, search, and filter controls.
 - **wallet** – Supabase-backed wallet resolution, diagnostics, and per-session overrides (used by all Dexter connectors).
 - **solana** – Token resolution, portfolio balances, and managed-wallet buy/sell execution (proxied through `dexter-api`).
@@ -160,6 +160,8 @@ Populate `.env` (or inject via process manager) with at least:
 | `DEXTER_API_BASE_URL` | Dexter API base URL (e.g. `https://api.dexter.cash`). Wallet resolver requests are routed through this API. |
 | `BIRDEYE_API_KEY` | Required for `markets_fetch_ohlcv`; Birdeye public API key used for OHLCV candles. |
 | `BIRDEYE_DEFAULT_CHAIN` | Optional default chain header for Birdeye calls (defaults to `solana`). |
+| `TAVILY_API_KEY` | Required for the web `search`/`fetch` tools; Tavily API key for realtime web search. |
+| `TAVILY_API_URL` | Optional override for the Tavily API base URL (defaults to `https://api.tavily.com`). |
 | `TWITTER_SESSION_PATH` | Absolute path to the Playwright storageState JSON for the logged-in X session (required for `twitter_search`). |
 | `TWITTER_PROFILE_LOOKUP_LIMIT` | Max profiles per search (default 10) enriched for metadata. Optional. |
 | `TOKEN_AI_MCP_PUBLIC_URL`, `TOKEN_AI_MCP_PORT` | Public HTTPS URL + bind port for the HTTP transport. |

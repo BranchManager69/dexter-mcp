@@ -1,7 +1,7 @@
 # Dexter MCP Agents
 
 ## Toolset Overview
-- **general** – `search` and `fetch` surface curated Dexter connector/OAuth documentation from a static in-memory index (`toolsets/general/index.mjs`). Update the `DOCUMENTS` array when knowledge sources change.
+- **general** – `search` performs realtime web queries via Tavily (supports `max_results`, depth, answer summaries); `fetch` extracts full page content for a given URL. Requires `TAVILY_API_KEY` (`toolsets/general/index.mjs`).
 - **pumpstream** – `pumpstream_live_summary` queries `https://pump.dexter.cash/api/live` and returns a condensed, paged stream snapshot. Schema supports `pageSize`/`offset`/`page`, search, symbol & mint filters, sort, status, min viewer / USD market-cap thresholds, plus optional spotlight data.
 - **wallet** – Session-aware wallet helpers (`resolve_wallet`, `list_my_wallets`, `set_session_wallet_override`, `auth_info`) backed by `/api/wallets/resolver`. Session overrides are stored in-memory and keyed by the MCP session header.
 - **solana** – Managed Solana trading utilities (`solana_resolve_token`, balance listings, swap/buy/sell execution) proxied through Dexter API.
