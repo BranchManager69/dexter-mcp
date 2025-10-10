@@ -174,11 +174,17 @@ function extractBearer(extra) {
   const headers = headersFromExtra(extra);
   const auth = headers?.authorization || headers?.Authorization;
   if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
-    return auth.slice(7).trim();
+    const token = auth.slice(7).trim();
+    if (token && token !== process.env.TOKEN_AI_MCP_TOKEN) {
+      return token;
+    }
   }
   const xAuth = headers?.['x-authorization'] || headers?.['X-Authorization'];
   if (typeof xAuth === 'string' && xAuth.startsWith('Bearer ')) {
-    return xAuth.slice(7).trim();
+    const token = xAuth.slice(7).trim();
+    if (token && token !== process.env.TOKEN_AI_MCP_TOKEN) {
+      return token;
+    }
   }
   const envToken = process.env.MCP_SUPABASE_BEARER;
   return envToken ? String(envToken).trim() : '';

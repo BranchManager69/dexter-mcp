@@ -39,14 +39,18 @@ function getSupabaseBearer(extra) {
     const auth = String(headers['authorization'] || headers['Authorization'] || '').trim();
     if (auth.startsWith('Bearer ')) {
       const token = auth.slice(7).trim();
-      if (token) return { token, source: 'authorization' };
+      if (token && token !== process.env.TOKEN_AI_MCP_TOKEN) {
+        return { token, source: 'authorization' };
+      }
     }
   } catch {}
   try {
     const xAuth = String(headers['x-authorization'] || headers['X-Authorization'] || '').trim();
     if (xAuth.startsWith('Bearer ')) {
       const token = xAuth.slice(7).trim();
-      if (token) return { token, source: 'x-authorization' };
+      if (token && token !== process.env.TOKEN_AI_MCP_TOKEN) {
+        return { token, source: 'x-authorization' };
+      }
     }
   } catch {}
   try {
