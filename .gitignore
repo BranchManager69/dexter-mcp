@@ -21,6 +21,7 @@ yarn-error.log*
 # State files
 state.json
 state/
+cookies.json
 
 # Harness results
 harness-results/
