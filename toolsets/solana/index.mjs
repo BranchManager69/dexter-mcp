@@ -108,27 +108,6 @@ export function registerSolanaToolset(server) {
     return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.balances || []) }] };
   });
 
-  server.registerTool('solana_preview_sell_all', {
-    title: 'Preview Sell All',
-    description: 'Preview SOL received when selling the full token balance.',
-    _meta: {
-      category: 'solana.trading',
-      access: 'managed',
-      tags: ['sell', 'preview']
-    },
-    inputSchema: {
-      wallet_address: z.string().optional(),
-      mint: z.string(),
-      slippage_bps: z.number().int().optional(),
-    },
-  }, async ({ wallet_address, mint, slippage_bps }, extra) => {
-    const params = new URLSearchParams({ mint });
-    if (wallet_address) params.set('walletAddress', wallet_address);
-    if (slippage_bps != null) params.set('slippageBps', String(slippage_bps));
-    const result = await apiFetch(`/api/solana/preview-sell?${params.toString()}`, { method: 'GET' }, extra);
-    return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.result || {}) }] };
-  });
-
   const swapInputShape = z.object({
     input_mint: z.string().min(1),
     output_mint: z.string().min(1),
@@ -197,66 +176,6 @@ export function registerSolanaToolset(server) {
       ...(desired_output_ui != null ? { desiredOutputUi: desired_output_ui } : {}),
     };
     const result = await apiFetch('/api/solana/swap/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }, extra);
-    return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.result || {}) }] };
-  });
-
-  server.registerTool('solana_execute_buy', {
-    title: 'Execute Buy',
-    description: 'Buy a token using SOL from a managed wallet.',
-    _meta: {
-      category: 'solana.trading',
-      access: 'managed',
-      tags: ['buy', 'execution']
-    },
-    inputSchema: {
-      wallet_address: z.string().optional(),
-      mint: z.string(),
-      amount_sol: z.number().positive(),
-      slippage_bps: z.number().int().optional(),
-    },
-  }, async ({ wallet_address, mint, amount_sol, slippage_bps }, extra) => {
-    const body = {
-      walletAddress: wallet_address ?? null,
-      mint,
-      amountSol: amount_sol,
-      slippageBps: slippage_bps ?? undefined,
-    };
-    const result = await apiFetch('/api/solana/buy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }, extra);
-    return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.result || {}) }] };
-  });
-
-  server.registerTool('solana_execute_sell', {
-    title: 'Execute Sell',
-    description: 'Sell a token for SOL from a managed wallet.',
-    _meta: {
-      category: 'solana.trading',
-      access: 'managed',
-      tags: ['sell', 'execution']
-    },
-    inputSchema: {
-      wallet_address: z.string().optional(),
-      mint: z.string(),
-      amount_raw: z.string().optional(),
-      percentage: z.number().min(1).max(100).optional(),
-      slippage_bps: z.number().int().optional(),
-    },
-  }, async ({ wallet_address, mint, amount_raw, percentage, slippage_bps }, extra) => {
-    const body = {
-      walletAddress: wallet_address ?? null,
-      mint,
-      amountRaw: amount_raw ?? undefined,
-      percentage: percentage ?? undefined,
-      slippageBps: slippage_bps ?? undefined,
-    };
-    const result = await apiFetch('/api/solana/sell', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

@@ -125,13 +125,13 @@ Each tool definition exposes an `_meta` block so downstream clients can group or
 
 ```json
 {
-  "name": "solana_execute_buy",
-  "title": "Execute Buy",
-  "description": "Buy a token using SOL from a managed wallet.",
+  "name": "solana_swap_execute",
+  "title": "Execute Solana Swap",
+  "description": "Execute a SOL-token swap after previewing the expected output.",
   "_meta": {
     "category": "solana.trading",
     "access": "managed",
-    "tags": ["buy", "execution"]
+    "tags": ["swap", "execution"]
   }
 }
 ```

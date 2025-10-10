@@ -4,7 +4,7 @@
 - **general** – `search` performs realtime web queries via Tavily (supports `max_results`, depth, answer summaries); `fetch` extracts full page content for a given URL. Requires `TAVILY_API_KEY` (`toolsets/general/index.mjs`).
 - **pumpstream** – `pumpstream_live_summary` queries `https://pump.dexter.cash/api/live` and returns a condensed, paged stream snapshot. Schema supports `pageSize`/`offset`/`page`, search, symbol & mint filters, sort, status, min viewer / USD market-cap thresholds, plus optional spotlight data.
 - **wallet** – Session-aware wallet helpers (`resolve_wallet`, `list_my_wallets`, `set_session_wallet_override`, `auth_info`) backed by `/api/wallets/resolver`. Session overrides are stored in-memory and keyed by the MCP session header.
-- **solana** – Managed Solana trading utilities (`solana_resolve_token`, balance listings, swap/buy/sell execution) proxied through Dexter API.
+- **solana** – Managed Solana trading utilities (`solana_resolve_token`, balance listings, swap preview/execute) proxied through Dexter API.
 - **markets** – `markets_fetch_ohlcv` uses Birdeye’s v3 pair endpoint; provide a pair address or let it auto-pick the top-liquidity pair for a mint (`toolsets/markets/index.mjs`).
 - **twitter** – `twitter_search` runs Playwright against X search using the shared session (`toolsets/twitter/index.mjs`). Supports multi-query/ticker presets, optional language/reply filters, media-only + verified-only toggles, and enriched author metadata.
 - **codex** – Conversational (`codex_start`, `codex_reply`) and exec-mode (`codex_exec`) bridges to the Codex CLI. Exec mode supports optional JSON schemas for structured output.
