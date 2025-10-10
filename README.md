@@ -34,8 +34,8 @@ Fully managed Model Context Protocol (MCP) bridge for Dexter. The service expose
 
 | Label | Who can call | Notes | Examples |
 |-------|--------------|-------|----------|
-| `guest` | Shared demo bearer (`TOKEN_AI_MCP_TOKEN`), no login required | Read-only research and wallet discovery; no trade execution. | `general/search`, `pumpstream_live_summary`, `markets_fetch_ohlcv`, `wallet/resolve_wallet` |
-| `member` | Authenticated Supabase session / `dexter_mcp_jwt` | Unlocks personal wallet context and member-only helpers. | `wallet/list_my_wallets`, `wallet/set_session_wallet_override`, `twitter_search` |
+| `guest` | Shared demo bearer (`TOKEN_AI_MCP_TOKEN`), no login required | Read-only research and wallet discovery; no trade execution. | `general/search`, `pumpstream_live_summary`, `markets_fetch_ohlcv`, `wallet/resolve_wallet`, `twitter_search` |
+| `member` | Authenticated Supabase session / `dexter_mcp_jwt` | Unlocks personal wallet context and member-only helpers. | `wallet/list_my_wallets`, `wallet/set_session_wallet_override` |
 | `managed` | Managed-wallet entitlements (Dexter trading flows) | Required for balance lookups and trade execution against managed wallets. | `solana_list_balances`, `solana_swap_preview`, `solana_swap_execute` |
 | `pro` | Role-gated (Pro or Super Admin) | Supabase role check gates stream controls. | `stream_get_scene`, `stream_set_scene` |
 | `dev` | Super Admins only | Protected experimental surfaces. | `codex_start`, `codex_exec` |

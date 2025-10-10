@@ -88,7 +88,7 @@ export function registerTwitterToolset(server) {
       description: 'Find recent tweets about a topic on X (Twitter).',
       _meta: {
         category: 'social.search',
-        access: 'member',
+        access: 'guest',
         tags: ['twitter', 'search', 'social'],
       },
       inputSchema: INPUT_JSON_SCHEMA,
