@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { resolveWalletForRequest } from '../wallet/index.mjs';
+
 const DEFAULT_API_BASE_URL = process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || 'http://localhost:3030';
 
 function buildApiUrl(base, path) {
@@ -93,15 +95,29 @@ export function registerSolanaToolset(server) {
       tags: ['balances', 'spl']
     },
     inputSchema: {
-      wallet_address: z.string(),
+      wallet_address: z.string().optional(),
       min_ui: z.number().optional(),
       limit: z.number().int().optional(),
     },
   }, async ({ wallet_address, min_ui, limit }, extra) => {
-    if (!wallet_address) {
-      return { content: [{ type: 'text', text: 'wallet_address_required' }], isError: true };
+    let targetWallet = wallet_address ? String(wallet_address).trim() : '';
+    if (!targetWallet) {
+      try {
+        const resolved = await resolveWalletForRequest(extra);
+        if (resolved?.wallet_address) {
+          targetWallet = String(resolved.wallet_address);
+        }
+      } catch {}
     }
-    const params = new URLSearchParams({ walletAddress: wallet_address });
+
+    if (!targetWallet) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: 'wallet_address_required' }) }],
+        isError: true,
+      };
+    }
+
+    const params = new URLSearchParams({ walletAddress: targetWallet });
     if (min_ui != null) params.set('minUi', String(min_ui));
     if (limit != null) params.set('limit', String(limit));
     const result = await apiFetch(`/api/solana/balances?${params.toString()}`, { method: 'GET' }, extra);
