@@ -34,13 +34,14 @@ Fully managed Model Context Protocol (MCP) bridge for Dexter. The service expose
 
 | Label | Who can call | Notes | Examples |
 |-------|--------------|-------|----------|
-| `guest` | Shared demo bearer (`TOKEN_AI_MCP_TOKEN`), no login required | Backed by the communal managed wallet; live trading is enabled so prospects can try buys/sells immediately. | `solana_*`, `wallet/resolve_wallet`, `wallet/list_my_wallets`, `general/search`, `pumpstream_live_summary` |
-| `member` | Authenticated Supabase session / `dexter_mcp_jwt` | Uses the user-specific resolver wallet and unlocks session overrides. | `wallet/set_session_wallet_override` |
-| `pro` | Role-gated (Pro or Super Admin) | Calls Supabase to verify `pro`/`superadmin` before running. | `stream_get_scene`, `stream_set_scene` |
-| `dev` | Super Admins only | Protected experimental surfaces. | `codex_*` |
+| `guest` | Shared demo bearer (`TOKEN_AI_MCP_TOKEN`), no login required | Read-only research and wallet discovery; no trade execution. | `general/search`, `pumpstream_live_summary`, `markets_fetch_ohlcv`, `wallet/resolve_wallet` |
+| `member` | Authenticated Supabase session / `dexter_mcp_jwt` | Unlocks personal wallet context and member-only helpers. | `wallet/list_my_wallets`, `wallet/set_session_wallet_override`, `twitter_search` |
+| `managed` | Managed-wallet entitlements (Dexter trading flows) | Required for balance lookups and trade execution against managed wallets. | `solana_list_balances`, `solana_swap_preview`, `solana_swap_execute` |
+| `pro` | Role-gated (Pro or Super Admin) | Supabase role check gates stream controls. | `stream_get_scene`, `stream_set_scene` |
+| `dev` | Super Admins only | Protected experimental surfaces. | `codex_start`, `codex_exec` |
 | `internal` | Diagnostic tooling | Not exposed to end users. | `wallet/auth_info` |
 
-Guest/demo/member terminology maps to marketing: the shared bearer is a full managed wallet so prospects experience real trades without creating an account, while member-tier tools expect the per-user wallet provisioned at signup.
+Guest/member/managed terminology maps to marketing: the shared bearer covers read-only exploration, while member and managed tiers rely on the per-user wallet provisioned at signup (and managed wallets for execution).
 
 ---
 
@@ -63,7 +64,7 @@ cd dexter-mcp
 npm install
 cp .env.example .env
 
-# populate .env with Supabase + OAuth settings (see Configuration)
+# populate .env with required Supabase/OAuth settings
 
 # HTTPS transport (port 3930)
 npm start
@@ -111,12 +112,14 @@ Tool bundles live under `toolsets/<name>/index.mjs` and register themselves thro
 
 Currently shipped:
 
-- **general** – Tavily-backed web search (`search`) and page extraction (`fetch`) for realtime external research (requires `TAVILY_API_KEY`). Results include `snippet`, `favicon`, and `response_time`; extracts expose full `text` plus the raw payload for UI renderers.
+- **general** – Web search (`search`) and page extraction (`fetch`) for realtime research, returning snippets, favicons, and raw content for renderers.
 - **pumpstream** – `pumpstream_live_summary` wrapper for `https://pump.dexter.cash/api/live` with paging, search, and filter controls.
-- **wallet** – Supabase-backed wallet resolution, diagnostics, and per-session overrides (used by all Dexter connectors).
-- **solana** – Token resolution, portfolio balances, and managed-wallet buy/sell execution (proxied through `dexter-api`).
-- **markets** – Birdeye pair-backed OHLCV retrieval for plotting price history lines (auto-selects top pair when only a mint is provided).
-- **twitter** – Session-backed Twitter search via Playwright (multi-query presets, optional language/reply filters, media-only + verified-only toggles, enriched author metadata).
+- **wallet** – Supabase-backed wallet resolution, session overrides, and resolver diagnostics.
+- **solana** – Token resolution plus managed-wallet balance, swap, and trading helpers (proxied through `dexter-api`).
+- **markets** – Birdeye pair-backed OHLCV retrieval for plotting price history lines (auto-selects the top-liquidity pair when only a mint is provided).
+- **twitter** – Logged-in X/Twitter search with multi-query presets, language/media filters, and enriched author metadata.
+- **stream** – DexterVision scene status and switching for pro accounts.
+- **codex** – Codex bridge for starting, replying to, and executing read-only sandbox sessions (super-admin only).
 
 Each tool definition exposes an `_meta` block so downstream clients can group or gate consistently:
 
@@ -141,37 +144,12 @@ The `/tools` API simply relays this metadata so UIs (including `dexter-fe`) pick
 
 Selection options:
 
-- **Environment default:** leave `TOKEN_AI_MCP_TOOLSETS` unset to load every registered bundle (`general,pumpstream,wallet`). Set it (comma-separated) to restrict the selection, e.g. `TOKEN_AI_MCP_TOOLSETS=wallet`.
+- **Environment default:** leave `TOKEN_AI_MCP_TOOLSETS` unset to load every registered bundle (general, pumpstream, wallet, solana, markets, twitter, stream, codex). Set it (comma-separated) to restrict the selection, e.g. `TOKEN_AI_MCP_TOOLSETS=wallet`.
 - **CLI/stdio:** `node server.mjs --tools=wallet`.
 - **HTTP query:** `POST /mcp?tools=wallet`.
 - **Codex:** set `TOKEN_AI_MCP_TOOLSETS` in the env before launching, or add `includeToolsets` when invoking `buildMcpServer` manually.
 
 Legacy Token-AI bundles remain in `legacy-tools/` for reference. They are not registered by default but can be migrated into `toolsets/` as they are modernized.
-
----
-
-## Configuration Reference
-
-Populate `.env` (or inject via process manager) with at least:
-
-| Variable | Purpose |
-|----------|---------|
-| `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET` | Supabase project credentials used by the wallet resolver. |
-| `DEXTER_API_BASE_URL` | Dexter API base URL (e.g. `https://api.dexter.cash`). Wallet resolver requests are routed through this API. |
-| `BIRDEYE_API_KEY` | Required for `markets_fetch_ohlcv`; Birdeye public API key used for OHLCV candles. |
-| `BIRDEYE_DEFAULT_CHAIN` | Optional default chain header for Birdeye calls (defaults to `solana`). |
-| `TAVILY_API_KEY` | Required for the web `search`/`fetch` tools; Tavily API key for realtime web search. |
-| `TAVILY_API_URL` | Optional override for the Tavily API base URL (defaults to `https://api.tavily.com`). |
-| `TWITTER_SESSION_PATH` | Absolute path to the Playwright storageState JSON for the logged-in X session (required for `twitter_search`). |
-| `TWITTER_PROFILE_LOOKUP_LIMIT` | Max profiles per search (default 10) enriched for metadata. Optional. |
-| `TOKEN_AI_MCP_PUBLIC_URL`, `TOKEN_AI_MCP_PORT` | Public HTTPS URL + bind port for the HTTP transport. |
-| `MCP_JWT_SECRET` | HS256 secret used to validate per-user Dexter MCP JWTs from dexter-api. When set, Authorization: Bearer <dexter_mcp_jwt> is accepted. |
-| `TOKEN_AI_OIDC_*` | External IdP endpoints when `TOKEN_AI_MCP_OAUTH=true` (authorization, token, userinfo, issuer, JWKS, scopes, client ID). |
-| `TOKEN_AI_MCP_TOKEN` | Optional static bearer for service-to-service access. |
-| `TOKEN_AI_MCP_TOOLSETS` | Comma-separated list of toolsets to auto-load. Defaults to all registered sets. |
-| `TOKEN_AI_MCP_CORS` | Allowed origin(s) for HTTP transport (default `*`). |
-
-StdIO launches also load environment files from the repo root and `token-ai/.env`, so shared secrets can be stored once and reused across services.
 
 ---
 
