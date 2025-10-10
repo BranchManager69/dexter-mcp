@@ -1,13 +1,11 @@
 import { z } from 'zod';
 import { tavily as createTavilyClient } from '@tavily/core';
 
-const TAVILY_API_KEY = (process.env.TAVILY_API_KEY || '').trim();
-const TAVILY_API_URL = (process.env.TAVILY_API_URL || '').trim() || undefined;
-
 const DEFAULT_SEARCH_MAX_RESULTS = 5;
 const MAX_SEARCH_RESULTS = 10;
 
 let cachedClient = null;
+let cachedSignature = null;
 
 function normalizeQuery(value) {
   if (!value) return '';
@@ -24,15 +22,27 @@ function normalizeUrl(value) {
   return '';
 }
 
-function getTavilyClient() {
-  if (!TAVILY_API_KEY) {
+function resolveTavilyConfig() {
+  const apiKey = (process.env.TAVILY_API_KEY || '').trim();
+  const apiUrlRaw = (process.env.TAVILY_API_URL || '').trim();
+  if (!apiKey) {
     throw new Error('TAVILY_API_KEY missing.');
   }
-  if (!cachedClient) {
+  return {
+    apiKey,
+    apiUrl: apiUrlRaw ? apiUrlRaw : undefined,
+  };
+}
+
+function getTavilyClient() {
+  const { apiKey, apiUrl } = resolveTavilyConfig();
+  const signature = `${apiKey}:${apiUrl || ''}`;
+  if (!cachedClient || cachedSignature !== signature) {
     cachedClient = createTavilyClient({
-      apiKey: TAVILY_API_KEY,
-      apiUrl: TAVILY_API_URL,
+      apiKey,
+      apiUrl,
     });
+    cachedSignature = signature;
   }
   return cachedClient;
 }

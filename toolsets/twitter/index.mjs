@@ -24,6 +24,62 @@ const INPUT_SCHEMA = z.object({
   }
 });
 
+const INPUT_JSON_SCHEMA = {
+  $schema: 'http://json-schema.org/draft-07/schema#',
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    query: {
+      type: 'string',
+      minLength: 1,
+      description: 'Search query (ticker, token name, hashtag, etc.).',
+    },
+    queries: {
+      type: 'array',
+      minItems: 1,
+      items: {
+        type: 'string',
+        minLength: 1,
+      },
+      description: 'List of search queries to execute; results are merged.',
+    },
+    ticker: {
+      type: 'string',
+      minLength: 1,
+      description: 'Ticker shorthand; expands into multiple presets like $ticker, #ticker, ticker.',
+    },
+    max_results: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 100,
+      description: 'Maximum tweets to return (1-100). Defaults to 25.',
+    },
+    include_replies: {
+      type: 'boolean',
+      description: 'Include reply tweets in results (default true).',
+    },
+    language: {
+      type: 'string',
+      minLength: 2,
+      maxLength: 5,
+      description: 'Optional language filter (e.g. en, es).',
+    },
+    media_only: {
+      type: 'boolean',
+      description: 'Only include tweets that contain media (photos or videos).',
+    },
+    verified_only: {
+      type: 'boolean',
+      description: 'Only include tweets from verified authors.',
+    },
+  },
+  anyOf: [
+    { required: ['query'] },
+    { required: ['queries'] },
+    { required: ['ticker'] },
+  ],
+};
+
 export function registerTwitterToolset(server) {
   server.registerTool(
     'twitter_search',
@@ -35,7 +91,7 @@ export function registerTwitterToolset(server) {
         access: 'member',
         tags: ['twitter', 'search', 'social'],
       },
-      inputSchema: INPUT_SCHEMA.shape,
+      inputSchema: INPUT_JSON_SCHEMA,
       outputSchema: {
         query: z.string().nullable().optional(),
         queries: z.array(z.string()).optional(),
