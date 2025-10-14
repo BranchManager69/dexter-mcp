@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import { searchTwitter } from '../../integrations/twitter.mjs';
 
+const LOG_PREFIX = '[twitter-toolset]';
+
 const INPUT_SCHEMA = z.object({
   query: z.string().min(1).describe('Search query (ticker, token name, hashtag, etc.).').optional(),
   queries: z.array(z.string().min(1)).min(1).describe('List of search queries to execute (combined results).').optional(),
@@ -144,15 +146,32 @@ export function registerTwitterToolset(server) {
       },
     },
     async (args = {}) => {
+      const startedAt = Date.now();
       let parsed;
       try {
         parsed = INPUT_SCHEMA.parse(args);
       } catch (error) {
+        console.warn(LOG_PREFIX, 'search:invalid-args', { error: error?.message || String(error) });
         return {
           content: [{ type: 'text', text: JSON.stringify({ error: 'invalid_arguments', details: error?.message }) }],
           isError: true,
         };
       }
+
+      const requestSummary = {
+        query: parsed.query ?? null,
+        queriesCount: Array.isArray(parsed.queries) ? parsed.queries.length : 0,
+        ticker: parsed.ticker ?? null,
+        maxResults: parsed.max_results ?? null,
+        includeReplies: parsed.include_replies !== false,
+        language: parsed.language ?? null,
+        mediaOnly: parsed.media_only === true,
+        verifiedOnly: parsed.verified_only === true,
+        sessionPath: process.env.TWITTER_SESSION_PATH || null,
+      };
+      try {
+        console.log(LOG_PREFIX, 'search:start', requestSummary);
+      } catch {}
 
       try {
         const result = await searchTwitter({
@@ -165,6 +184,17 @@ export function registerTwitterToolset(server) {
           mediaOnly: parsed.media_only === true,
           verifiedOnly: parsed.verified_only === true,
         });
+
+        try {
+          const durationMs = Date.now() - startedAt;
+          console.log(LOG_PREFIX, 'search:success', {
+            durationMs,
+            fetched: result.fetched,
+            tweets: Array.isArray(result.tweets) ? result.tweets.length : 0,
+            queriesCount: Array.isArray(result.queries) ? result.queries.length : 0,
+            ticker: result.ticker ?? null,
+          });
+        } catch {}
 
         const summary = {
           query: result.query,
@@ -182,6 +212,13 @@ export function registerTwitterToolset(server) {
           content: [{ type: 'text', text: JSON.stringify(summary) }],
         };
       } catch (error) {
+        try {
+          const durationMs = Date.now() - startedAt;
+          console.error(LOG_PREFIX, 'search:error', {
+            durationMs,
+            error: error?.message || 'twitter_search_failed',
+          });
+        } catch {}
         return {
           content: [{ type: 'text', text: JSON.stringify({ error: error?.message || 'twitter_search_failed' }) }],
           isError: true,
