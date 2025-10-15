@@ -1,8 +1,23 @@
+import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 
+console.log('[stream-toolset] init', {
+  jwtSecretLen: getMcpJwtSecret().length,
+  supabaseUrl: getSupabaseUrl() ? 'set' : 'missing',
+});
+
 const DEFAULT_API_BASE_URL = 'http://localhost:3030';
-const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
-const SUPABASE_ANON_KEY = (process.env.SUPABASE_ANON_KEY || '').trim();
+function getSupabaseUrl() {
+  return (process.env.SUPABASE_URL || '').trim();
+}
+
+function getSupabaseAnonKey() {
+  return (process.env.SUPABASE_ANON_KEY || '').trim();
+}
+
+function getMcpJwtSecret() {
+  return (process.env.MCP_JWT_SECRET || '').trim();
+}
 
 function resolveBaseUrl() {
   const raw =
@@ -129,22 +144,120 @@ function normalizeBoolean(value) {
   return false;
 }
 
-async function requireSupabaseUser(extra, errorCode = 'authentication_required') {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn('[stream-toolset] SUPABASE_URL/ANON_KEY not configured; refusing authenticated access');
-    throw new Error(errorCode);
+function normalizeBearerToken(raw) {
+  if (!raw) return '';
+  const trimmed = String(raw).trim();
+  return trimmed.startsWith('Bearer ') ? trimmed.slice(7).trim() : trimmed;
+}
+
+function base64UrlToBuffer(segment) {
+  const padded = segment.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = padded.length % 4 === 2 ? '==' : padded.length % 4 === 3 ? '=' : '';
+  return Buffer.from(padded + pad, 'base64');
+}
+
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    out |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
+  return out === 0;
+}
+
+function verifyDexterMcpJwt(rawToken) {
+  const secret = getMcpJwtSecret();
+  if (!secret) return null;
+  const token = normalizeBearerToken(rawToken);
+  if (!token) return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [headerPart, payloadPart, signaturePart] = parts;
+  try {
+    const data = `${headerPart}.${payloadPart}`;
+    const expected = createHmac('sha256', secret)
+      .update(data)
+      .digest('base64')
+      .replace(/=+$/, '')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_');
+    if (!timingSafeEqual(expected, signaturePart)) {
+      return null;
+    }
+    const header = JSON.parse(base64UrlToBuffer(headerPart).toString('utf8'));
+    if (!header || header.alg !== 'HS256') {
+      return null;
+    }
+    const payload = JSON.parse(base64UrlToBuffer(payloadPart).toString('utf8'));
+    if (!payload) return null;
+    if (typeof payload.exp === 'number') {
+      const nowSec = Math.floor(Date.now() / 1000);
+      if (nowSec >= payload.exp) {
+        return null;
+      }
+    }
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function buildUserFromJwtPayload(payload) {
+  if (!payload) return null;
+  const supabaseId =
+    (typeof payload.supabase_user_id === 'string' && payload.supabase_user_id.trim()) ||
+    (typeof payload.sub === 'string' && payload.sub !== 'guest' ? payload.sub.trim() : null);
+  if (!supabaseId) return null;
+
+  const roles = Array.isArray(payload.roles)
+    ? payload.roles.map((role) => String(role))
+    : [];
+
+  const email = typeof payload.supabase_email === 'string' ? payload.supabase_email : null;
+  const userMetadata =
+    payload.user_metadata && typeof payload.user_metadata === 'object'
+      ? { ...payload.user_metadata }
+      : {};
+  if (payload.wallet_public_key && !userMetadata.wallet_public_key) {
+    userMetadata.wallet_public_key = payload.wallet_public_key;
+  }
+
+  return {
+    id: supabaseId,
+    email,
+    app_metadata: { roles },
+    user_metadata: userMetadata,
+  };
+}
+
+async function requireSupabaseUser(extra, errorCode = 'authentication_required') {
   const token = getSupabaseBearer(extra);
   if (!token) {
+    console.warn('[stream-toolset] requireSupabaseUser no bearer found');
     throw new Error(errorCode);
   }
-  const supabaseBase = SUPABASE_URL.replace(/\/$/, '');
+  console.warn('[stream-toolset] bearer snippet', typeof token === 'string' ? token.slice(0, 24) : typeof token);
+  console.warn('[stream-toolset] secret length', getMcpJwtSecret().length);
+  const jwtPayload = verifyDexterMcpJwt(token);
+  const jwtUser = buildUserFromJwtPayload(jwtPayload);
+  if (jwtUser) {
+    console.warn('[stream-toolset] authenticated via MCP JWT', { id: jwtUser.id });
+    return jwtUser;
+  }
+  console.warn('[stream-toolset] MCP JWT verification failed; falling back to Supabase lookup');
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseAnon = getSupabaseAnonKey();
+  if (!supabaseUrl || !supabaseAnon) {
+    console.warn('[stream-toolset] SUPABASE_URL/ANON_KEY not configured and token is not a Dexter MCP JWT');
+    throw new Error(errorCode);
+  }
+  const supabaseBase = supabaseUrl.replace(/\/$/, '');
   try {
     const response = await fetch(`${supabaseBase}/auth/v1/user`, {
       method: 'GET',
       headers: {
         authorization: `Bearer ${token}`,
-        apikey: SUPABASE_ANON_KEY,
+        apikey: supabaseAnon,
       },
     });
     if (!response.ok) {
