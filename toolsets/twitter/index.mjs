@@ -75,11 +75,7 @@ const INPUT_JSON_SCHEMA = {
       description: 'Only include tweets from verified authors.',
     },
   },
-  anyOf: [
-    { required: ['query'] },
-    { required: ['queries'] },
-    { required: ['ticker'] },
-  ],
+  required: ['query'],
 };
 
 export function registerTwitterToolset(server) {
