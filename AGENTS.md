@@ -9,6 +9,7 @@
 - **twitter** – `twitter_search` runs Playwright against X search using the shared session (`toolsets/twitter/index.mjs`). Supports multi-query/ticker presets, optional language/reply filters, media-only + verified-only toggles, and enriched author metadata.
 - **codex** – Conversational (`codex_start`, `codex_reply`) and exec-mode (`codex_exec`) bridges to the Codex CLI. Exec mode supports optional JSON schemas for structured output.
 - **stream** – DexterVision scene controls (`stream_get_scene`, `stream_set_scene`) for monitoring and switching OBS overlay states.
+- **gmgn** – `gmgn_fetch_token_snapshot` launches a stealth headless browser, clears Cloudflare, and returns the token page’s aggregated stats/trades/candles for a supplied Solana mint.
 
 All toolsets register through `toolsets/index.mjs`. If `TOKEN_AI_MCP_TOOLSETS` is unset, every registered group loads; set the variable (comma-separated keys or `all`) to control selection.
 

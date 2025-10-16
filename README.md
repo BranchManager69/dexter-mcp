@@ -120,6 +120,7 @@ Currently shipped:
 - **twitter** – Logged-in X/Twitter search with multi-query presets, language/media filters, and enriched author metadata.
 - **stream** – DexterVision scene status and switching for pro accounts.
 - **codex** – Codex bridge for starting, replying to, and executing read-only sandbox sessions (super-admin only).
+- **gmgn** – Headless GMGN scraper that unwraps the token-detail REST calls (`gmgn_fetch_token_snapshot`) for stats, trades, and candle data once given a Solana mint.
 
 Each tool definition exposes an `_meta` block so downstream clients can group or gate consistently:
 

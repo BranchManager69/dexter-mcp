@@ -5,7 +5,7 @@ import path from 'node:path';
 const DEFAULT_SESSION_PATH = '/home/websites/degenduel/keys/twitter-session.json';
 const PROFILE_LOOKUP_LIMIT = Number.isFinite(Number(process.env.TWITTER_PROFILE_LOOKUP_LIMIT))
   ? Math.max(0, Number(process.env.TWITTER_PROFILE_LOOKUP_LIMIT))
-  : 3;
+  : 0;
 const PROFILE_LOOKUP_CONCURRENCY = Number.isFinite(Number(process.env.TWITTER_PROFILE_LOOKUP_CONCURRENCY))
   ? Math.max(1, Number(process.env.TWITTER_PROFILE_LOOKUP_CONCURRENCY))
   : 3;

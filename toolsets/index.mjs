@@ -7,6 +7,7 @@ import { registerCodexToolset } from './codex/index.mjs';
 import { registerStreamToolset } from './stream/index.mjs';
 import { registerMarketsToolset } from './markets/index.mjs';
 import { registerTwitterToolset } from './twitter/index.mjs';
+import { registerGmgnToolset } from './gmgn/index.mjs';
 
 const passthrough = (value) => String(value);
 
@@ -95,6 +96,10 @@ const TOOLSET_REGISTRY = {
   twitter: {
     register: registerTwitterToolset,
     description: 'Twitter/X scraping utilities (session-backed search).',
+  },
+  gmgn: {
+    register: registerGmgnToolset,
+    description: 'GMGN token snapshot scraper (headless, Cloudflare-aware).',
   },
 };
 
