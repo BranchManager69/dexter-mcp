@@ -4,7 +4,7 @@ import { searchTwitter } from '../../integrations/twitter.mjs';
 
 const LOG_PREFIX = '[twitter-toolset]';
 
-const INPUT_SCHEMA = z.object({
+const INPUT_SHAPE = {
   query: z.string().min(1).describe('Search query (ticker, token name, hashtag, etc.).').optional(),
   queries: z.array(z.string().min(1)).min(1).describe('List of search queries to execute (combined results).').optional(),
   ticker: z.string().min(1).describe('Ticker shorthand; auto-expands into multiple query presets ($ticker, #ticker, ticker).').optional(),
@@ -13,7 +13,9 @@ const INPUT_SCHEMA = z.object({
   language: z.string().min(2).max(5).describe('Optional language filter (e.g. en, es).').optional(),
   media_only: z.boolean().describe('Only include tweets that contain media (photos or videos).').optional(),
   verified_only: z.boolean().describe('Only include tweets from verified authors.').optional(),
-}).superRefine((value, ctx) => {
+};
+
+const INPUT_SCHEMA = z.object(INPUT_SHAPE).superRefine((value, ctx) => {
   const hasQuery = typeof value.query === 'string' && value.query.trim().length > 0;
   const hasQueries = Array.isArray(value.queries) && value.queries.length > 0;
   const hasTicker = typeof value.ticker === 'string' && value.ticker.trim().length > 0;
@@ -75,7 +77,11 @@ const INPUT_JSON_SCHEMA = {
       description: 'Only include tweets from verified authors.',
     },
   },
-  required: ['query'],
+  anyOf: [
+    { required: ['query'] },
+    { required: ['queries'] },
+    { required: ['ticker'] },
+  ],
 };
 
 export function registerTwitterToolset(server) {
@@ -89,7 +95,7 @@ export function registerTwitterToolset(server) {
         access: 'guest',
         tags: ['twitter', 'search', 'social'],
       },
-      inputSchema: INPUT_JSON_SCHEMA,
+      inputSchema: INPUT_SHAPE,
       outputSchema: {
         query: z.string().nullable().optional(),
         queries: z.array(z.string()).optional(),
