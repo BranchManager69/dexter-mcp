@@ -3,7 +3,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const DEFAULT_SESSION_PATH = '/home/websites/degenduel/keys/twitter-session.json';
-const PROFILE_LOOKUP_LIMIT = Number(process.env.TWITTER_PROFILE_LOOKUP_LIMIT || 10);
+const PROFILE_LOOKUP_LIMIT = Number.isFinite(Number(process.env.TWITTER_PROFILE_LOOKUP_LIMIT))
+  ? Math.max(0, Number(process.env.TWITTER_PROFILE_LOOKUP_LIMIT))
+  : 3;
+const PROFILE_LOOKUP_CONCURRENCY = Number.isFinite(Number(process.env.TWITTER_PROFILE_LOOKUP_CONCURRENCY))
+  ? Math.max(1, Number(process.env.TWITTER_PROFILE_LOOKUP_CONCURRENCY))
+  : 3;
 const MAX_TOTAL_RESULTS = 200;
 
 function resolveSessionPath(overridePath) {
@@ -150,17 +155,22 @@ async function collectTweets(page, { includeReplies }) {
 async function fetchAuthorProfiles(context, handles) {
   const uniqueHandles = Array.from(new Set(handles.filter(Boolean)));
   if (!uniqueHandles.length) return {};
-  const limit = PROFILE_LOOKUP_LIMIT > 0 ? PROFILE_LOOKUP_LIMIT : 10;
-  const selectedHandles = uniqueHandles.slice(0, limit);
+  const limit = PROFILE_LOOKUP_LIMIT > 0 ? PROFILE_LOOKUP_LIMIT : 0;
+  if (!limit) return {};
+  const concurrency = Math.min(PROFILE_LOOKUP_CONCURRENCY, limit);
+  const queue = uniqueHandles.slice(0, limit);
   const result = {};
 
-  for (const handle of selectedHandles) {
-    const page = await context.newPage();
-    try {
-      await page.goto(`https://x.com/${handle}`, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
-      await page.waitForSelector('main [data-testid="UserName"]', { timeout: 15000 }).catch(() => {});
-      await page.waitForTimeout(1500);
-      const profile = await page.evaluate(() => {
+  const worker = async () => {
+    while (queue.length) {
+      const handle = queue.shift();
+      if (!handle) break;
+      const page = await context.newPage();
+      try {
+        await page.goto(`https://x.com/${handle}`, { waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
+        await page.waitForSelector('main [data-testid="UserName"]', { timeout: 5000 }).catch(() => {});
+        await page.waitForTimeout(500);
+        const profile = await page.evaluate(() => {
         function parseCount(value) {
           if (!value) return null;
           const text = String(value).trim().replace(/,/g, '');
@@ -235,13 +245,17 @@ async function fetchAuthorProfiles(context, handles) {
         };
       });
 
-      result[handle.toLowerCase()] = profile || {};
-    } catch {
-      result[handle.toLowerCase()] = {};
-    } finally {
-      await page.close().catch(() => {});
+        result[handle.toLowerCase()] = profile || {};
+      } catch {
+        result[handle.toLowerCase()] = {};
+      } finally {
+        await page.close().catch(() => {});
+      }
     }
-  }
+  };
+
+  const workers = Array.from({ length: concurrency }, () => worker());
+  await Promise.all(workers);
 
   return result;
 }
