@@ -169,9 +169,7 @@ export function registerTwitterToolset(server) {
         verifiedOnly: parsed.verified_only === true,
         sessionPath: process.env.TWITTER_SESSION_PATH || null,
       };
-      try {
-        console.log(LOG_PREFIX, 'search:start', requestSummary);
-      } catch {}
+      console.log(LOG_PREFIX, 'search:start', requestSummary);
 
       try {
         const result = await searchTwitter({
@@ -185,16 +183,14 @@ export function registerTwitterToolset(server) {
           verifiedOnly: parsed.verified_only === true,
         });
 
-        try {
-          const durationMs = Date.now() - startedAt;
-          console.log(LOG_PREFIX, 'search:success', {
-            durationMs,
-            fetched: result.fetched,
-            tweets: Array.isArray(result.tweets) ? result.tweets.length : 0,
-            queriesCount: Array.isArray(result.queries) ? result.queries.length : 0,
-            ticker: result.ticker ?? null,
-          });
-        } catch {}
+        const durationMs = Date.now() - startedAt;
+        console.log(LOG_PREFIX, 'search:success', {
+          durationMs,
+          fetched: result.fetched,
+          tweets: Array.isArray(result.tweets) ? result.tweets.length : 0,
+          queriesCount: Array.isArray(result.queries) ? result.queries.length : 0,
+          ticker: result.ticker ?? null,
+        });
 
         const summary = {
           query: result.query,
@@ -212,13 +208,11 @@ export function registerTwitterToolset(server) {
           content: [{ type: 'text', text: JSON.stringify(summary) }],
         };
       } catch (error) {
-        try {
-          const durationMs = Date.now() - startedAt;
-          console.error(LOG_PREFIX, 'search:error', {
-            durationMs,
-            error: error?.message || 'twitter_search_failed',
-          });
-        } catch {}
+        const durationMs = Date.now() - startedAt;
+        console.error(LOG_PREFIX, 'search:error', {
+          durationMs,
+          error: error?.message || 'twitter_search_failed',
+        });
         return {
           content: [{ type: 'text', text: JSON.stringify({ error: error?.message || 'twitter_search_failed' }) }],
           isError: true,
