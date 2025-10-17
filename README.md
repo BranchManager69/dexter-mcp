@@ -121,6 +121,7 @@ Currently shipped:
 - **stream** – DexterVision scene status and switching for pro accounts.
 - **codex** – Codex bridge for starting, replying to, and executing read-only sandbox sessions (super-admin only).
 - **gmgn** – Headless GMGN scraper that unwraps the token-detail REST calls (`gmgn_fetch_token_snapshot`) for stats, trades, and candle data once given a Solana mint.
+- **kolscan** – Kolscan KOL analytics surfaced from `dexter-api` (`kolscan_leaderboard`, wallet/token detail, trending tokens, and resolver endpoints).
 
 Each tool definition exposes an `_meta` block so downstream clients can group or gate consistently:
 
@@ -145,7 +146,7 @@ The `/tools` API simply relays this metadata so UIs (including `dexter-fe`) pick
 
 Selection options:
 
-- **Environment default:** leave `TOKEN_AI_MCP_TOOLSETS` unset to load every registered bundle (general, pumpstream, wallet, solana, markets, twitter, stream, codex). Set it (comma-separated) to restrict the selection, e.g. `TOKEN_AI_MCP_TOOLSETS=wallet`.
+- **Environment default:** leave `TOKEN_AI_MCP_TOOLSETS` unset to load every registered bundle (general, pumpstream, wallet, solana, markets, twitter, stream, codex, gmgn, kolscan). Set it (comma-separated) to restrict the selection, e.g. `TOKEN_AI_MCP_TOOLSETS=wallet`.
 - **CLI/stdio:** `node server.mjs --tools=wallet`.
 - **HTTP query:** `POST /mcp?tools=wallet`.
 - **Codex:** set `TOKEN_AI_MCP_TOOLSETS` in the env before launching, or add `includeToolsets` when invoking `buildMcpServer` manually.

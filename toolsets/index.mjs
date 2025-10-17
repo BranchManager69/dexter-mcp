@@ -8,6 +8,7 @@ import { registerStreamToolset } from './stream/index.mjs';
 import { registerMarketsToolset } from './markets/index.mjs';
 import { registerTwitterToolset } from './twitter/index.mjs';
 import { registerGmgnToolset } from './gmgn/index.mjs';
+import { registerKolscanToolset } from './kolscan/index.mjs';
 
 const passthrough = (value) => String(value);
 
@@ -100,6 +101,10 @@ const TOOLSET_REGISTRY = {
   gmgn: {
     register: registerGmgnToolset,
     description: 'GMGN token snapshot scraper (headless, Cloudflare-aware).',
+  },
+  kolscan: {
+    register: registerKolscanToolset,
+    description: 'Kolscan KOL analytics (leaderboard, wallet, trending, token summaries).',
   },
 };
 
