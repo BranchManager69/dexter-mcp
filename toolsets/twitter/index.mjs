@@ -8,6 +8,7 @@ const INPUT_SHAPE = {
   query: z.string().min(1).describe('Search query (ticker, token name, hashtag, etc.).').optional(),
   queries: z.array(z.string().min(1)).min(1).describe('List of search queries to execute (combined results).').optional(),
   ticker: z.string().min(1).describe('Ticker shorthand; auto-expands into multiple query presets ($ticker, #ticker, ticker).').optional(),
+  mint: z.string().min(32).max(64).describe('Token mint address; resolves ticker presets automatically.').optional(),
   max_results: z.number().int().min(1).max(100).describe('Maximum tweets to return (1-100). Defaults to 25.').optional(),
   include_replies: z.boolean().describe('Include reply tweets in results (default true).').optional(),
   language: z.string().min(2).max(5).describe('Optional language filter (e.g. en, es).').optional(),
@@ -19,10 +20,11 @@ const INPUT_SCHEMA = z.object(INPUT_SHAPE).superRefine((value, ctx) => {
   const hasQuery = typeof value.query === 'string' && value.query.trim().length > 0;
   const hasQueries = Array.isArray(value.queries) && value.queries.length > 0;
   const hasTicker = typeof value.ticker === 'string' && value.ticker.trim().length > 0;
-  if (!hasQuery && !hasQueries && !hasTicker) {
+  const hasMint = typeof value.mint === 'string' && value.mint.trim().length > 0;
+  if (!hasQuery && !hasQueries && !hasTicker && !hasMint) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'At least one of query, queries, or ticker is required.',
+      message: 'At least one of query, queries, ticker, or mint is required.',
       path: ['query'],
     });
   }
@@ -51,6 +53,12 @@ const INPUT_JSON_SCHEMA = {
       type: 'string',
       minLength: 1,
       description: 'Ticker shorthand; expands into multiple presets like $ticker, #ticker, ticker.',
+    },
+    mint: {
+      type: 'string',
+      minLength: 32,
+      maxLength: 64,
+      description: 'Token mint address; resolves ticker presets automatically before searching.',
     },
     max_results: {
       type: 'integer',
@@ -81,6 +89,7 @@ const INPUT_JSON_SCHEMA = {
     { required: ['query'] },
     { required: ['queries'] },
     { required: ['ticker'] },
+    { required: ['mint'] },
   ],
 };
 
@@ -100,6 +109,7 @@ export function registerTwitterToolset(server) {
         query: z.string().nullable().optional(),
         queries: z.array(z.string()).optional(),
         ticker: z.string().nullable().optional(),
+        mint: z.string().nullable().optional(),
         language: z.string().nullable().optional(),
         include_replies: z.boolean(),
         media_only: z.boolean().optional(),
@@ -164,6 +174,7 @@ export function registerTwitterToolset(server) {
         query: parsed.query ?? null,
         queriesCount: Array.isArray(parsed.queries) ? parsed.queries.length : 0,
         ticker: parsed.ticker ?? null,
+        mint: parsed.mint ?? null,
         maxResults: parsed.max_results ?? null,
         includeReplies: parsed.include_replies !== false,
         language: parsed.language ?? null,
@@ -178,6 +189,7 @@ export function registerTwitterToolset(server) {
           query: parsed.query,
           queries: parsed.queries,
           ticker: parsed.ticker,
+          mint: parsed.mint,
           maxResults: parsed.max_results,
           includeReplies: parsed.include_replies !== false,
           language: parsed.language,
@@ -192,12 +204,15 @@ export function registerTwitterToolset(server) {
           tweets: Array.isArray(result.tweets) ? result.tweets.length : 0,
           queriesCount: Array.isArray(result.queries) ? result.queries.length : 0,
           ticker: result.ticker ?? null,
+          mint: result.mint ?? null,
         });
 
         const summary = {
           query: result.query,
           queries: result.queries,
           ticker: result.ticker,
+          mint: result.mint ?? null,
+          mint: result.mint ?? null,
           fetched: result.fetched,
           include_replies: result.include_replies,
           language: result.language,

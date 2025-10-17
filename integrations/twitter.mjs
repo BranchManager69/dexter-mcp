@@ -1,8 +1,77 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import fetch from 'node-fetch';
 
-const DEFAULT_SESSION_PATH = '/home/websites/degenduel/keys/twitter-session.json';
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_SESSION_PATH = path.resolve(MODULE_DIR, '../sessions/twitter-session.json');
+const DEXSCREENER_BASE = 'https://api.dexscreener.com/latest/dex/tokens/';
+
+const mintCache = new Map();
+
+function normaliseMint(mint) {
+  return typeof mint === 'string' ? mint.trim() : '';
+}
+
+async function resolveTickerFromMint(mint) {
+  const normalized = normaliseMint(mint);
+  if (!normalized) {
+    throw new Error('twitter_mint_missing');
+  }
+
+  const cacheHit = mintCache.get(normalized);
+  if (cacheHit) {
+    return cacheHit;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  let response;
+  try {
+    response = await fetch(`${DEXSCREENER_BASE}${encodeURIComponent(normalized)}`, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+  } catch (error) {
+    throw new Error('twitter_mint_lookup_failed');
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!response?.ok) {
+    throw new Error('twitter_mint_lookup_failed');
+  }
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error('twitter_mint_lookup_failed');
+  }
+
+  const pairs = Array.isArray(data?.pairs) ? data.pairs : [];
+  if (!pairs.length) {
+    throw new Error('twitter_mint_lookup_failed');
+  }
+
+  const targetAddress = normalized.toLowerCase();
+  const preferredPair = pairs.find((pair) => pair?.baseToken?.address?.toLowerCase() === targetAddress) || pairs[0];
+  const ticker = preferredPair?.baseToken?.symbol || preferredPair?.info?.symbol;
+
+  if (typeof ticker !== 'string' || !ticker.trim()) {
+    throw new Error('twitter_mint_lookup_failed');
+  }
+
+  const result = {
+    ticker: ticker.trim(),
+  };
+
+  mintCache.set(normalized, result);
+  return result;
+}
 const PROFILE_LOOKUP_LIMIT = Number.isFinite(Number(process.env.TWITTER_PROFILE_LOOKUP_LIMIT))
   ? Math.max(0, Number(process.env.TWITTER_PROFILE_LOOKUP_LIMIT))
   : 0;
@@ -297,6 +366,7 @@ export async function searchTwitter({
   query,
   queries,
   ticker,
+  mint,
   maxResults = 25,
   includeReplies = true,
   language,
@@ -305,6 +375,14 @@ export async function searchTwitter({
   verifiedOnly = false,
 } = {}) {
   const queryBucket = [];
+  const normalizedMint = typeof mint === 'string' && mint.trim() ? mint.trim() : null;
+  let resolvedTicker = typeof ticker === 'string' && ticker.trim() ? ticker.trim() : null;
+
+  if (normalizedMint) {
+    const { ticker: fetchedTicker } = await resolveTickerFromMint(normalizedMint);
+    resolvedTicker = fetchedTicker;
+    queryBucket.push(normalizedMint);
+  }
   if (Array.isArray(queries)) {
     for (const q of queries) {
       if (typeof q === 'string' && q.trim()) queryBucket.push(q.trim());
@@ -313,8 +391,8 @@ export async function searchTwitter({
   if (typeof query === 'string' && query.trim()) {
     queryBucket.push(query.trim());
   }
-  if (typeof ticker === 'string' && ticker.trim()) {
-    const t = ticker.trim();
+  if (resolvedTicker) {
+    const t = resolvedTicker;
     queryBucket.push(t, `$${t}`, `#${t}`);
   }
 
@@ -414,7 +492,8 @@ export async function searchTwitter({
     return {
       query: finalQueries.length === 1 ? finalQueries[0] : null,
       queries: finalQueries,
-      ticker: ticker || null,
+      ticker: resolvedTicker || null,
+      mint: normalizedMint,
       language: language || null,
       include_replies: includeReplies,
       media_only: mediaOnly,

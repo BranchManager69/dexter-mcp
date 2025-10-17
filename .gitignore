@@ -23,6 +23,9 @@ state.json
 state/
 cookies.json
 
+# Twitter session storage (local only)
+sessions/
+
 # Harness results
 harness-results/
 dexter-agents/harness-results/
