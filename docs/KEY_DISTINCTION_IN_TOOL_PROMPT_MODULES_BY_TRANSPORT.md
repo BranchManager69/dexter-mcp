@@ -26,5 +26,5 @@
 
 ## 5. Takeaways
 - The ChatGPT App is a raw tool console; it’s useful for private debugging but won’t mirror concierge behaviour unless we build a wrapper around it.
-- Concierge transports (voice, Twitter) do load the full instruction stack, so adjustments to prompt modules take effect there.
+- Concierge transports (voice, Twitter) do load the full instruction stack. Our voice runner *is* that wrapper—it prepends `agent.concierge.instructions` plus the transport-specific prompt before each turn—so prompt-module tweaks take effect immediately there.
 - When we need deterministic formatting or persona control in third-party UIs, we must handle it on our side (e.g., pre-format the tool output, or host a proxy that provides the custom instructions before relaying to the model).
