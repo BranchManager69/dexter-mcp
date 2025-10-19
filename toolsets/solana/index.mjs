@@ -71,7 +71,7 @@ async function apiFetch(path, init, extra) {
 export function registerSolanaToolset(server) {
   server.registerTool('solana_resolve_token', {
     title: 'Resolve Solana Token',
-    description: 'Resolve token metadata using DexScreener heuristics.',
+    description: 'Resolve token metadata using Dexter\'s token lookup heuristics.',
     _meta: {
       category: 'solana.trading',
       access: 'free',
@@ -88,7 +88,7 @@ export function registerSolanaToolset(server) {
 
   server.registerTool('solana_list_balances', {
     title: 'List Token Balances',
-    description: 'List SPL token balances for a managed wallet.',
+    description: 'List a wallet\'s SOL and SPL token balances.',
     _meta: {
       category: 'solana.portfolio',
       access: 'managed',

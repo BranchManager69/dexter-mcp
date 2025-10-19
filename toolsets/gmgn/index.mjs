@@ -36,11 +36,11 @@ function summariseSnapshot(snapshot) {
 }
 
 export function registerGmgnToolset(server) {
-  server.registerTool(
+      server.registerTool(
     'gmgn_fetch_token_snapshot',
     {
       title: 'Fetch GMGN Token Snapshot',
-      description: 'Loads the GMGN token detail page in a headless Chromium session, clears Cloudflare, and returns the aggregated JSON payloads that power the UI.',
+      description: 'Fetches token info from GMGN for a specified token.',
       _meta: {
         category: 'gmgn.analytics',
         access: 'guest',
