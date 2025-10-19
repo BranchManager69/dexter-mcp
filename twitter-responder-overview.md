@@ -2,7 +2,7 @@
 
 ## 1. Continuous Watcher (Playwright Worker)
 - Runs as its own Node process (`pm2` process `twitter-mention-bot`) using the authenticated session in `sessions/twitter-session.json`.
-- Poll cadence defaults to every 20 seconds (override in `config/twitterMentionBot.json`). Each pass it does two sweeps:
+- Poll cadence defaults to every 5 seconds for mentions and 10 seconds for DM inbox sweeps (both overrideable in `config/twitterMentionBot.json`). Each pass does:
   - **Mentions:** pulls the notifications timeline, keeps the 30 newest items, dedupes, and only processes tweets newer than the last stored tweet ID.
   - **DMs:** calls Twitter’s private inbox endpoint (`/i/api/1.1/dm/inbox_initial_state.json`), keeps the latest 100 messages, prunes anything older than 24 hours, and ignores messages authored by the bot’s own account ID.
 
@@ -44,12 +44,15 @@
 - `maxReplyRetries` (default 1) governs how many times we re-attempt posting when the API/UI path fails.
 
 ## 7. Logging & Alerts
-- Every major step is logged: new mentions count, ID of each conversation, agent reply length, and post success/failure. Failures capture the exception message (e.g., `reply_composer_not_found`, `dm_inbox_failed:403:…`, `agent_reply_empty`).
+- Every major step is logged: new mentions count, ID of each conversation, full incoming text, agent reply text/length, and post success/failure. Failures capture the exception message (e.g., `reply_composer_not_found`, `dm_inbox_failed:403:…`, `agent_reply_empty`).
+- The Playwright client now traces each posting phase (API attempt, UI fallback, composer readiness, send confirmation) so PM2 logs show where time is spent.
 - Known nuisance: when scraping mention history, Twitter’s bundled scripts occasionally call a function named `__name` that isn’t defined in our sandboxed evaluate context. We shim it to a no-op, but Playwright still logs a warning. Functionality is unaffected; removing the warning is on the follow-up list.
 
 ## 8. Supabase Prompt & Proof Links
-- The transport prompt now enforces: never surface raw transaction signatures; always append the Solscan URL (one per transaction) at the bottom of the message. If the user explicitly requests proof, it still sticks with the Solscan link rather than falling back to the raw hash.
-- Because that prompt now lives entirely in Supabase, rolling back the database would revert behavior—no more code fallback.
+- Public replies use `agent.concierge.transport.twitter_reply`; it keeps responses tweet-friendly while allowing the full 280 characters when needed.
+- DMs now pull `agent.concierge.transport.twitter_dm`, which drops the old hard-coded copy and lets the concierge deliver longer, private answers without a strict cap.
+- Both prompts enforce: never surface raw transaction signatures; always append the Solscan URL (one per transaction) on its own line. If the user explicitly requests proof, the agent still relies on the URL.
+- Because all transport guidance now lives in Supabase, rolling back the database would revert behavior—no more code fallback.
 
 ## 9. Snapshot Helper & Manual QA
 - `npm run twitter:snapshot -- --tweet <URL>` dumps the whole visible thread as JSON (handles, text, timestamps).

@@ -206,6 +206,7 @@ function summarizeWalletDetail(payload) {
     return { error: payload?.error || 'kolscan_wallet_failed' };
   }
   const summary = payload.summary || {};
+  const meta = payload.meta || {};
   const tokens = Array.isArray(summary.tokens)
     ? summary.tokens.slice(0, 5).map((token) => ({
         tokenAddress: token.tokenAddress,
@@ -215,8 +216,20 @@ function summarizeWalletDetail(payload) {
         netSol: (token.sellSol ?? 0) - (token.buySol ?? 0),
       }))
     : [];
+  const trades = Array.isArray(payload.trades)
+    ? payload.trades.slice(0, 5).map((trade) => ({
+        walletAddress: trade.wallet_address,
+        name: trade.walletMetadata?.name || null,
+        twitter: trade.walletMetadata?.twitter || null,
+        direction: trade.spl_direction || null,
+        solChange: trade.sol_change ?? null,
+        timestamp: trade.timestamp ?? null,
+      }))
+    : [];
   return {
     walletAddress: payload.walletAddress,
+    name: meta?.name || null,
+    twitter: meta?.twitter || null,
     timeframe: summary.timeframeLabel || payload.timeframeLabel || null,
     tradeCount: summary.tradeCount ?? null,
     buySol: summary.buySol ?? null,
@@ -224,6 +237,7 @@ function summarizeWalletDetail(payload) {
     netSol: summary.netSol ?? null,
     truncated: summary.truncated ?? payload.truncated ?? false,
     tokens,
+    sampleTrades: trades,
   };
 }
 
@@ -238,6 +252,13 @@ function summarizeTrending(payload) {
         kolCount: token.kolCount ?? null,
         totalBuySol: token.totalBuySol ?? null,
         totalSellSol: token.totalSellSol ?? null,
+        sampleWallets: Array.isArray(token.sampleWalletDetails)
+          ? token.sampleWalletDetails.map((wallet) => ({
+              walletAddress: wallet.walletAddress,
+              name: wallet.name || null,
+              twitter: wallet.twitter || null,
+            }))
+          : [],
       }))
     : [];
   return {
@@ -258,9 +279,21 @@ function summarizeTokenDetail(payload) {
   const wallets = Array.isArray(summary.wallets)
     ? summary.wallets.slice(0, 5).map((wallet) => ({
         walletAddress: wallet.walletAddress,
+        name: wallet.name || null,
+        twitter: wallet.twitter || null,
         buySol: wallet.buySol ?? null,
         sellSol: wallet.sellSol ?? null,
         trades: wallet.trades ?? null,
+      }))
+    : [];
+  const trades = Array.isArray(payload.trades)
+    ? payload.trades.slice(0, 5).map((trade) => ({
+        walletAddress: trade.wallet_address,
+        name: trade.walletMetadata?.name || null,
+        twitter: trade.walletMetadata?.twitter || null,
+        direction: trade.spl_direction || null,
+        solChange: trade.sol_change ?? null,
+        timestamp: trade.timestamp ?? null,
       }))
     : [];
   return {
@@ -274,6 +307,7 @@ function summarizeTokenDetail(payload) {
     timeframe: summary.timeframeLabel || payload.timeframeLabel || null,
     truncated: summary.truncated ?? payload.truncated ?? false,
     wallets,
+    sampleTrades: trades,
   };
 }
 
