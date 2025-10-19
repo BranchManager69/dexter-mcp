@@ -49,7 +49,7 @@
 - Known nuisance: when scraping mention history, Twitter’s bundled scripts occasionally call a function named `__name` that isn’t defined in our sandboxed evaluate context. We shim it to a no-op, but Playwright still logs a warning. Functionality is unaffected; removing the warning is on the follow-up list.
 
 ## 8. Supabase Prompt & Proof Links
-- Public replies use `agent.concierge.transport.twitter_reply`; it keeps responses tweet-friendly while allowing the full 280 characters when needed.
+- Public replies use `agent.concierge.transport.twitter_reply`; it enforces the sub-240-character replies, no greetings, and no follow-up questions guardrails we originally drafted.
 - DMs now pull `agent.concierge.transport.twitter_dm`, which drops the old hard-coded copy and lets the concierge deliver longer, private answers without a strict cap.
 - Both prompts enforce: never surface raw transaction signatures; always append the Solscan URL (one per transaction) on its own line. If the user explicitly requests proof, the agent still relies on the URL.
 - Because all transport guidance now lives in Supabase, rolling back the database would revert behavior—no more code fallback.
