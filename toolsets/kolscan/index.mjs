@@ -311,6 +311,53 @@ function summarizeTokenDetail(payload) {
   };
 }
 
+const HOURS_PER_DAY = 24;
+
+function normalizeTimeframeValue(value) {
+  if (value === undefined || value === null) return value;
+  if (typeof value === 'number') return value;
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed.length) return undefined;
+  if (/^\d+$/.test(trimmed)) {
+    return Number(trimmed);
+  }
+  const match = trimmed.match(/^(\d+)([smhd])$/);
+  if (!match) return value;
+  const amount = Number(match[1]);
+  const unit = match[2];
+  if (!Number.isFinite(amount) || amount <= 0) return value;
+  if (unit === 'd') return amount;
+  if (unit === 'h') return Math.max(1, Math.round(amount / HOURS_PER_DAY));
+  if (unit === 'm') return Math.max(1, Math.round(amount / (60 * 24)));
+  if (unit === 's') return Math.max(1, Math.round(amount / (60 * 60 * 24)));
+  return value;
+}
+
+function ensureScalarTimeframe(args, key = 'timeframe') {
+  if (!args || args[key] === undefined || args[key] === null) {
+    return;
+  }
+  if (typeof args[key] === 'object') {
+    console.warn(`[kolscan] ${key}_must_be_string_or_number`, args[key]);
+    throw new Error(`${key}_must_be_string_or_number`);
+  }
+  const normalized = normalizeTimeframeValue(args[key]);
+  if (normalized !== args[key]) {
+    args[key] = normalized;
+  }
+}
+
+function stripFalseSocialFilters(args) {
+  if (!args) return;
+  if (args.requireTwitter === false) {
+    delete args.requireTwitter;
+  }
+  if (args.requireTelegram === false) {
+    delete args.requireTelegram;
+  }
+}
+
 function handleError(error) {
   return {
     content: [{ type: 'text', text: JSON.stringify({ error: error?.message || error || 'kolscan_request_failed' }) }],
@@ -334,10 +381,13 @@ export function registerKolscanToolset(server) {
     async (args = {}, extra) => {
       let parsed;
       try {
+        ensureScalarTimeframe(args);
+        stripFalseSocialFilters(args);
         parsed = LeaderboardInputSchema.parse(args);
       } catch (error) {
         return handleError(error);
       }
+      console.info('[kolscan] leaderboard_args', parsed);
       const query = toSearchParams(parsed);
       try {
         const payload = await fetchKolscan(`/api/kolscan/leaderboard${query}`, extra);
@@ -400,10 +450,13 @@ export function registerKolscanToolset(server) {
     async (args = {}, extra) => {
       let parsed;
       try {
+        ensureScalarTimeframe(args);
+        stripFalseSocialFilters(args);
         parsed = WalletDetailInputSchema.parse(args);
       } catch (error) {
         return handleError(error);
       }
+      console.info('[kolscan] wallet_detail_args', parsed);
       const { walletAddress, ...rest } = parsed;
       const query = toSearchParams(rest);
       try {
@@ -434,10 +487,13 @@ export function registerKolscanToolset(server) {
     async (args = {}, extra) => {
       let parsed;
       try {
+        ensureScalarTimeframe(args);
+        stripFalseSocialFilters(args);
         parsed = TrendingInputSchema.parse(args);
       } catch (error) {
         return handleError(error);
       }
+      console.info('[kolscan] trending_args', parsed);
       const normalized = { ...parsed };
       if (Array.isArray(normalized.wallets)) {
         normalized.wallets = normalized.wallets.filter((value) => typeof value === 'string' && value.trim().length).join(',');
@@ -471,10 +527,13 @@ export function registerKolscanToolset(server) {
     async (args = {}, extra) => {
       let parsed;
       try {
+        ensureScalarTimeframe(args);
+        stripFalseSocialFilters(args);
         parsed = TokenDetailInputSchema.parse(args);
       } catch (error) {
         return handleError(error);
       }
+      console.info('[kolscan] token_detail_args', parsed);
       const { tokenAddress, ...rest } = parsed;
       const query = toSearchParams(rest);
       try {
