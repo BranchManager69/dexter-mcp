@@ -74,10 +74,10 @@ Give Dexter agents a single toolset that can answer natural-language questions a
 - **Agent acceptance**: harness prompts like “Who just aped DEXTER?” and “Is that wallet a mercenary?”.
 - **Load**: verify rate limits, especially when monitoring multiple mints.
 
-### Open Questions
+### Decisions & Follow-Ups (updated October 20, 2025)
 
-1. Token coverage for phase 1 — focus on DEXTER only or include an allowlist out of the gate?
-2. Data providers — do we have paid Helius/Birdeye keys available, or should we stay within free tiers for the MVP?
-3. Persistence — is a short-lived cache (Redis/Supabase) acceptable, or do you want the MVP to rely solely on live API calls?
-4. Target latency — what’s the max response time we should design for on queries like “Who just aped DEXTER?”.
-5. Documentation home — should this plan live in `docs/onchain-concierge-plan.md` long term, or would you prefer another repo/path?
+- **Token coverage:** Build the ingestion MVP against DEXTER first, but keep the architecture token-agnostic—no hard-coded allowlists beyond whatever is needed for smoke tests.
+- **Data providers:** Paid Birdeye access is active and Helius keys remain available in `../dexter-api/.env`; use both from day one.
+- **Persistence:** Skip bespoke caches for now; all insights should come directly from live API calls/tools the agent can invoke.
+- **Latency target:** No hard SLA yet; revisit after prototypes tell us the real end-to-end timing (rough expectation: ≤3 minutes feels acceptable).
+- **Documentation location:** Keep this blueprint right here at `docs/onchain-concierge-plan.md`.
