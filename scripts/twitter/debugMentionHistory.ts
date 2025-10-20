@@ -64,7 +64,7 @@ async function main(): Promise<void> {
     console.log(`typeof globalThis.__name after shim: ${afterShim}`);
     console.log('fetchMentionConversation implementation:\n', MentionBotBrowserClient.prototype.fetchMentionConversation.toString());
     console.log('Scraping conversation entries…');
-    const BOT_HANDLE = 'dexteraigame';
+    const BOT_HANDLE = 'dexteraiagent';
     const entries = await page.evaluate(
       ({ sliceLimit, botHandle }) => {
         function __name<T>(value: T): T {
