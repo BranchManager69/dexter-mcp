@@ -292,6 +292,18 @@ function logSummary(label, extra, summary) {
   } catch {}
 }
 
+function logError(label, extra, error) {
+  try {
+    const session = extra?.session || {};
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[onchain] ${label}_error`, {
+      sessionId: session.id ?? null,
+      supabaseUserId: session.supabaseUserId ?? null,
+      message,
+    });
+  } catch {}
+}
+
 export function registerOnchainToolset(server) {
   server.registerTool(
     'onchain_activity_overview',
@@ -325,6 +337,7 @@ export function registerOnchainToolset(server) {
         }
         return wrapResult(payload, summarizeTokenActivity(payload?.summary));
       } catch (error) {
+        logError('activity', extra, error);
         return wrapResult({ ok: false, error: error?.message || 'onchain_activity_failed' }, error);
       }
     },
@@ -372,6 +385,7 @@ export function registerOnchainToolset(server) {
         }
         return wrapResult(payload, summarizeTokenActivity(payload?.summary));
       } catch (error) {
+        logError('entity', extra, error);
         return wrapResult({ ok: false, error: error?.message || 'onchain_entity_failed' }, error);
       }
     },
