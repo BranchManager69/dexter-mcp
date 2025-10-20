@@ -216,6 +216,82 @@ function normaliseArgs(args = {}) {
   return copy;
 }
 
+function logArgs(label, extra, payload) {
+  try {
+    const session = extra?.session || {};
+    console.info(`[onchain] ${label}_args`, {
+      sessionId: session.id ?? null,
+      supabaseUserId: session.supabaseUserId ?? null,
+      scope: payload.scope ?? null,
+      mint: payload.mint ?? null,
+      wallet: payload.wallet ?? null,
+      signature: payload.signature ?? null,
+      timeframe: payload.timeframe ?? payload.timeframeSeconds ?? null,
+      limit: payload.limit ?? null,
+      includeRaw: payload.includeRaw ?? false,
+    });
+  } catch {}
+}
+
+function logSummary(label, extra, summary) {
+  try {
+    const session = extra?.session || {};
+    const base = {
+      sessionId: session.id ?? null,
+      supabaseUserId: session.supabaseUserId ?? null,
+      scope: summary?.scope ?? null,
+    };
+    if (summary?.scope === 'wallet') {
+      console.info('[onchain] wallet_summary', {
+        ...base,
+        wallet: summary.summary?.wallet ?? null,
+        mint: summary.summary?.mint ?? null,
+        timeframeSeconds: summary.summary?.timeframeSeconds ?? null,
+        tradeCount: summary.summary?.tradeCount ?? 0,
+        buyVolumeSol: summary.summary?.buyVolumeSol ?? 0,
+        sellVolumeSol: summary.summary?.sellVolumeSol ?? 0,
+        netSol: summary.summary?.netSol ?? 0,
+        netTokens: summary.summary?.netTokens ?? 0,
+      });
+    } else if (summary?.scope === 'token') {
+      const topBuyer = summary.summary?.topNetBuyers?.[0] ?? null;
+      const topSeller = summary.summary?.topNetSellers?.[0] ?? null;
+      console.info('[onchain] token_summary', {
+        ...base,
+        mint: summary.summary?.mint ?? null,
+        timeframeSeconds: summary.summary?.timeframeSeconds ?? null,
+        tradeCount: summary.summary?.tradeCount ?? 0,
+        uniqueWallets: summary.summary?.uniqueWallets ?? 0,
+        buyVolumeSol: summary.summary?.buyVolumeSol ?? 0,
+        sellVolumeSol: summary.summary?.sellVolumeSol ?? 0,
+        netFlowSol: summary.summary?.netFlowSol ?? 0,
+        topBuyer: topBuyer
+          ? {
+              wallet: topBuyer.wallet,
+              netSol: topBuyer.netSol,
+              trades: topBuyer.trades,
+            }
+          : null,
+        topSeller: topSeller
+          ? {
+              wallet: topSeller.wallet,
+              netSol: topSeller.netSol,
+              trades: topSeller.trades,
+            }
+          : null,
+      });
+    } else if (summary?.scope === 'trade') {
+      console.info('[onchain] trade_summary', {
+        ...base,
+        signature: summary.summary?.signature ?? null,
+        slot: summary.summary?.slot ?? null,
+        tokenDeltaCount: summary.summary?.tokenBalanceDeltas?.length ?? 0,
+        err: summary.summary?.err ?? null,
+      });
+    }
+  } catch {}
+}
+
 export function registerOnchainToolset(server) {
   server.registerTool(
     'onchain_activity_overview',
@@ -234,6 +310,7 @@ export function registerOnchainToolset(server) {
       let parsed;
       try {
         parsed = ActivityInputSchema.parse(normaliseArgs(input));
+        logArgs('activity', extra, parsed);
       } catch (error) {
         return wrapResult({ ok: false, error: error?.message || 'invalid_arguments' }, error);
       }
@@ -242,6 +319,7 @@ export function registerOnchainToolset(server) {
       const scopePath = parsed.scope === 'wallet' ? '/onchain/activity?scope=wallet' : '/onchain/activity';
       try {
         const payload = await fetchOnchain(`${scopePath}${query}`, extra);
+        logSummary('activity', extra, payload);
         if (payload?.scope === 'wallet') {
           return wrapResult(payload, summarizeWalletActivity(payload?.summary));
         }
@@ -269,6 +347,7 @@ export function registerOnchainToolset(server) {
       let parsed;
       try {
         parsed = EntityInputSchema.parse(normaliseArgs(input));
+        logArgs('entity', extra, parsed);
       } catch (error) {
         return wrapResult({ ok: false, error: error?.message || 'invalid_arguments' }, error);
       }
@@ -284,6 +363,7 @@ export function registerOnchainToolset(server) {
 
       try {
         const payload = await fetchOnchain(`/onchain/entity${query}`, extra);
+        logSummary('entity', extra, payload);
         if (payload?.scope === 'trade') {
           return wrapResult(payload, summarizeTradeInsight(payload?.summary));
         }
