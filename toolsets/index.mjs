@@ -9,6 +9,7 @@ import { registerMarketsToolset } from './markets/index.mjs';
 import { registerTwitterToolset } from './twitter/index.mjs';
 import { registerGmgnToolset } from './gmgn/index.mjs';
 import { registerKolscanToolset } from './kolscan/index.mjs';
+import { registerOnchainToolset } from './onchain/index.mjs';
 
 const passthrough = (value) => String(value);
 
@@ -105,6 +106,10 @@ const TOOLSET_REGISTRY = {
   kolscan: {
     register: registerKolscanToolset,
     description: 'Kolscan KOL analytics (leaderboard, wallet, trending, token summaries).',
+  },
+  onchain: {
+    register: registerOnchainToolset,
+    description: 'Dexter on-chain analytics (token flows, wallet summaries, transaction deltas).',
   },
 };
 

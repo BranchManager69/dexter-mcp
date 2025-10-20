@@ -67,6 +67,12 @@ Give Dexter agents a single toolset that can answer natural-language questions a
 | **4. Agent QA & UX polish (2–3 days)** | Validate prompts and responses. | Craft test prompts, adjust formatting, ensure citations/social handles surface. |
 | **5. Expansion (ongoing)** | Multi-token support, clustering, alerts. | Parameterize mint list, add clustering heuristics, integrate alerting as needed. |
 
+### Implementation Status (October 20, 2025)
+
+- **dexter-api** now serves `/onchain/activity` (token + wallet scopes) and `/onchain/entity` (token/wallet/trade) with live Birdeye + Helius data.
+- **dexter-mcp** exposes `onchain_activity_overview` and `onchain_entity_insight` tools, returning structured summaries for the concierge.
+- **Next focus:** wire the concierge prompts/renderers, answer the remaining open questions, and expand beyond the initial DEXTER-focused flow.
+
 ### Testing
 
 - **Unit**: trade normalization, classification heuristics, burst detection math.
