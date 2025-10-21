@@ -12,6 +12,7 @@ const OhlcvRequestSchema = z.object({
   intervalMinutes: z.number().int().positive().max(60).optional(),
   timeFrom: z.number().int().nonnegative().optional(),
   timeTo: z.number().int().nonnegative().optional(),
+  currency: z.enum(['usd', 'native']).optional(),
 }).superRefine((value, ctx) => {
   if (!value.mintAddress && !value.pairAddress) {
     ctx.addIssue({
@@ -146,20 +147,24 @@ async function fetchTopPairFromDexscreener(mintAddress) {
   return sorted[0];
 }
 
-async function requestBirdeyeOhlcvPair({ apiKey, pairAddress, intervalType, timeFrom, timeTo, chain }) {
-  const url = 'https://public-api.birdeye.so/defi/v3/ohlcv/pair';
+async function requestBirdeyeOhlcvToken({ apiKey, tokenAddress, intervalType, timeFrom, timeTo, chain, currency }) {
+  const url = 'https://public-api.birdeye.so/defi/v3/ohlcv';
   const params = new URLSearchParams({
-    address: pairAddress,
+    address: tokenAddress,
     type: intervalType,
     time_from: String(timeFrom),
     time_to: String(timeTo),
     mode: 'range',
   });
 
+  if (currency) {
+    params.set('currency', currency);
+  }
+
   const response = await fetch(`${url}?${params.toString()}`, {
     method: 'GET',
     headers: {
-      'accept': 'application/json',
+      accept: 'application/json',
       'x-chain': chain,
       'X-API-KEY': apiKey,
     },
@@ -188,6 +193,54 @@ async function requestBirdeyeOhlcvPair({ apiKey, pairAddress, intervalType, time
       v_usd: item.v_usd ?? null,
       v_base: item.v_base ?? item.vBase ?? null,
       v_quote: item.v_quote ?? item.vQuote ?? null,
+      currency: item.currency ?? currency ?? null,
+    }))
+    .filter((row) => Number.isFinite(row.t) && row.t > 0 && row.c !== null);
+}
+
+async function requestBirdeyeOhlcvPair({ apiKey, pairAddress, intervalType, timeFrom, timeTo, chain }) {
+  const url = 'https://public-api.birdeye.so/defi/v3/ohlcv/pair';
+  const params = new URLSearchParams({
+    address: pairAddress,
+    type: intervalType,
+    time_from: String(timeFrom),
+    time_to: String(timeTo),
+    mode: 'range',
+  });
+
+  const response = await fetch(`${url}?${params.toString()}`, {
+    method: 'GET',
+    headers: {
+      accept: 'application/json',
+      'x-chain': chain,
+      'X-API-KEY': apiKey,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    const error = text ? `${response.status}:${text.slice(0, 120)}` : String(response.status);
+    throw new Error(`birdeye_http_${error}`);
+  }
+
+  const json = await response.json().catch(() => null);
+  if (!json || !json.data) {
+    throw new Error('birdeye_invalid_payload');
+  }
+
+  const items = Array.isArray(json?.data?.items) ? json.data.items : [];
+  return items
+    .map((item) => ({
+      t: Number(item.unix_time ?? item.time ?? 0),
+      o: item.o ?? null,
+      h: item.h ?? null,
+      l: item.l ?? null,
+      c: item.c ?? null,
+      v: item.v ?? null,
+      v_usd: item.v_usd ?? null,
+      v_base: item.v_base ?? item.vBase ?? null,
+      v_quote: item.v_quote ?? item.vQuote ?? null,
+      currency: item.currency ?? null,
     }))
     .filter((row) => Number.isFinite(row.t) && row.t > 0 && row.c !== null);
 }
@@ -196,6 +249,7 @@ export async function fetchOhlcvRange(args) {
   const parsed = OhlcvRequestSchema.parse(args || {});
   const apiKey = ensureApiKey();
   let chain = (parsed.chain || DEFAULT_CHAIN).toLowerCase();
+  const currency = parsed.currency || 'usd';
 
   const mintAddress = normalizeMint(parsed.mintAddress);
   let pairAddress = normalizePairAddress(parsed.pairAddress);
@@ -220,14 +274,46 @@ export async function fetchOhlcvRange(args) {
   const { timeFrom, timeTo } = clampWindow(parsed.timeFrom, parsed.timeTo, intervalSeconds);
 
   try {
-    const ohlcv = await requestBirdeyeOhlcvPair({
-      apiKey,
-      pairAddress,
-      intervalType,
-      timeFrom,
-      timeTo,
-      chain,
-    });
+    let ohlcv = [];
+    let note;
+    if (mintAddress) {
+      try {
+        ohlcv = await requestBirdeyeOhlcvToken({
+          apiKey,
+          tokenAddress: mintAddress,
+          intervalType,
+          timeFrom,
+          timeTo,
+          chain,
+          currency,
+        });
+      } catch (error) {
+        if (!pairAddress) {
+          throw error;
+        }
+        ohlcv = await requestBirdeyeOhlcvPair({
+          apiKey,
+          pairAddress,
+          intervalType,
+          timeFrom,
+          timeTo,
+          chain,
+        });
+      }
+    } else {
+      ohlcv = await requestBirdeyeOhlcvPair({
+        apiKey,
+        pairAddress,
+        intervalType,
+        timeFrom,
+        timeTo,
+        chain,
+      });
+    }
+
+    if (!ohlcv.length) {
+      note = 'no_data';
+    }
 
     if (ohlcv.length) {
       return {
@@ -241,6 +327,7 @@ export async function fetchOhlcvRange(args) {
         mint_address: mintAddress,
         pair_address: pairAddress,
         ohlcv,
+        currency,
       };
     }
   } catch (error) {
@@ -261,6 +348,7 @@ export async function fetchOhlcvRange(args) {
     mint_address: mintAddress,
     pair_address: pairAddress,
     ohlcv: [],
+    currency,
     note: 'no_data',
   };
 }

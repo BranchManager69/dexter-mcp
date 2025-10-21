@@ -10,6 +10,7 @@ const INPUT_SCHEMA = z.object({
   interval_minutes: z.number().int().positive().max(60).describe('Legacy interval in minutes (mapped to Birdeye interval string when interval is not provided).').optional(),
   time_from: z.number().int().nonnegative().describe('Epoch seconds for start of window. Defaults based on interval.').optional(),
   time_to: z.number().int().nonnegative().describe('Epoch seconds for end of window. Defaults to current time.').optional(),
+  currency: z.enum(['usd', 'native']).describe('Currency for Birdeye OHLCV values. Defaults to usd.').optional(),
 });
 
 export function registerMarketsToolset(server) {
@@ -34,6 +35,7 @@ export function registerMarketsToolset(server) {
         interval: z.string().optional(),
         interval_seconds: z.number().int().optional(),
         interval_minutes: z.number().int().nullable().optional(),
+        currency: z.string().nullable().optional(),
         note: z.string().optional(),
         ohlcv: z.array(
           z.object({
@@ -46,6 +48,7 @@ export function registerMarketsToolset(server) {
             v_usd: z.number().nullable().optional(),
             v_base: z.number().nullable().optional(),
             v_quote: z.number().nullable().optional(),
+            currency: z.string().nullable().optional(),
           }),
         ),
       },
@@ -70,6 +73,7 @@ export function registerMarketsToolset(server) {
           timeFrom: parsed.time_from,
           timeTo: parsed.time_to,
           intervalMinutes: parsed.interval_minutes,
+          currency: parsed.currency,
         });
 
         const summary = {
@@ -82,6 +86,7 @@ export function registerMarketsToolset(server) {
           interval: result.interval,
           interval_seconds: result.interval_seconds,
           interval_minutes: result.interval_minutes,
+          currency: result.currency,
           candles: Array.isArray(result.ohlcv) ? result.ohlcv.length : 0,
           note: result.note || undefined,
         };
