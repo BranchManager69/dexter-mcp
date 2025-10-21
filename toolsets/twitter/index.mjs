@@ -220,9 +220,23 @@ export function registerTwitterToolset(server) {
           verified_only: result.verified_only,
         };
 
+        const tweets = Array.isArray(result.tweets) ? result.tweets : [];
+        const previewLines = tweets.slice(0, 6).map((tweet) => {
+          const handle = tweet?.author?.handle ? `@${tweet.author.handle}` : 'unknown';
+          const text = typeof tweet?.text === 'string' ? tweet.text.replace(/\s+/g, ' ').trim() : '';
+          const clipped = text.length > 160 ? `${text.slice(0, 157)}…` : text;
+          return `- ${handle}${tweet?.timestamp ? ` · ${tweet.timestamp}` : ''}${clipped ? ` · ${clipped}` : ''}`;
+        });
+        const previewText = previewLines.length
+          ? [`Tweets (${tweets.length > previewLines.length ? `${previewLines.length}/${tweets.length}` : `${previewLines.length}`})`, ...previewLines].join('\n')
+          : 'Tweets (0)';
+
         return {
           structuredContent: result,
-          content: [{ type: 'text', text: JSON.stringify(summary) }],
+          content: [
+            { type: 'text', text: JSON.stringify(summary) },
+            { type: 'text', text: previewText },
+          ],
         };
       } catch (error) {
         const durationMs = Date.now() - startedAt;
