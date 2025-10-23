@@ -10,6 +10,7 @@ import { registerTwitterToolset } from './twitter/index.mjs';
 import { registerGmgnToolset } from './gmgn/index.mjs';
 import { registerKolscanToolset } from './kolscan/index.mjs';
 import { registerOnchainToolset } from './onchain/index.mjs';
+import { registerDidiToolset } from './didi/index.mjs';
 
 const passthrough = (value) => String(value);
 
@@ -110,6 +111,10 @@ const TOOLSET_REGISTRY = {
   onchain: {
     register: registerOnchainToolset,
     description: 'Dexter on-chain analytics (token flows, wallet summaries, transaction deltas).',
+  },
+  didi: {
+    register: registerDidiToolset,
+    description: 'Didi supportive listener tools for empathetic conversations.',
   },
 };
 
