@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { fetchWithX402Json } from '../../clients/x402Client.mjs';
+
 const DEFAULT_API_BASE_URL = process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || 'http://localhost:3030';
 
 function buildApiUrl(base, path) {
@@ -59,6 +61,7 @@ async function apiFetch(path, init, extra) {
   const token = getSupabaseBearer(extra);
   const headers = Object.assign(
     {
+      Accept: 'application/json',
       'Content-Type': 'application/json',
     },
     init?.headers || {},
@@ -69,17 +72,27 @@ async function apiFetch(path, init, extra) {
   if (requestInit.body && typeof requestInit.body !== 'string') {
     requestInit.body = JSON.stringify(requestInit.body);
   }
-  const response = await fetch(url, requestInit);
-  const text = await response.text();
+  const { response, json, text } = await fetchWithX402Json(
+    url,
+    requestInit,
+    {
+      metadata: { toolset: 'didi', path },
+      authHeaders: headers,
+    },
+  );
   if (!response.ok) {
-    let payload = text;
-    try {
-      payload = JSON.parse(text);
-    } catch {}
+    let payload = json;
+    if (!payload && text) {
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = text;
+      }
+    }
     const errorMessage = payload?.error || payload?.message || `request_failed:${response.status}`;
     throw new Error(errorMessage);
   }
-  return text ? JSON.parse(text) : {};
+  return json ?? {};
 }
 
 export function registerDidiToolset(server) {

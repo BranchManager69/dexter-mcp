@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { fetchWithX402Json } from '../../clients/x402Client.mjs';
 import { resolveWalletForRequest } from '../wallet/index.mjs';
 
 const DEFAULT_API_BASE_URL = process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || 'http://localhost:3030';
@@ -54,18 +55,36 @@ function getSupabaseBearer(extra) {
 async function apiFetch(path, init, extra) {
   const base = (process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '');
   const token = getSupabaseBearer(extra);
-  const headers = Object.assign({}, init?.headers || {}, token ? { Authorization: `Bearer ${token}` } : {});
+  const headers = Object.assign(
+    {
+      Accept: 'application/json',
+    },
+    init?.headers || {},
+    token ? { Authorization: `Bearer ${token}` } : {},
+  );
   const url = buildApiUrl(base, path);
-  const response = await fetch(url, { ...init, headers });
-  const text = await response.text();
+  const { response, json, text } = await fetchWithX402Json(
+    url,
+    { ...init, headers },
+    {
+      metadata: { toolset: 'solana', path },
+      authHeaders: headers,
+    },
+  );
   if (!response.ok) {
-    let payload = text;
-    try {
-      payload = JSON.parse(text);
-    } catch {}
-    throw new Error(payload?.error || payload?.message || `request_failed:${response.status}`);
+    let payload = json;
+    if (!payload && text) {
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = text;
+      }
+    }
+    throw new Error(
+      payload?.error || payload?.message || `request_failed:${response.status}`,
+    );
   }
-  return text ? JSON.parse(text) : {};
+  return json ?? {};
 }
 
 export function registerSolanaToolset(server) {

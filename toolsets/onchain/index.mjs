@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { fetchWithX402Json } from '../../clients/x402Client.mjs';
+
 const DEFAULT_API_BASE_URL =
   process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || 'http://localhost:3030';
 
@@ -42,22 +44,30 @@ async function fetchOnchain(path, extra, init = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    method: init.method || 'GET',
-    headers,
-    body: init.body,
-  });
+  const { response, json, text } = await fetchWithX402Json(
+    url,
+    {
+      method: init.method || 'GET',
+      headers,
+      body: init.body,
+    },
+    {
+      metadata: { toolset: 'onchain', path },
+      authHeaders: headers,
+    },
+  );
 
-  const text = await response.text();
-  let payload;
-  if (text) {
-    try {
-      payload = JSON.parse(text);
-    } catch (error) {
-      throw new Error('onchain_invalid_json');
+  let payload = json;
+  if (!payload) {
+    if (text) {
+      try {
+        payload = JSON.parse(text);
+      } catch (error) {
+        throw new Error('onchain_invalid_json');
+      }
+    } else {
+      payload = {};
     }
-  } else {
-    payload = {};
   }
 
   if (!response.ok) {

@@ -1,6 +1,8 @@
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 
+import { fetchWithX402Json } from '../../clients/x402Client.mjs';
+
 console.log('[stream-toolset] init', {
   jwtSecretLen: getMcpJwtSecret().length,
   supabaseUrl: getSupabaseUrl() ? 'set' : 'missing',
@@ -72,17 +74,31 @@ function getSupabaseBearer(extra) {
 async function apiFetch(path, init, extra) {
   const base = resolveBaseUrl();
   const token = getSupabaseBearer(extra);
-  const headers = Object.assign({}, init?.headers || {}, token ? { Authorization: `Bearer ${token}` } : {});
-  const response = await fetch(`${base}${path}`, { ...init, headers });
-  const text = await response.text();
+  const headers = Object.assign(
+    { Accept: 'application/json' },
+    init?.headers || {},
+    token ? { Authorization: `Bearer ${token}` } : {},
+  );
+  const { response, json, text } = await fetchWithX402Json(
+    `${base}${path}`,
+    { ...init, headers },
+    {
+      metadata: { toolset: 'stream', path },
+      authHeaders: headers,
+    },
+  );
   if (!response.ok) {
-    let payload = text;
-    try {
-      payload = JSON.parse(text);
-    } catch {}
+    let payload = json;
+    if (!payload && text) {
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = text;
+      }
+    }
     throw new Error(payload?.error || payload?.message || `request_failed:${response.status}`);
   }
-  return text ? JSON.parse(text) : {};
+  return json ?? {};
 }
 
 const getSceneSchema = z

@@ -1,6 +1,75 @@
 import { z } from 'zod';
 
 import { fetchGmgnTokenSnapshot } from '../../integrations/gmgn.mjs';
+import { fetchWithX402Json } from '../../clients/x402Client.mjs';
+
+const DEFAULT_API_BASE_URL = process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || 'http://localhost:3030';
+
+function headersFromExtra(extra) {
+  try {
+    if (extra?.requestInfo?.headers) return extra.requestInfo.headers;
+  } catch {}
+  try {
+    if (extra?.request?.headers) return extra.request.headers;
+  } catch {}
+  try {
+    if (extra?.httpRequest?.headers) return extra.httpRequest.headers;
+  } catch {}
+  return {};
+}
+
+function getSupabaseBearer(extra) {
+  const headers = headersFromExtra(extra);
+  const candidates = [
+    headers?.authorization,
+    headers?.Authorization,
+    headers?.['x-authorization'],
+    headers?.['X-Authorization'],
+    headers?.['x-user-token'],
+    headers?.['X-User-Token'],
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue;
+    const trimmed = candidate.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith('Bearer ')) {
+      const token = trimmed.slice(7).trim();
+      if (token && token !== process.env.TOKEN_AI_MCP_TOKEN) {
+        return token;
+      }
+    } else if (candidate === headers?.['x-user-token'] || candidate === headers?.['X-User-Token']) {
+      return trimmed;
+    }
+  }
+
+  const envToken = String(process.env.MCP_SUPABASE_BEARER || '').trim();
+  return envToken || null;
+}
+
+async function ensureGmgnAccess(extra) {
+  const base = (process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '');
+  const token = getSupabaseBearer(extra);
+  const headers = Object.assign({ Accept: 'application/json' }, token ? { Authorization: `Bearer ${token}` } : {});
+
+  const { response, json, text } = await fetchWithX402Json(
+    `${base}/api/payments/x402/access/gmgn`,
+    {
+      method: 'POST',
+      headers,
+    },
+    {
+      metadata: { toolset: 'gmgn', resource: 'gmgn_fetch_token_snapshot' },
+      authHeaders: headers,
+    },
+  );
+
+  if (!response.ok) {
+    const payload = json ?? text ?? {};
+    const message = typeof payload === 'object' ? payload?.error || payload?.message || 'gmgn_payment_failed' : String(payload);
+    throw new Error(message);
+  }
+}
 
 const INPUT_SCHEMA = z.object({
   token_address: z.string().min(1, 'token_address_required'),
@@ -65,7 +134,7 @@ export function registerGmgnToolset(server) {
         ),
       },
     },
-    async (args = {}) => {
+    async (args = {}, extra) => {
       let parsed;
       try {
         parsed = INPUT_SCHEMA.parse(args);
@@ -82,6 +151,7 @@ export function registerGmgnToolset(server) {
       }
 
       try {
+        await ensureGmgnAccess(extra);
         const snapshot = await fetchGmgnTokenSnapshot({
           chain: parsed.chain,
           address: parsed.token_address,
