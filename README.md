@@ -36,12 +36,11 @@ Fully managed Model Context Protocol (MCP) bridge for Dexter. The service expose
 |-------|--------------|-------|----------|
 | `guest` | Shared demo bearer (`TOKEN_AI_MCP_TOKEN`), no login required | Read-only research and wallet discovery; no trade execution. | `general/search`, `pumpstream_live_summary`, `markets_fetch_ohlcv`, `wallet/resolve_wallet`, `twitter_search` |
 | `member` | Authenticated Supabase session / `dexter_mcp_jwt` | Unlocks personal wallet context and member-only helpers. | `wallet/list_my_wallets`, `wallet/set_session_wallet_override` |
-| `managed` | Managed-wallet entitlements (Dexter trading flows) | Required for balance lookups and trade execution against managed wallets. | `solana_list_balances`, `solana_swap_preview`, `solana_swap_execute` |
 | `pro` | Role-gated (Pro or Super Admin) | Supabase role check gates stream controls. | `stream_get_scene`, `stream_set_scene` |
 | `dev` | Super Admins only | Protected experimental surfaces. | `codex_start`, `codex_exec` |
 | `internal` | Diagnostic tooling | Not exposed to end users. | `wallet/auth_info` |
 
-Guest/member/managed terminology maps to marketing: the shared bearer covers read-only exploration, while member and managed tiers rely on the per-user wallet provisioned at signup (and managed wallets for execution).
+Guest and member tiers align with the public marketing funnel: every new Dexter account now ships with a managed wallet, so resolver-backed tools should immediately report `source:"resolver"`; the legacy env fallback (`TOKEN_AI_DEFAULT_WALLET_ADDRESS`) remains for guest-only scenarios.
 
 ---
 
@@ -112,16 +111,16 @@ Tool bundles live under `toolsets/<name>/index.mjs` and register themselves thro
 
 Currently shipped:
 
-- **general** – Web search (`search`) and page extraction (`fetch`) for realtime research, returning snippets, favicons, and raw content for renderers.
-- **pumpstream** – `pumpstream_live_summary` wrapper for `https://pump.dexter.cash/api/live` with paging, search, and filter controls.
-- **wallet** – Supabase-backed wallet resolution, session overrides, and resolver diagnostics.
-- **solana** – Token resolution plus managed-wallet balance, swap, and trading helpers (proxied through `dexter-api`).
-- **markets** – Birdeye pair-backed OHLCV retrieval for plotting price history lines (auto-selects the top-liquidity pair when only a mint is provided).
-- **twitter** – Logged-in X/Twitter search with multi-query presets, language/media filters, and enriched author metadata.
-- **stream** – DexterVision scene status and switching for pro accounts.
-- **codex** – Codex bridge for starting, replying to, and executing read-only sandbox sessions (super-admin only).
-- **gmgn** – Headless GMGN scraper that unwraps the token-detail REST calls (`gmgn_fetch_token_snapshot`) for stats, trades, and candle data once given a Solana mint.
-- **kolscan** – Kolscan KOL analytics surfaced from `dexter-api` (`kolscan_leaderboard`, wallet/token detail, trending tokens, and resolver endpoints).
+- **general** – Tavily-backed web `search` with `max_results`, depth, and answer summaries plus a `fetch` helper that returns full-page content (snippets, metadata, raw HTML) for realtime research.
+- **pumpstream** – `pumpstream_live_summary` view of `https://pump.dexter.cash/api/live`, supporting `pageSize`/`offset`/`page`, search, symbol & mint filters, sort order, status gates, viewer and USD market-cap floors, and optional spotlight data.
+- **wallet** – Session-aware helpers (`resolve_wallet`, `list_my_wallets`, `set_session_wallet_override`, `auth_info`) backed by the Supabase resolver with per-session overrides stored in-memory.
+- **solana** – Managed Solana trading utilities (`solana_resolve_token`, balance listings, swap preview/execute) proxied through `dexter-api` with entitlement checks.
+- **markets** – `markets_fetch_ohlcv` pipes Birdeye v3 pair data, auto-selecting the top-liquidity pair when only a mint is supplied to power price history charts.
+- **twitter** – Playwright-powered `twitter_search` against X with multi-query presets, language/reply/media filters, verified-only toggles, and enriched author metadata.
+- **stream** – DexterVision scene monitoring (`stream_get_scene`) and switching (`stream_set_scene`) for `pro` access tiers.
+- **codex** – Bridges MCP clients to the Codex CLI via `codex_start`, `codex_reply`, and `codex_exec`, supporting optional JSON schemas for structured exec-mode responses.
+- **gmgn** – Headless GMGN snapshotter (`gmgn_fetch_token_snapshot`) that clears Cloudflare and returns aggregated stats, trades, and candles for a Solana mint.
+- **kolscan** – Kolscan research endpoints (`kolscan_leaderboard`, wallet & token detail, trending tokens, resolver lookups) surfaced through `dexter-api`.
 
 Each tool definition exposes an `_meta` block so downstream clients can group or gate consistently:
 
@@ -132,14 +131,14 @@ Each tool definition exposes an `_meta` block so downstream clients can group or
   "description": "Execute a SOL-token swap after previewing the expected output.",
   "_meta": {
     "category": "solana.trading",
-    "access": "managed",
+    "access": "member",
     "tags": ["swap", "execution"]
   }
 }
 ```
 
 - `category` – high-level grouping for UX (e.g. `wallets`, `analytics`, `solana.trading`).
-- `access` – current entitlement level (`public`, `free`, `pro`, `managed`, `internal`).
+- `access` – current entitlement level (`guest`, `member`, `pro`, `dev`, `internal`).
 - `tags` – free-form labels for filtering/badging.
 
 The `/tools` API simply relays this metadata so UIs (including `dexter-fe`) pick it up automatically. Add new values conservatively and document them if third-party clients depend on them.
@@ -150,6 +149,8 @@ Selection options:
 - **CLI/stdio:** `node server.mjs --tools=wallet`.
 - **HTTP query:** `POST /mcp?tools=wallet`.
 - **Codex:** set `TOKEN_AI_MCP_TOOLSETS` in the env before launching, or add `includeToolsets` when invoking `buildMcpServer` manually.
+
+Public-facing descriptions and metadata belong in the MCP specs; reserve deep orchestration notes, guardrails, and internal guidance for the realtime agent prompts/configs so clients only see the high-level contract.
 
 Legacy Token-AI bundles remain in `legacy-tools/` for reference. They are not registered by default but can be migrated into `toolsets/` as they are modernized.
 
@@ -174,27 +175,26 @@ node server.mjs --tools=wallet
 # headers = { Authorization = "Bearer <TOKEN_AI_MCP_TOKEN>" }
 ```
 
-### Harness smoke (API default)
+### Harness Operations
 
-The helper script can exercise the new pagination either through the Playwright UI flow or directly via the MCP API:
+The Playwright harness lives in `../dexter-agents/scripts/runHarness.js` with CLI entry `scripts/dexchat.js` (npm script `dexchat`). Append `--guest` to skip stored auth and exercise the anonymous path; the API leg still rides on the shared demo bearer (`TOKEN_AI_MCP_TOKEN`).
+
+Core commands:
 
 ```bash
-# API only (default)
-npm run test:pumpstream -- --page-size 5 --json --no-artifact
+# Standard run (UI + API with 15s wait)
+npm run dexchat -- --prompt "<prompt>" --wait 15000
 
-# UI only (optional)
-export HARNESS_COOKIE='cf_clearance=...; sb-xyz-auth-token=...; sb-xyz-refresh-token=...'
-npm run test:pumpstream -- --mode ui --headful --prompt "List pump streams"
+# Pumpstream harness from this repo (UI + API)
+npm run test:pumpstream -- --mode both --prompt "List pump streams"
 
-# API only (no browser)
-export HARNESS_MCP_TOKEN='Bearer <mcp bearer>'   # if session response redacts the header
-export HARNESS_SESSION_URL='https://api.dexter.cash/realtime/sessions'  # optional override
+# Targeted API-only regression run
 npm run test:pumpstream -- --mode api --page-size 10 --json --no-artifact
 ```
 
-The harness auto-loads `.env`, so you can keep `HARNESS_COOKIE`, `HARNESS_AUTHORIZATION`, `HARNESS_MCP_TOKEN`, and other overrides there instead of exporting them per run (see `.env.example`). Default mode is API-only; when you explicitly run `--mode both`, the script still executes API mode even if UI credentials are missing or the Playwright run fails—it logs the UI error and continues.
+Pass harness flags (`--prompt`, `--url`, `--wait`, `--headful`, `--no-artifact`, `--json`, `--mode`, `--page-size`) directly; they forward to the underlying runners. `.env` is auto-loaded so long-lived values such as `HARNESS_COOKIE`, `HARNESS_AUTHORIZATION`, and `HARNESS_MCP_TOKEN` can live there instead of the shell. Artifacts land in `dexter-agents/harness-results/` unless you opt into `--no-artifact`.
 
-Flags (`--prompt`, `--url`, `--wait`, `--headful`, `--no-artifact`, `--json`, `--mode`, `--page-size`) are forwarded to the underlying runners. UI mode requires a fresh Supabase session (`HARNESS_COOKIE` or `HARNESS_AUTHORIZATION`). API mode falls back to guest sessions but can reuse the same cookies/headers to hop past Cloudflare; if the session payload redacts the MCP header, provide `HARNESS_MCP_TOKEN` (or reuse `TOKEN_AI_MCP_TOKEN`).
+Monitor the console for schema warnings (for example, Zod `.optional()` used without `.nullable()`). Treat any warning as a regression that must be cleared before release. Harness artifacts are the source of truth for recent behavioural checks—house longer-form analysis elsewhere so this document stays operational.
 
 For production, PM2 is managed through `dexter-ops/ops/ecosystem.config.cjs`. The config already forwards `TOKEN_AI_MCP_OAUTH=true` and supporting variables; restart via:
 
@@ -221,6 +221,8 @@ Dexchat / pumpstream harness executions
 | Want a scripted variant | `npm run dexchat:refresh -- --cookie $(cat cookie.txt)` | Same as above without the interactive prompt. |
 | Supabase session has expired / cookie immediately fails | `refresh-supabase-session.ps1` (desktop helper) | Spins up SOCKS proxy + Chrome for Turnstile + Supabase login, prints the cookie, and can refresh storage automatically. Afterwards run `dexchat refresh` with the new value. |
 | Validate guest behaviour | `npm run dexchat -- --prompt "..." --guest` (or add `--guest` to `npm run pumpstream:harness ...`) | Runs the UI anonymously while the API leg reuses the shared demo bearer (`TOKEN_AI_MCP_TOKEN`). |
+
+Storage state only changes when the harness runs with `--storage` (the refresh helper toggles it automatically). If the cookie helper warns that the pasted value is missing `sb-…-refresh-token`, per-user MCP tokens cannot be minted—re-run the desktop helper to capture a full credential set.
 
 Remember: the desktop helper is rare (weeks between runs). `dexchat refresh` is the lightweight, local option you’ll use most often. Additional command details live in `dexter-agents/scripts/README.md`.
 
