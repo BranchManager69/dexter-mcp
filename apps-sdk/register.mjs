@@ -58,7 +58,7 @@ export function registerAppsSdkResources(server, options = {}) {
     {
       name: 'dexter_solana_swap_preview',
       uri: 'openai://app-assets/dexter-mcp/solana-swap-preview',
-      file: 'solana-swap.html',
+      file: 'solana-swap-preview.html',
       title: 'Dexter Solana swap preview widget',
       description: 'Renders swap quotes and expected output prior to execution.',
       widgetDomain: DEFAULT_WIDGET_DOMAIN,
@@ -68,7 +68,7 @@ export function registerAppsSdkResources(server, options = {}) {
     {
       name: 'dexter_solana_swap_execute',
       uri: 'openai://app-assets/dexter-mcp/solana-swap-execute',
-      file: 'solana-swap.html',
+      file: 'solana-swap-execute.html',
       title: 'Dexter Solana swap execution widget',
       description: 'Summarises executed swaps with transaction links.',
       widgetDomain: DEFAULT_WIDGET_DOMAIN,
