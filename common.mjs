@@ -2,6 +2,7 @@ import chalk, { Chalk } from 'chalk';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { registerSelectedToolsets } from './toolsets/index.mjs';
+import { registerAppsSdkResources } from './apps-sdk/register.mjs';
 
 const passthrough = (value) => String(value);
 
@@ -77,6 +78,12 @@ export function buildMcpServer(options = {}) {
 
   const requestedToolsets = options.includeToolsets;
   const loaded = registerSelectedToolsets(server, requestedToolsets);
+
+  try {
+    registerAppsSdkResources(server);
+  } catch (error) {
+    console.warn('[apps-sdk] failed to register resources', error?.message || error);
+  }
   try {
     const color = getColor();
     const label = color.cyan('[mcp-toolsets]');

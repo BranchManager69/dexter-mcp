@@ -248,7 +248,12 @@ export function registerWalletToolset(server) {
     _meta: {
       category: 'wallets',
       access: 'guest',
-      tags: ['resolver', 'listing']
+      tags: ['resolver', 'listing'],
+      openai: {
+        app_ui: [
+          { name: 'dexter-mcp/portfolio-status', type: 'component' },
+        ],
+      },
     },
     outputSchema: {
       user: z.object({ id: z.string().optional().nullable() }).nullable(),
@@ -263,12 +268,17 @@ export function registerWalletToolset(server) {
   }, async (_args, extra) => {
     const context = await fetchWalletContext(extra);
     if (!context) {
-      return { content: [{ type: 'text', text: 'resolver_unavailable' }], isError: true };
+      return {
+        content: [{ type: 'text', text: 'resolver_unavailable' }],
+        status: 'failed',
+        isError: true,
+      };
     }
     const wallets = sanitizeWalletList(context.wallets);
     return {
       structuredContent: { user: context.user || null, wallets },
       content: [{ type: 'text', text: JSON.stringify({ count: wallets.length }) }],
+      status: 'completed',
     };
   });
 
