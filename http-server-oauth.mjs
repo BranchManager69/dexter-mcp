@@ -84,7 +84,8 @@ function resolveColor() {
 const color = resolveColor();
 const labelColor = color.bold ? color.bold : ((v) => v);
 
-const APPS_SDK_ASSETS_DIR = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../public/apps-sdk/assets');
+const ROOT_DIR = path.resolve(path.dirname(new URL(import.meta.url).pathname), '.');
+const APPS_SDK_ASSETS_DIR = path.resolve(ROOT_DIR, 'public/apps-sdk/assets');
 
 const PORT = Number(process.env.TOKEN_AI_MCP_PORT || 3930);
 const TOKEN = process.env.TOKEN_AI_MCP_TOKEN || '';
