@@ -338,7 +338,7 @@ export function registerOnchainToolset(server) {
       }
 
       const query = toSearchParams(parsed);
-      const scopePath = parsed.scope === 'wallet' ? '/onchain/activity?scope=wallet' : '/onchain/activity';
+      const scopePath = '/onchain/activity';
       try {
         const payload = await fetchOnchain(`${scopePath}${query}`, extra);
         logSummary('activity', extra, payload);
