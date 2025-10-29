@@ -4,9 +4,11 @@ import react from '@vitejs/plugin-react';
 
 const rootDir = path.resolve(__dirname, 'ui');
 
+const BASE_URI = 'openai://app-assets/dexter-mcp/';
+
 export default defineConfig({
   root: rootDir,
-  base: './',
+  base: BASE_URI,
   plugins: [react()],
   build: {
     outDir: path.resolve(__dirname, '../public/apps-sdk'),
