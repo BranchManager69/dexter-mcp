@@ -84,6 +84,8 @@ function resolveColor() {
 const color = resolveColor();
 const labelColor = color.bold ? color.bold : ((v) => v);
 
+const APPS_SDK_ASSETS_DIR = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../public/apps-sdk/assets');
+
 const PORT = Number(process.env.TOKEN_AI_MCP_PORT || 3930);
 const TOKEN = process.env.TOKEN_AI_MCP_TOKEN || '';
 const CORS_ORIGIN = process.env.TOKEN_AI_MCP_CORS || '*';
@@ -995,6 +997,30 @@ const server = http.createServer(async (req, res) => {
     // Handle OAuth callback (support both /callback and /mcp/callback)
     if (OAUTH_ENABLED && (url.pathname === '/mcp/callback' || url.pathname === '/callback')) {
       handleOAuthCallback(url, res);
+      return;
+    }
+
+    if (url.pathname.startsWith('/mcp/app-assets/')) {
+      const relative = url.pathname.replace(/^\/mcp\/app-assets\/+/, '');
+      const safePath = path.normalize(relative).replace(/^\.\/+/, '');
+      const filePath = path.join(APPS_SDK_ASSETS_DIR, safePath);
+      if (!filePath.startsWith(APPS_SDK_ASSETS_DIR)) {
+        res.writeHead(403).end('Forbidden');
+        return;
+      }
+      try {
+        const stat = fs.statSync(filePath);
+        if (!stat.isFile()) {
+          res.writeHead(404).end('Not Found');
+          return;
+        }
+        const ext = path.extname(filePath).toLowerCase();
+        const mime = ext === '.css' ? 'text/css' : ext === '.js' ? 'application/javascript' : 'application/octet-stream';
+        res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'public, max-age=300' });
+        fs.createReadStream(filePath).pipe(res);
+      } catch {
+        res.writeHead(404).end('Not Found');
+      }
       return;
     }
     

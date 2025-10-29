@@ -5,6 +5,28 @@ import { promises as fsp } from 'node:fs';
 const SKYBRIDGE_MIME = 'text/html+skybridge';
 const DEFAULT_WIDGET_DOMAIN = 'dexter-mcp';
 const APPS_SDK_DIR = path.resolve(new URL('.', import.meta.url).pathname, '../public/apps-sdk');
+const MCP_PUBLIC_URL = String(process.env.TOKEN_AI_MCP_PUBLIC_URL || 'http://localhost:3930/mcp');
+const DEFAULT_ASSET_BASE = (() => {
+  const raw = String(process.env.TOKEN_AI_APPS_SDK_ASSET_BASE || '').trim();
+  const base = raw.length ? raw : `${MCP_PUBLIC_URL.replace(/\/+$/, '')}/app-assets`;
+  return base.replace(/\/+$/, '');
+})();
+let assetOrigin = null;
+try { assetOrigin = new URL(DEFAULT_ASSET_BASE).origin; } catch { assetOrigin = null; }
+const scriptSources = [`'self'`, 'https://cdn.jsdelivr.net'];
+const styleSources = [`'unsafe-inline'`];
+if (assetOrigin) {
+  scriptSources.push(assetOrigin);
+  styleSources.push(assetOrigin);
+}
+const DEFAULT_WIDGET_CSP = `script-src ${scriptSources.join(' ')}; style-src ${styleSources.join(' ')};`;
+
+function rewriteHtmlForAssets(html) {
+  if (!html) return html;
+  return html
+    .replace(/(src|href)="\.\/assets\/([^"]+)"/g, (_, attr, file) => `${attr}="${DEFAULT_ASSET_BASE}/${file}"`)
+    .replace(/\sdata-asset-base="[^"]*"/g, '');
+}
 
 function isAppsSdkEnabled() {
   const raw = String(process.env.TOKEN_AI_ENABLE_APPS_SDK || '1').toLowerCase();
@@ -32,7 +54,7 @@ export function registerAppsSdkResources(server, options = {}) {
       title: 'Dexter portfolio widget',
       description: 'ChatGPT App SDK component for displaying managed wallet summaries.',
       widgetDomain: DEFAULT_WIDGET_DOMAIN,
-      widgetCsp: "script-src 'self' https://cdn.jsdelivr.net; style-src 'unsafe-inline';",
+      widgetCsp: DEFAULT_WIDGET_CSP,
       widgetDescription: 'Shows the wallets linked to the current Dexter session.',
     },
     {
@@ -42,7 +64,7 @@ export function registerAppsSdkResources(server, options = {}) {
       title: 'Dexter resolve wallet widget',
       description: 'Shows how the active wallet was resolved for the current session.',
       widgetDomain: DEFAULT_WIDGET_DOMAIN,
-      widgetCsp: "script-src 'self' https://cdn.jsdelivr.net; style-src 'unsafe-inline';",
+      widgetCsp: DEFAULT_WIDGET_CSP,
       widgetDescription: 'Visualises which wallet is active and how it was chosen.',
     },
     {
@@ -52,7 +74,7 @@ export function registerAppsSdkResources(server, options = {}) {
       title: 'Dexter Solana token lookup widget',
       description: 'Displays token metadata results for Solana lookup queries.',
       widgetDomain: DEFAULT_WIDGET_DOMAIN,
-      widgetCsp: "script-src 'self' https://cdn.jsdelivr.net; style-src 'unsafe-inline';",
+      widgetCsp: DEFAULT_WIDGET_CSP,
       widgetDescription: 'Lists candidate Solana tokens with liquidity and FDV stats.',
     },
     {
@@ -62,7 +84,7 @@ export function registerAppsSdkResources(server, options = {}) {
       title: 'Dexter Solana swap preview widget',
       description: 'Renders swap quotes and expected output prior to execution.',
       widgetDomain: DEFAULT_WIDGET_DOMAIN,
-      widgetCsp: "script-src 'self' https://cdn.jsdelivr.net; style-src 'unsafe-inline';",
+      widgetCsp: DEFAULT_WIDGET_CSP,
       widgetDescription: 'Shows the preview quote for a Solana swap request.',
     },
     {
@@ -72,7 +94,7 @@ export function registerAppsSdkResources(server, options = {}) {
       title: 'Dexter Solana swap execution widget',
       description: 'Summarises executed swaps with transaction links.',
       widgetDomain: DEFAULT_WIDGET_DOMAIN,
-      widgetCsp: "script-src 'self' https://cdn.jsdelivr.net; style-src 'unsafe-inline';",
+      widgetCsp: DEFAULT_WIDGET_CSP,
       widgetDescription: 'Summarises the executed Solana swap and links to Solscan.',
     },
   ];
@@ -99,7 +121,7 @@ export function registerAppsSdkResources(server, options = {}) {
         },
       },
       async () => {
-        const text = await fsp.readFile(assetPath, 'utf8');
+        const text = rewriteHtmlForAssets(await fsp.readFile(assetPath, 'utf8'));
         return {
           contents: [
             {
