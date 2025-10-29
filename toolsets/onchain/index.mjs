@@ -2,12 +2,24 @@ import { z } from 'zod';
 
 import { fetchWithX402Json } from '../../clients/x402Client.mjs';
 
-const DEFAULT_API_BASE_URL =
-  process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || 'http://localhost:3030';
+function normalizeApiBase(candidate) {
+  const value = (candidate || '').trim();
+  if (/^https?:\/\/dexter\.cash\/api\/?$/.test(value)) {
+    return 'https://api.dexter.cash';
+  }
+  return value || 'http://localhost:3030';
+}
+
+const DEFAULT_API_BASE_URL = normalizeApiBase(
+  process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL,
+);
 
 function buildApiUrl(pathname) {
   const base = (DEFAULT_API_BASE_URL || '').replace(/\/+$/, '');
   const path = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  if (base.endsWith('/api') && path.startsWith('/onchain/')) {
+    return `${base.slice(0, -4)}${path}`;
+  }
   return `${base}${path}`;
 }
 
@@ -63,6 +75,9 @@ async function fetchOnchain(path, extra, init = {}) {
       try {
         payload = JSON.parse(text);
       } catch (error) {
+        try {
+          console.error('[onchain] invalid_json', response.status, text.slice(0, 200));
+        } catch {}
         throw new Error('onchain_invalid_json');
       }
     } else {
