@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Dexter Solana Token Lookup</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; padding: 16px; background: transparent; color: #e2e8f0; }
+    .tokens { display: flex; flex-direction: column; gap: 12px; }
+    .tokens__header { display: flex; justify-content: space-between; align-items: center; }
+    .tokens__title { margin: 0; font-size: 16px; font-weight: 600; }
+    .tokens__query { font-size: 12px; color: #94a3b8; }
+    .token-card { border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 10px; padding: 12px 14px; background: rgba(15, 23, 42, 0.55); display: grid; gap: 6px; }
+    .token-card__name { font-size: 14px; font-weight: 600; color: #f8fafc; display: flex; justify-content: space-between; align-items: center; }
+    .token-card__symbol { font-size: 12px; color: #60a5fa; text-transform: uppercase; letter-spacing: 0.1em; }
+    .token-card__address { font-size: 12px; color: #c4b5fd; word-break: break-all; }
+    .token-card__metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+    .metric { font-size: 11px; color: #cbd5f5; }
+    .metric strong { display: block; font-size: 12px; color: #fef3c7; }
+    .empty { padding: 24px; border: 1px dashed rgba(148, 163, 184, 0.4); border-radius: 10px; text-align: center; font-size: 13px; color: #94a3b8; background: rgba(15, 23, 42, 0.3); }
+  </style>
+</head>
+<body>
+  <script type="module">
+    import { registerComponent } from "https://cdn.jsdelivr.net/npm/@openai/app-ui@latest";
+
+    const format = (value, fallback = "—") => {
+      if (value === null || value === undefined) return fallback;
+      if (typeof value === "number") return value.toLocaleString();
+      const text = String(value).trim();
+      return text.length ? text : fallback;
+    };
+
+    const metric = (label, value) => `
+      <div class="metric">
+        <strong>${label}</strong>
+        ${format(value)}
+      </div>
+    `;
+
+    registerComponent("dexter-mcp/solana-token-lookup", (props = {}) => {
+      const tokens = Array.isArray(props.results) ? props.results : [];
+      const query = props.query || props.input || "";
+
+      if (!tokens.length) {
+        return `
+          <section class="tokens">
+            <header class="tokens__header">
+              <h2 class="tokens__title">Token Lookup</h2>
+              <span class="tokens__query">${query ? `Query: ${query}` : ""}</span>
+            </header>
+            <div class="empty">No tokens matched the current query.</div>
+          </section>
+        `;
+      }
+
+      const cards = tokens.map((token) => `
+        <article class="token-card">
+          <div class="token-card__name">
+            <span>${format(token.name, "Unnamed Token")}</span>
+            <span class="token-card__symbol">${format(token.symbol)}</span>
+          </div>
+          <code class="token-card__address">${format(token.address || token.mintAddress || token.mint)}</code>
+          <div class="token-card__metrics">
+            ${metric("Category", token.category || token.tokenType)}
+            ${metric("Decimals", token.decimals)}
+            ${metric("Liquidity (USD)", token.liquidityUsd)}
+            ${metric("FDV (USD)", token.fdvUsd)}
+          </div>
+        </article>
+      `).join("");
+
+      return `
+        <section class="tokens">
+          <header class="tokens__header">
+            <h2 class="tokens__title">Token Lookup</h2>
+            <span class="tokens__query">${query ? `Query: ${query}` : `${tokens.length} result${tokens.length === 1 ? "" : "s"}`}</span>
+          </header>
+          ${cards}
+        </section>
+      `;
+    });
+  </script>
+</body>
+</html>

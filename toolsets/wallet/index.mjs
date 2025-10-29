@@ -223,7 +223,8 @@ export function registerWalletToolset(server) {
     _meta: {
       category: 'wallets',
       access: 'guest',
-      tags: ['resolver', 'identity']
+      tags: ['resolver', 'identity'],
+      'openai/outputTemplate': 'openai://app-assets/dexter-mcp/resolve-wallet',
     },
     outputSchema: {
       wallet_address: z.string().nullable(),
@@ -231,14 +232,19 @@ export function registerWalletToolset(server) {
       user_id: z.string().nullable().optional()
     }
   }, async (_args, extra) => {
-    const { summary } = await collectWalletStatus(extra);
+    const { summary, diagnostics } = await collectWalletStatus(extra);
+    const structured = {
+      wallet_address: summary.wallet_address,
+      source: summary.source,
+      user_id: summary.user_id,
+      detail: diagnostics.detail || null,
+      bearer_source: diagnostics.bearer_source || null,
+      override_session: diagnostics.override_session || null,
+    };
     return {
-      structuredContent: {
-        wallet_address: summary.wallet_address,
-        source: summary.source,
-        user_id: summary.user_id,
-      },
+      structuredContent: structured,
       content: [{ type: 'text', text: summary.wallet_address || 'none' }],
+      status: structured.wallet_address ? 'completed' : 'in_progress',
     };
   });
 
@@ -249,11 +255,7 @@ export function registerWalletToolset(server) {
       category: 'wallets',
       access: 'guest',
       tags: ['resolver', 'listing'],
-      openai: {
-        app_ui: [
-          { name: 'dexter-mcp/portfolio-status', type: 'component' },
-        ],
-      },
+      'openai/outputTemplate': 'openai://app-assets/dexter-mcp/portfolio-status',
     },
     outputSchema: {
       user: z.object({ id: z.string().optional().nullable() }).nullable(),

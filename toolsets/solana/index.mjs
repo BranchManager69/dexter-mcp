@@ -94,15 +94,34 @@ export function registerSolanaToolset(server) {
     _meta: {
       category: 'solana.trading',
       access: 'free',
-      tags: ['token', 'lookup']
+      tags: ['token', 'lookup'],
+      'openai/outputTemplate': 'openai://app-assets/dexter-mcp/solana-token-lookup',
     },
     inputSchema: {
       query: z.string().min(1),
       limit: z.number().int().min(1).max(10).optional(),
     },
   }, async ({ query, limit }, extra) => {
-    const result = await apiFetch(`/api/solana/resolve-token?q=${encodeURIComponent(query)}${limit ? `&limit=${limit}` : ''}`, { method: 'GET' }, extra);
-    return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.results || []) }] };
+    try {
+      const result = await apiFetch(`/api/solana/resolve-token?q=${encodeURIComponent(query)}${limit ? `&limit=${limit}` : ''}`, { method: 'GET' }, extra);
+      const structured = {
+        query,
+        limit: limit ?? null,
+        results: Array.isArray(result?.results) ? result.results : [],
+        raw: result,
+      };
+      return {
+        structuredContent: structured,
+        content: [{ type: 'text', text: JSON.stringify(structured.results) }],
+        status: structured.results.length ? 'completed' : 'in_progress',
+      };
+    } catch (error) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: 'token_lookup_failed', message: error?.message || String(error) }) }],
+        status: 'failed',
+        isError: true,
+      };
+    }
   });
 
   server.registerTool('solana_list_balances', {
@@ -168,7 +187,8 @@ export function registerSolanaToolset(server) {
     _meta: {
       category: 'solana.trading',
       access: 'managed',
-      tags: ['swap', 'preview']
+      tags: ['swap', 'preview'],
+      'openai/outputTemplate': 'openai://app-assets/dexter-mcp/solana-swap-preview',
     },
     inputSchema: swapInputShape,
   }, async (input, extra) => {
@@ -182,12 +202,28 @@ export function registerSolanaToolset(server) {
       ...(mode ? { mode } : {}),
       ...(desired_output_ui != null ? { desiredOutputUi: desired_output_ui } : {}),
     };
-    const result = await apiFetch('/api/solana/swap/preview', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }, extra);
-    return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.result || {}) }] };
+    try {
+      const result = await apiFetch('/api/solana/swap/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }, extra);
+      const structured = {
+        request: body,
+        result,
+      };
+      return {
+        structuredContent: structured,
+        content: [{ type: 'text', text: JSON.stringify(result.result || result || {}) }],
+        status: 'completed',
+      };
+    } catch (error) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: 'swap_preview_failed', message: error?.message || String(error) }) }],
+        status: 'failed',
+        isError: true,
+      };
+    }
   });
 
   server.registerTool('solana_swap_execute', {
@@ -196,7 +232,8 @@ export function registerSolanaToolset(server) {
     _meta: {
       category: 'solana.trading',
       access: 'managed',
-      tags: ['swap', 'execution']
+      tags: ['swap', 'execution'],
+      'openai/outputTemplate': 'openai://app-assets/dexter-mcp/solana-swap-execute',
     },
     inputSchema: swapInputShape,
   }, async (input, extra) => {
@@ -210,11 +247,27 @@ export function registerSolanaToolset(server) {
       ...(mode ? { mode } : {}),
       ...(desired_output_ui != null ? { desiredOutputUi: desired_output_ui } : {}),
     };
-    const result = await apiFetch('/api/solana/swap/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }, extra);
-    return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.result || {}) }] };
+    try {
+      const result = await apiFetch('/api/solana/swap/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }, extra);
+      const structured = {
+        request: body,
+        result,
+      };
+      return {
+        structuredContent: structured,
+        content: [{ type: 'text', text: JSON.stringify(result.result || result || {}) }],
+        status: 'completed',
+      };
+    } catch (error) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: 'swap_execute_failed', message: error?.message || String(error) }) }],
+        status: 'failed',
+        isError: true,
+      };
+    }
   });
 }

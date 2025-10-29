@@ -33,6 +33,47 @@ export function registerAppsSdkResources(server, options = {}) {
       description: 'ChatGPT App SDK component for displaying managed wallet summaries.',
       widgetDomain: DEFAULT_WIDGET_DOMAIN,
       widgetCsp: "script-src 'self' https://cdn.jsdelivr.net; style-src 'unsafe-inline';",
+      widgetDescription: 'Shows the wallets linked to the current Dexter session.',
+    },
+    {
+      name: 'dexter_resolve_wallet',
+      uri: 'openai://app-assets/dexter-mcp/resolve-wallet',
+      file: 'resolve-wallet.html',
+      title: 'Dexter resolve wallet widget',
+      description: 'Shows how the active wallet was resolved for the current session.',
+      widgetDomain: DEFAULT_WIDGET_DOMAIN,
+      widgetCsp: "script-src 'self' https://cdn.jsdelivr.net; style-src 'unsafe-inline';",
+      widgetDescription: 'Visualises which wallet is active and how it was chosen.',
+    },
+    {
+      name: 'dexter_solana_token_lookup',
+      uri: 'openai://app-assets/dexter-mcp/solana-token-lookup',
+      file: 'solana-token-lookup.html',
+      title: 'Dexter Solana token lookup widget',
+      description: 'Displays token metadata results for Solana lookup queries.',
+      widgetDomain: DEFAULT_WIDGET_DOMAIN,
+      widgetCsp: "script-src 'self' https://cdn.jsdelivr.net; style-src 'unsafe-inline';",
+      widgetDescription: 'Lists candidate Solana tokens with liquidity and FDV stats.',
+    },
+    {
+      name: 'dexter_solana_swap_preview',
+      uri: 'openai://app-assets/dexter-mcp/solana-swap-preview',
+      file: 'solana-swap.html',
+      title: 'Dexter Solana swap preview widget',
+      description: 'Renders swap quotes and expected output prior to execution.',
+      widgetDomain: DEFAULT_WIDGET_DOMAIN,
+      widgetCsp: "script-src 'self' https://cdn.jsdelivr.net; style-src 'unsafe-inline';",
+      widgetDescription: 'Shows the preview quote for a Solana swap request.',
+    },
+    {
+      name: 'dexter_solana_swap_execute',
+      uri: 'openai://app-assets/dexter-mcp/solana-swap-execute',
+      file: 'solana-swap.html',
+      title: 'Dexter Solana swap execution widget',
+      description: 'Summarises executed swaps with transaction links.',
+      widgetDomain: DEFAULT_WIDGET_DOMAIN,
+      widgetCsp: "script-src 'self' https://cdn.jsdelivr.net; style-src 'unsafe-inline';",
+      widgetDescription: 'Summarises the executed Solana swap and links to Solscan.',
     },
   ];
 
@@ -52,10 +93,9 @@ export function registerAppsSdkResources(server, options = {}) {
         description: entry.description,
         mimeType: SKYBRIDGE_MIME,
         _meta: {
-          openai: {
-            widgetDomain: entry.widgetDomain,
-            widgetCsp: entry.widgetCsp,
-          },
+          'openai/widgetDomain': entry.widgetDomain,
+          'openai/widgetCsp': entry.widgetCsp,
+          'openai/widgetDescription': entry.widgetDescription || entry.description,
         },
       },
       async () => {
@@ -65,6 +105,12 @@ export function registerAppsSdkResources(server, options = {}) {
             {
               uri: entry.uri,
               text,
+              mimeType: SKYBRIDGE_MIME,
+              _meta: {
+                'openai/widgetDomain': entry.widgetDomain,
+                'openai/widgetCsp': entry.widgetCsp,
+                'openai/widgetDescription': entry.widgetDescription || entry.description,
+              },
             },
           ],
         };
