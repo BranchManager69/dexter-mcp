@@ -270,11 +270,15 @@ export async function fetchWithX402Json(url, init = {}, options = {}) {
     try {
       json = JSON.parse(text);
     } catch (error) {
-      const err = new Error('json_parse_failed');
-      err.cause = error;
-      err.response = response;
-      err.body = text;
-      throw err;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const err = new Error('json_parse_failed');
+        err.cause = error;
+        err.response = response;
+        err.body = text;
+        throw err;
+      }
+      json = null;
     }
   }
   return { response, json, text, paymentReceipt };
