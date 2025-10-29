@@ -217,6 +217,7 @@ export async function fetchWithX402(url, init = {}, options = {}) {
 
   let attempt = 0;
   let paymentResult = null;
+  let lastSettlement = null;
 
   while (attempt < maxAttempts) {
     const headers = createHeaders(originalInit.headers);
@@ -235,7 +236,7 @@ export async function fetchWithX402(url, init = {}, options = {}) {
 
     const response = await fetch(url, attemptInit);
     if (response.status !== 402 || !enabled) {
-      return response;
+      return { response, paymentReceipt: lastSettlement };
     }
 
     if (attempt + 1 >= maxAttempts) {
@@ -251,6 +252,7 @@ export async function fetchWithX402(url, init = {}, options = {}) {
         attempt: attempt + 1,
       });
       attempt += 1;
+      lastSettlement = paymentResult;
     } catch (error) {
       error.response = error.response || response;
       throw error;
@@ -261,7 +263,7 @@ export async function fetchWithX402(url, init = {}, options = {}) {
 }
 
 export async function fetchWithX402Json(url, init = {}, options = {}) {
-  const response = await fetchWithX402(url, init, options);
+  const { response, paymentReceipt } = await fetchWithX402(url, init, options);
   const text = await response.text();
   let json = null;
   if (text) {
@@ -275,5 +277,5 @@ export async function fetchWithX402Json(url, init = {}, options = {}) {
       throw err;
     }
   }
-  return { response, json, text };
+  return { response, json, text, paymentReceipt };
 }
