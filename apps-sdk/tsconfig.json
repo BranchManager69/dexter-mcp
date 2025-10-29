@@ -1,0 +1,18 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "target": "ESNext",
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "lib": ["DOM", "ES2021"],
+    "types": []
+  },
+  "include": [
+    "./ui/src/**/*.ts",
+    "./ui/src/**/*.tsx"
+  ]
+}

@@ -1,111 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Dexter Portfolio Component</title>
-  <style>
-    :root {
-      color-scheme: dark;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    body {
-      margin: 0;
-      padding: 16px;
-      background: transparent;
-      color: #e5e7eb;
-    }
-    .dexter-portfolio {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .dexter-portfolio__header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .dexter-portfolio__title {
-      margin: 0;
-      font-size: 16px;
-      font-weight: 600;
-    }
-    .dexter-portfolio__count {
-      font-size: 12px;
-      color: #9ca3af;
-    }
-    .dexter-portfolio__list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .dexter-portfolio__item {
-      border: 1px solid rgba(148, 163, 184, 0.3);
-      border-radius: 8px;
-      padding: 12px;
-      background: rgba(30, 41, 59, 0.35);
-    }
-    .dexter-portfolio__label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #f9fafb;
-    }
-    .dexter-portfolio__address {
-      display: block;
-      margin-top: 4px;
-      font-size: 12px;
-      letter-spacing: 0.04em;
-      word-break: break-all;
-      color: #93c5fd;
-    }
-    .dexter-portfolio__status {
-      margin-top: 16px;
-      font-size: 12px;
-      color: #9ca3af;
-    }
-    .dexter-portfolio__empty {
-      font-size: 13px;
-      color: #94a3b8;
-    }
-  </style>
-</head>
-<body>
-  <script type="module">
-    import { registerComponent } from "https://cdn.jsdelivr.net/npm/@openai/app-ui@latest";
-
-    const renderWallet = (wallet) => {
-      const label = wallet?.label || wallet?.name || "Wallet";
-      const address = wallet?.address || wallet?.public_key || wallet?.publicKey || "";
-      return `
-        <li class="dexter-portfolio__item">
-          <span class="dexter-portfolio__label">${label}</span>
-          <code class="dexter-portfolio__address">${address}</code>
-        </li>
-      `;
-    };
-
-    registerComponent("dexter-mcp/portfolio-status", (props = {}) => {
-      const wallets = Array.isArray(props.wallets) ? props.wallets : [];
-      const count = wallets.length;
-      const listMarkup = count
-        ? wallets.map(renderWallet).join("")
-        : `<li class="dexter-portfolio__item dexter-portfolio__empty">No wallets available.</li>`;
-
-      return `
-        <section class="dexter-portfolio" data-count="${count}">
-          <header class="dexter-portfolio__header">
-            <h2 class="dexter-portfolio__title">Dexter Wallets</h2>
-            <span class="dexter-portfolio__count">${count} ${count === 1 ? "wallet" : "wallets"}</span>
-          </header>
-          <ul class="dexter-portfolio__list">${listMarkup}</ul>
-          <footer class="dexter-portfolio__status">
-            Updated ${new Date().toLocaleString()}
-          </footer>
-        </section>
-      `;
-    });
-  </script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <title>Dexter Portfolio</title>
+    <script type="module" crossorigin src="./assets/portfolio-status-CGKVV_ms.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/register-C3QhuqIw.js">
+    <link rel="stylesheet" crossorigin href="./assets/register-DAAHZ-Aj.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
 </html>

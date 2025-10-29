@@ -88,6 +88,35 @@ async function apiFetch(path, init, extra) {
 }
 
 export function registerSolanaToolset(server) {
+  function normaliseTokenResult(result) {
+    if (!result || typeof result !== 'object') return null;
+    const info = result.info || {};
+    const pairs = Array.isArray(result.pairs) ? result.pairs : [];
+    const primaryPair = pairs.find((pair) => pair?.url) || pairs[0] || null;
+    const socials = Array.isArray(info.socials) ? info.socials : [];
+    const websites = Array.isArray(info.websites) ? info.websites : [];
+
+    const priceChange = result.priceChange || {};
+
+    return {
+      address: result.address || result.mintAddress || result.mint || null,
+      name: result.name || null,
+      symbol: result.symbol || null,
+      category: result.category || result.tokenType || null,
+      decimals: result.decimals ?? null,
+      liquidityUsd: result.liquidityUsd ?? primaryPair?.liquidity?.usd ?? null,
+      fdvUsd: result.fdv ?? result.fdvUsd ?? result.marketCap ?? null,
+      priceUsd: result.priceUsd ?? primaryPair?.priceUsd ?? null,
+      priceChange24hPct: priceChange.h24 ?? result.priceChange24h ?? null,
+      volume24hUsd: result.volume24hUsd ?? primaryPair?.volume?.h24 ?? null,
+      logoUri: info.imageUrl || info.logo || primaryPair?.info?.imageUrl || null,
+      websiteUrl: websites.find((site) => site?.url)?.url || null,
+      twitterUrl: socials.find((social) => social?.type === 'twitter')?.url || null,
+      pairUrl: primaryPair?.url || null,
+      raw: result,
+    };
+  }
+
   server.registerTool('solana_resolve_token', {
     title: 'Resolve Solana Token',
     description: 'Resolve token metadata using Dexter\'s token lookup heuristics.',
@@ -104,15 +133,16 @@ export function registerSolanaToolset(server) {
   }, async ({ query, limit }, extra) => {
     try {
       const result = await apiFetch(`/api/solana/resolve-token?q=${encodeURIComponent(query)}${limit ? `&limit=${limit}` : ''}`, { method: 'GET' }, extra);
+      const mapped = Array.isArray(result?.results) ? result.results.map((token) => normaliseTokenResult(token)).filter(Boolean) : [];
       const structured = {
         query,
         limit: limit ?? null,
-        results: Array.isArray(result?.results) ? result.results : [],
+        results: mapped,
         raw: result,
       };
       return {
         structuredContent: structured,
-        content: [{ type: 'text', text: JSON.stringify(structured.results) }],
+        content: [{ type: 'text', text: JSON.stringify(mapped) }],
         status: structured.results.length ? 'completed' : 'in_progress',
       };
     } catch (error) {

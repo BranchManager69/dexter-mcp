@@ -117,4 +117,37 @@ export function registerAppsSdkResources(server, options = {}) {
       },
     );
   }
+
+  // Register bundled assets (CSS/JS) so relative imports resolve in ChatGPT.
+  const assetsDir = path.join(APPS_SDK_DIR, 'assets');
+  if (fileExistsSync(assetsDir)) {
+    const assetFiles = fs.readdirSync(assetsDir).filter((file) => /\.(js|css)$/i.test(file));
+    for (const file of assetFiles) {
+      const ext = path.extname(file).toLowerCase();
+      const mimeType = ext === '.css' ? 'text/css' : 'application/javascript';
+      const uri = `openai://app-assets/dexter-mcp/assets/${file}`;
+      const absolutePath = path.join(assetsDir, file);
+      server.registerResource(
+        `dexter_asset_${file}`,
+        uri,
+        {
+          title: `Dexter Apps SDK asset (${file})`,
+          description: 'Supporting file for Dexter ChatGPT App components.',
+          mimeType,
+        },
+        async () => {
+          const text = await fsp.readFile(absolutePath, 'utf8');
+          return {
+            contents: [
+              {
+                uri,
+                text,
+                mimeType,
+              },
+            ],
+          };
+        },
+      );
+    }
+  }
 }
