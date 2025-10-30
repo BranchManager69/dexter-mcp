@@ -212,7 +212,7 @@ const SharedFilterSchema = z.object({
   wallet: z.string().min(10, 'wallet_required').optional(),
   timeframe: z.union([z.string(), z.number()]).optional(),
   limit: z.number().int().min(1).max(25).optional(),
-  includeRaw: z.boolean().optional(),
+  includeRaw: z.boolean().default(true),
 });
 
 const ActivityBaseSchema = z
@@ -278,6 +278,78 @@ const EntityInputSchema = EntityBaseSchema.superRefine((value, ctx) => {
   }
 });
 
+function toNumber(value) {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function enhanceSummaryWithDerivedVolumes(summary) {
+  if (!summary || typeof summary !== 'object' || !Array.isArray(summary.trades) || summary.trades.length === 0) {
+    return;
+  }
+
+  const metrics = {
+    totalTrades: summary.trades.length,
+    buySol: 0,
+    sellSol: 0,
+    buyTokens: 0,
+    sellTokens: 0,
+    netTokens: 0,
+    transferCount: 0,
+    transferOutTokens: 0,
+    transferInTokens: 0,
+    transferSignatures: [],
+  };
+
+  for (const trade of summary.trades) {
+    if (!trade || typeof trade !== 'object') continue;
+    const pool = String(trade.pool || trade.source || '').toLowerCase();
+    const quoteAbs = toNumber(trade.quoteAbs);
+    const baseAbs = toNumber(trade.baseAbs);
+    const baseSigned = toNumber(trade.baseSigned);
+    const side = String(trade.side || '').toLowerCase();
+
+    const isTransfer = pool.startsWith('tokenkeg') || quoteAbs < 1e-4;
+
+    metrics.netTokens += baseSigned;
+
+    if (isTransfer) {
+      metrics.transferCount += 1;
+      if (baseSigned < 0) {
+        metrics.transferOutTokens += Math.abs(baseSigned);
+      } else if (baseSigned > 0) {
+        metrics.transferInTokens += baseSigned;
+      }
+      if (trade.signature) metrics.transferSignatures.push(trade.signature);
+      continue;
+    }
+
+    if (side === 'buy') {
+      metrics.buySol += quoteAbs;
+      metrics.buyTokens += baseAbs;
+    } else if (side === 'sell') {
+      metrics.sellSol += quoteAbs;
+      metrics.sellTokens += baseAbs;
+    }
+  }
+
+  metrics.netSol = metrics.sellSol - metrics.buySol;
+  summary.derivedVolumes = metrics;
+
+  if (!summary.buyVolumeSol || summary.buyVolumeSol === 0) summary.buyVolumeSol = metrics.buySol;
+  if (!summary.sellVolumeSol || summary.sellVolumeSol === 0) summary.sellVolumeSol = metrics.sellSol;
+  if (summary.netSol === undefined || summary.netSol === null || Math.abs(summary.netSol) < 1e-6) {
+    summary.netSol = metrics.netSol;
+  }
+  if (summary.netTokens === undefined || summary.netTokens === null) {
+    summary.netTokens = metrics.netTokens;
+  }
+}
+
 function summarizeTokenActivity(summary) {
   if (!summary || typeof summary !== 'object') return 'token_activity_unavailable';
   const timeframeMinutes = Math.round((summary.timeframeSeconds || 0) / 60);
@@ -301,12 +373,32 @@ function summarizeTokenActivity(summary) {
 
 function summarizeWalletActivity(summary) {
   if (!summary || typeof summary !== 'object') return 'wallet_activity_unavailable';
-  return [
-    `Trades: ${summary.tradeCount ?? 0}`,
-    `Buys: ${(summary.buyVolumeSol ?? 0).toFixed?.(3) || summary.buyVolumeSol} SOL`,
-    `Sells: ${(summary.sellVolumeSol ?? 0).toFixed?.(3) || summary.sellVolumeSol} SOL`,
-    `Net: ${(summary.netSol ?? 0).toFixed?.(3) || summary.netSol} SOL`,
-  ].join(' | ');
+  const volumes = summary.derivedVolumes || {};
+  const buySol = volumes.buySol ?? summary.buyVolumeSol ?? 0;
+  const sellSol = volumes.sellSol ?? summary.sellVolumeSol ?? 0;
+  const netSol = volumes.netSol ?? summary.netSol ?? sellSol - buySol;
+  const formatSol = (value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric.toFixed(3) : String(value ?? 0);
+  };
+  const parts = [
+    `Trades: ${summary.tradeCount ?? volumes.totalTrades ?? 0}`,
+    `Buys: ${formatSol(buySol)} SOL`,
+    `Sells: ${formatSol(sellSol)} SOL`,
+    `Net: ${formatSol(netSol)} SOL`,
+  ];
+  if (volumes.transferCount) {
+    const formatTokens = (value) => {
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric.toFixed(0) : String(value ?? 0);
+    };
+    const transferDetails = [];
+    if (volumes.transferOutTokens) transferDetails.push(`${formatTokens(volumes.transferOutTokens)} out`);
+    if (volumes.transferInTokens) transferDetails.push(`${formatTokens(volumes.transferInTokens)} in`);
+    const transferLabel = `${volumes.transferCount} transfer${volumes.transferCount === 1 ? '' : 's'}${transferDetails.length ? ` (${transferDetails.join(', ')})` : ''}`;
+    parts.push(`Transfers: ${transferLabel}`);
+  }
+  return parts.join(' | ');
 }
 
 function summarizeTradeInsight(summary) {
@@ -435,7 +527,7 @@ export function registerOnchainToolset(server) {
     {
       title: 'On-chain Activity Overview',
       description:
-        'Summarize on-chain swap activity for a token or wallet over a timeframe. Requires token mint; wallet scope adds wallet address.',
+        'Primary on-chain analytics for tokens and wallets. Resolve the mint first, then summarize swap activity over a timeframe. Use this before any Kolscan fallback.',
       _meta: {
         category: 'onchain.analytics',
         access: 'public',
@@ -457,6 +549,7 @@ export function registerOnchainToolset(server) {
       const scopePath = '/onchain/activity';
       try {
         const payload = await fetchOnchain(`${scopePath}${query}`, extra);
+        enhanceSummaryWithDerivedVolumes(payload?.summary);
         logSummary('activity', extra, payload);
         if (payload?.scope === 'wallet') {
           return wrapResult(payload, summarizeWalletActivity(payload?.summary));
@@ -474,7 +567,7 @@ export function registerOnchainToolset(server) {
     {
       title: 'On-chain Entity Insight',
       description:
-        'Deep dive on a wallet, token, or specific transaction signature. Use scope=trade with a signature for transaction deltas.',
+        'Primary on-chain deep dive for wallets, tokens, or specific signatures. Resolve the mint first; use scope=trade with a signature for transaction deltas.',
       _meta: {
         category: 'onchain.analytics',
         access: 'public',
@@ -503,6 +596,7 @@ export function registerOnchainToolset(server) {
 
       try {
         const payload = await fetchOnchain(`/onchain/entity${query}`, extra);
+        enhanceSummaryWithDerivedVolumes(payload?.summary);
         logSummary('entity', extra, payload);
         if (payload?.scope === 'trade') {
           return wrapResult(payload, summarizeTradeInsight(payload?.summary));

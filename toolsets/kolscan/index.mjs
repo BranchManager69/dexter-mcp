@@ -381,7 +381,7 @@ export function registerKolscanToolset(server) {
     'kolscan_leaderboard',
     {
       title: 'Fetch Kolscan Leaderboard',
-      description: 'Fetch Kolscan leaderboard rankings with optional filters (timeframe, profit bounds, social requirements).',
+      description: 'Fetch Kolscan leaderboard rankings (fallback analytics). Prefer on-chain tools for live flow; use this when Kolscan-specific stats are required.',
       _meta: {
         category: 'kolscan.analytics',
         access: 'public',
@@ -417,7 +417,7 @@ export function registerKolscanToolset(server) {
     'kolscan_resolve_wallet',
     {
       title: 'Resolve Kolscan Wallet Handle',
-      description: 'Resolve Kolscan handles or social aliases to wallet metadata.',
+      description: 'Resolve Kolscan handles or social aliases to wallet metadata (use when Kolscan context is explicitly requested).',
       _meta: {
         category: 'kolscan.lookup',
         access: 'public',
@@ -450,7 +450,7 @@ export function registerKolscanToolset(server) {
     'kolscan_wallet_detail',
     {
       title: 'Fetch Kolscan Wallet Detail',
-      description: 'Return Kolscan wallet summary metrics and optional trade history for a selected timeframe.',
+      description: 'Kolscan wallet summary/trade history (fallback analytics). Prefer on-chain tools for live flow and use this only when Kolscan specifics are requested.',
       _meta: {
         category: 'kolscan.analytics',
         access: 'public',
@@ -487,7 +487,7 @@ export function registerKolscanToolset(server) {
     'kolscan_trending_tokens',
     {
       title: 'Fetch Trending Kolscan Tokens',
-      description: 'Aggregate trending tokens across Kolscan KOL activity for a timeframe.',
+      description: 'Kolscan KOL trending tokens (fallback intel). Use only when the caller wants social/KOL data beyond on-chain flow.',
       _meta: {
         category: 'kolscan.analytics',
         access: 'public',
@@ -527,7 +527,7 @@ export function registerKolscanToolset(server) {
     'kolscan_token_detail',
     {
       title: 'Fetch Kolscan Token Detail',
-      description: 'Summarize KOL activity for a specific token, including per-wallet breakdowns.',
+      description: 'Kolscan token-level KOL summary (fallback). Use only when Kolscan social intel is explicitly required or on-chain tools return nothing.',
       _meta: {
         category: 'kolscan.analytics',
         access: 'public',
