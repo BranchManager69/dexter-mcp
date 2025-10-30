@@ -14,6 +14,102 @@ const DEFAULT_API_BASE_URL = normalizeApiBase(
   process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL,
 );
 
+const ACTIVITY_PARAMETER_METADATA = [
+  {
+    name: 'scope',
+    type: 'enum',
+    values: ['token', 'wallet'],
+    default: 'token',
+    description: 'Selects token-level or wallet-level aggregation.',
+  },
+  {
+    name: 'mint',
+    type: 'string',
+    required: true,
+    description: 'Solana token mint address. Required for all scopes.',
+  },
+  {
+    name: 'wallet',
+    type: 'string',
+    requiredWhen: { scope: 'wallet' },
+    description: 'Wallet public key to focus on when `scope` = wallet.',
+  },
+  {
+    name: 'timeframe',
+    type: 'string',
+    default: '1h',
+    pattern: '^([0-9]+)(s|m|h|d)?$',
+    description: 'Lookback window (e.g., 5m, 15m, 1h, 24h, 3d).',
+    minSeconds: 60,
+    maxSeconds: 604800,
+  },
+  {
+    name: 'limit',
+    type: 'integer',
+    default: 5,
+    min: 1,
+    max: 25,
+    description: 'Max number of highlight trades/participants.',
+  },
+  {
+    name: 'includeRaw',
+    type: 'boolean',
+    default: false,
+    description: 'Return raw arrays (trades, buyers, sellers) alongside the summary.',
+  },
+];
+
+const ENTITY_PARAMETER_METADATA = [
+  {
+    name: 'scope',
+    type: 'enum',
+    values: ['token', 'wallet', 'trade'],
+    default: 'token',
+    description: 'Selects token, wallet, or single-trade insight.',
+  },
+  {
+    name: 'mint',
+    type: 'string',
+    requiredWhen: { scope: ['token', 'wallet'] },
+    description: 'Solana token mint address (required for token/wallet scopes).',
+  },
+  {
+    name: 'wallet',
+    type: 'string',
+    requiredWhen: { scope: 'wallet' },
+    description: 'Wallet public key required for wallet scope.',
+  },
+  {
+    name: 'signature',
+    type: 'string',
+    requiredWhen: { scope: 'trade' },
+    description: 'Transaction signature for trade analysis (required for trade scope).',
+  },
+  {
+    name: 'timeframe',
+    type: 'string',
+    default: '1h',
+    pattern: '^([0-9]+)(s|m|h|d)?$',
+    minSeconds: 60,
+    maxSeconds: 604800,
+    description: 'Lookback window for token/wallet scopes.',
+  },
+  {
+    name: 'limit',
+    type: 'integer',
+    default: 5,
+    min: 1,
+    max: 25,
+    description: 'Max number of entries in returned lists.',
+  },
+  {
+    name: 'includeRaw',
+    type: 'boolean',
+    default: false,
+    description: 'Return raw arrays alongside the summary payload.',
+  },
+];
+
 function buildApiUrl(pathname) {
   const base = (DEFAULT_API_BASE_URL || '').replace(/\/+$/, '');
   const path = pathname.startsWith('/') ? pathname : `/${pathname}`;
@@ -86,7 +182,11 @@ async function fetchOnchain(path, extra, init = {}) {
   }
 
   if (!response.ok) {
-    const message = payload?.error || payload?.message || `onchain_error:${response.status}`;
+    const status = response?.status ?? 0;
+    let message = payload?.error || payload?.message || `onchain_error:${status}`;
+    if (status === 404 && message === `onchain_error:${status}`) {
+      message = 'onchain_link_not_active';
+    }
     throw new Error(message);
   }
 
@@ -340,6 +440,7 @@ export function registerOnchainToolset(server) {
         category: 'onchain.analytics',
         access: 'public',
         tags: ['onchain', 'dexter', 'analytics'],
+        parameters: ACTIVITY_PARAMETER_METADATA,
       },
       inputSchema: ActivityBaseSchema.shape,
     },
@@ -378,6 +479,7 @@ export function registerOnchainToolset(server) {
         category: 'onchain.analytics',
         access: 'public',
         tags: ['onchain', 'insight', 'dexter'],
+        parameters: ENTITY_PARAMETER_METADATA,
       },
       inputSchema: EntityBaseSchema.shape,
     },
