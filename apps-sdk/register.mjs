@@ -1,25 +1,17 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
+import { buildWidgetBootstrapScript } from './bootstrap.js';
 
 const SKYBRIDGE_MIME = 'text/html+skybridge';
 const DEFAULT_WIDGET_DOMAIN = 'dexter-mcp';
 const APPS_SDK_DIR = path.resolve(new URL('.', import.meta.url).pathname, '../public/apps-sdk');
-const MCP_PUBLIC_URL = String(process.env.TOKEN_AI_MCP_PUBLIC_URL || 'http://localhost:3930/mcp');
+const MCP_PUBLIC_URL = String(process.env.TOKEN_AI_MCP_PUBLIC_URL || 'http://localhost:3930/mcp').replace(/\/+$/, '');
 const DEFAULT_ASSET_BASE = (() => {
   const raw = String(process.env.TOKEN_AI_APPS_SDK_ASSET_BASE || '').trim();
-  const base = raw.length ? raw : `${MCP_PUBLIC_URL.replace(/\/+$/, '')}/app-assets`;
+  const base = raw.length ? raw : `${MCP_PUBLIC_URL}/app-assets`;
   return base.replace(/\/+$/, '');
 })();
-let assetOrigin = null;
-try { assetOrigin = new URL(DEFAULT_ASSET_BASE).origin; } catch { assetOrigin = null; }
-const scriptSources = [`'self'`, 'https://cdn.jsdelivr.net'];
-const styleSources = [`'unsafe-inline'`];
-if (assetOrigin) {
-  scriptSources.push(assetOrigin);
-  styleSources.push(assetOrigin);
-}
-const DEFAULT_WIDGET_CSP = `script-src ${scriptSources.join(' ')}; style-src ${styleSources.join(' ')};`;
 
 function rewriteHtmlForAssets(html) {
   if (!html) return html;
@@ -42,95 +34,122 @@ function fileExistsSync(filePath) {
   }
 }
 
-export function registerAppsSdkResources(server, options = {}) {
+function buildWidgetCsp() {
+  const sources = [`'self'`, `'unsafe-inline'`];
+  try {
+    const origin = new URL(DEFAULT_ASSET_BASE).origin;
+    if (origin) {
+      sources.push(origin);
+    }
+  } catch {}
+  return `script-src 'self' 'unsafe-inline'; style-src ${sources.join(' ')}`;
+}
+
+function injectBootstrap(html, baseHref) {
+  const normalizedBase = baseHref.endsWith('/') ? baseHref : `${baseHref}/`;
+  const baseTag = `<base href="${normalizedBase}">`;
+  const bootstrapScript = buildWidgetBootstrapScript(normalizedBase);
+
+  if (html.includes('<head>')) {
+    return html.replace('<head>', `<head>\n${baseTag}\n${bootstrapScript}\n`);
+  }
+
+  return `${baseTag}\n${bootstrapScript}\n${html}`;
+}
+
+export function registerAppsSdkResources(server) {
   if (!server || typeof server.registerResource !== 'function') return;
   if (!isAppsSdkEnabled()) return;
+
+  const widgetCsp = buildWidgetCsp();
 
   const entries = [
     {
       name: 'dexter_portfolio_status',
-      uri: 'openai://app-assets/dexter-mcp/portfolio-status',
+      templateUri: 'ui://dexter/portfolio-status',
       file: 'portfolio-status.html',
       title: 'Dexter portfolio widget',
       description: 'ChatGPT App SDK component for displaying managed wallet summaries.',
-      widgetDomain: DEFAULT_WIDGET_DOMAIN,
-      widgetCsp: DEFAULT_WIDGET_CSP,
       widgetDescription: 'Shows the wallets linked to the current Dexter session.',
+      invoking: 'Loading wallet overview…',
+      invoked: 'Wallet overview ready',
     },
     {
       name: 'dexter_resolve_wallet',
-      uri: 'openai://app-assets/dexter-mcp/resolve-wallet',
+      templateUri: 'ui://dexter/resolve-wallet',
       file: 'resolve-wallet.html',
       title: 'Dexter resolve wallet widget',
       description: 'Shows how the active wallet was resolved for the current session.',
-      widgetDomain: DEFAULT_WIDGET_DOMAIN,
-      widgetCsp: DEFAULT_WIDGET_CSP,
       widgetDescription: 'Visualises which wallet is active and how it was chosen.',
+      invoking: 'Resolving wallet…',
+      invoked: 'Wallet resolved',
     },
     {
       name: 'dexter_solana_token_lookup',
-      uri: 'openai://app-assets/dexter-mcp/solana-token-lookup',
+      templateUri: 'ui://dexter/solana-token-lookup',
       file: 'solana-token-lookup.html',
       title: 'Dexter Solana token lookup widget',
       description: 'Displays token metadata results for Solana lookup queries.',
-      widgetDomain: DEFAULT_WIDGET_DOMAIN,
-      widgetCsp: DEFAULT_WIDGET_CSP,
       widgetDescription: 'Lists candidate Solana tokens with liquidity and FDV stats.',
+      invoking: 'Searching tokens…',
+      invoked: 'Token results ready',
     },
     {
       name: 'dexter_solana_swap_preview',
-      uri: 'openai://app-assets/dexter-mcp/solana-swap-preview',
+      templateUri: 'ui://dexter/solana-swap-preview',
       file: 'solana-swap-preview.html',
       title: 'Dexter Solana swap preview widget',
       description: 'Renders swap quotes and expected output prior to execution.',
-      widgetDomain: DEFAULT_WIDGET_DOMAIN,
-      widgetCsp: DEFAULT_WIDGET_CSP,
       widgetDescription: 'Shows the preview quote for a Solana swap request.',
+      invoking: 'Building swap preview…',
+      invoked: 'Swap preview ready',
     },
     {
       name: 'dexter_solana_swap_execute',
-      uri: 'openai://app-assets/dexter-mcp/solana-swap-execute',
+      templateUri: 'ui://dexter/solana-swap-execute',
       file: 'solana-swap-execute.html',
       title: 'Dexter Solana swap execution widget',
       description: 'Summarises executed swaps with transaction links.',
-      widgetDomain: DEFAULT_WIDGET_DOMAIN,
-      widgetCsp: DEFAULT_WIDGET_CSP,
       widgetDescription: 'Summarises the executed Solana swap and links to Solscan.',
+      invoking: 'Finalising swap…',
+      invoked: 'Swap executed',
     },
   ];
 
   for (const entry of entries) {
     const assetPath = path.join(APPS_SDK_DIR, entry.file);
-    const available = fileExistsSync(assetPath);
-    if (!available) {
+    if (!fileExistsSync(assetPath)) {
       console.warn('[apps-sdk] missing asset', assetPath);
       continue;
     }
 
     server.registerResource(
       entry.name,
-      entry.uri,
+      entry.templateUri,
       {
         title: entry.title,
         description: entry.description,
         mimeType: SKYBRIDGE_MIME,
         _meta: {
-          'openai/widgetDomain': entry.widgetDomain,
-          'openai/widgetCsp': entry.widgetCsp,
+          'openai/widgetDomain': DEFAULT_WIDGET_DOMAIN,
+          'openai/widgetCsp': widgetCsp,
           'openai/widgetDescription': entry.widgetDescription || entry.description,
         },
       },
       async () => {
-        const text = rewriteHtmlForAssets(await fsp.readFile(assetPath, 'utf8'));
+        const rawHtml = await fsp.readFile(assetPath, 'utf8');
+        const rewritten = rewriteHtmlForAssets(rawHtml);
+        const html = injectBootstrap(rewritten, MCP_PUBLIC_URL);
+
         return {
           contents: [
             {
-              uri: entry.uri,
-              text,
+              uri: entry.templateUri,
+              text: html,
               mimeType: SKYBRIDGE_MIME,
               _meta: {
-                'openai/widgetDomain': entry.widgetDomain,
-                'openai/widgetCsp': entry.widgetCsp,
+                'openai/widgetDomain': DEFAULT_WIDGET_DOMAIN,
+                'openai/widgetCsp': widgetCsp,
                 'openai/widgetDescription': entry.widgetDescription || entry.description,
               },
             },
@@ -138,38 +157,5 @@ export function registerAppsSdkResources(server, options = {}) {
         };
       },
     );
-  }
-
-  // Register bundled assets (CSS/JS) so relative imports resolve in ChatGPT.
-  const assetsDir = path.join(APPS_SDK_DIR, 'assets');
-  if (fileExistsSync(assetsDir)) {
-    const assetFiles = fs.readdirSync(assetsDir).filter((file) => /\.(js|css)$/i.test(file));
-    for (const file of assetFiles) {
-      const ext = path.extname(file).toLowerCase();
-      const mimeType = ext === '.css' ? 'text/css' : 'application/javascript';
-      const uri = `openai://app-assets/dexter-mcp/assets/${file}`;
-      const absolutePath = path.join(assetsDir, file);
-      server.registerResource(
-        `dexter_asset_${file}`,
-        uri,
-        {
-          title: `Dexter Apps SDK asset (${file})`,
-          description: 'Supporting file for Dexter ChatGPT App components.',
-          mimeType,
-        },
-        async () => {
-          const text = await fsp.readFile(absolutePath, 'utf8');
-          return {
-            contents: [
-              {
-                uri,
-                text,
-                mimeType,
-              },
-            ],
-          };
-        },
-      );
-    }
   }
 }

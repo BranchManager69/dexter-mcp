@@ -1,10 +1,25 @@
 import { z } from 'zod';
+import { createWidgetMeta } from '../widgetMeta.mjs';
 
 export const sessionWalletOverrides = new Map(); // sessionKey -> wallet_address
 
 const RESOLVER_CACHE = new Map(); // cacheKey -> { data, fetchedAt }
 const RESOLVER_CACHE_MS = Number(process.env.MCP_WALLET_RESOLVER_CACHE_MS || 5000);
 const DEFAULT_API_BASE_URL = process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || 'http://localhost:3030';
+
+const RESOLVE_WALLET_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/resolve-wallet',
+  widgetDescription: 'Visualises which wallet is active and how it was chosen.',
+  invoking: 'Resolving wallet…',
+  invoked: 'Wallet resolved',
+});
+
+const PORTFOLIO_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/portfolio-status',
+  widgetDescription: 'Shows the wallets linked to the current Dexter session.',
+  invoking: 'Loading wallet overview…',
+  invoked: 'Wallet overview ready',
+});
 
 function buildApiUrl(base, path) {
   const normalizedBase = (base || '').replace(/\/+$/, '');
@@ -224,7 +239,7 @@ export function registerWalletToolset(server) {
       category: 'wallets',
       access: 'guest',
       tags: ['resolver', 'identity'],
-      'openai/outputTemplate': 'openai://app-assets/dexter-mcp/resolve-wallet',
+      ...RESOLVE_WALLET_WIDGET_META,
     },
     outputSchema: {
       wallet_address: z.string().nullable(),
@@ -245,6 +260,7 @@ export function registerWalletToolset(server) {
       structuredContent: structured,
       content: [{ type: 'text', text: summary.wallet_address || 'none' }],
       status: structured.wallet_address ? 'completed' : 'in_progress',
+      _meta: { ...RESOLVE_WALLET_WIDGET_META },
     };
   });
 
@@ -255,7 +271,7 @@ export function registerWalletToolset(server) {
       category: 'wallets',
       access: 'guest',
       tags: ['resolver', 'listing'],
-      'openai/outputTemplate': 'openai://app-assets/dexter-mcp/portfolio-status',
+      ...PORTFOLIO_WIDGET_META,
     },
     outputSchema: {
       user: z.object({ id: z.string().optional().nullable() }).nullable(),
@@ -274,6 +290,7 @@ export function registerWalletToolset(server) {
         content: [{ type: 'text', text: 'resolver_unavailable' }],
         status: 'failed',
         isError: true,
+        _meta: { ...PORTFOLIO_WIDGET_META },
       };
     }
     const wallets = sanitizeWalletList(context.wallets);
@@ -281,6 +298,7 @@ export function registerWalletToolset(server) {
       structuredContent: { user: context.user || null, wallets },
       content: [{ type: 'text', text: JSON.stringify({ count: wallets.length }) }],
       status: 'completed',
+      _meta: { ...PORTFOLIO_WIDGET_META },
     };
   });
 
