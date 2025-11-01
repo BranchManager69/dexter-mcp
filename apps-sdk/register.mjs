@@ -20,6 +20,16 @@ function rewriteHtmlForAssets(html) {
     .replace(/\sdata-asset-base="[^"]*"/g, '');
 }
 
+function tagEntryScript(html, entryId) {
+  if (!html) return html;
+  let tagged = false;
+  return html.replace(/<script\s+type="module"/, (match) => {
+    if (tagged) return match;
+    tagged = true;
+    return `${match} data-dexter-entry="${entryId}"`;
+  });
+}
+
 function isAppsSdkEnabled() {
   const raw = String(process.env.TOKEN_AI_ENABLE_APPS_SDK || '1').toLowerCase();
   return !['0', 'false', 'no', 'off'].includes(raw);
@@ -142,7 +152,7 @@ export function registerAppsSdkResources(server) {
       },
       async () => {
         const rawHtml = await fsp.readFile(assetPath, 'utf8');
-        const rewritten = rewriteHtmlForAssets(rawHtml);
+        const rewritten = tagEntryScript(rewriteHtmlForAssets(rawHtml), entry.name);
         const html = injectBootstrap(rewritten, MCP_PUBLIC_URL);
 
         return {

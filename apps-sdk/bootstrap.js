@@ -1,9 +1,34 @@
 const BOOTSTRAP_TEMPLATE = (baseUrl) => `
   (function () {
     try {
-      var BASE_URL = ${JSON.stringify(baseUrl)};
-      if (typeof BASE_URL !== 'string' || !BASE_URL) return;
-      var normalizedBase = BASE_URL.endsWith('/') ? BASE_URL : BASE_URL + '/';
+      var PROVIDED_BASE = ${JSON.stringify(baseUrl)};
+      var normalizedBase = (typeof PROVIDED_BASE === 'string' && PROVIDED_BASE.trim().length)
+        ? PROVIDED_BASE.trim()
+        : '';
+      if (normalizedBase && !normalizedBase.endsWith('/')) {
+        normalizedBase += '/';
+      }
+
+      if (!normalizedBase || normalizedBase.includes('localhost')) {
+        try {
+          var moduleScript = document.querySelector('script[type="module"][data-dexter-entry]');
+          if (!moduleScript) {
+            moduleScript = document.querySelector('script[type="module"]');
+          }
+          if (moduleScript && moduleScript.src) {
+            var parsed = new URL(moduleScript.src, window.location.href);
+            var pathname = parsed.pathname.replace(/\\/app-assets\\/.*$/, '/');
+            normalizedBase = parsed.origin + pathname;
+            if (!normalizedBase.endsWith('/')) normalizedBase += '/';
+          }
+        } catch (_deriveErr) {
+          normalizedBase = '';
+        }
+      }
+
+      if (!normalizedBase) {
+        return;
+      }
 
       // Ensure <base> tag exists so relative URLs resolve to our host.
       var existingBase = document.querySelector('base');
