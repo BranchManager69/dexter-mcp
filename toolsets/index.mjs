@@ -11,6 +11,7 @@ import { registerGmgnToolset } from './gmgn/index.mjs';
 import { registerKolscanToolset } from './kolscan/index.mjs';
 import { registerOnchainToolset } from './onchain/index.mjs';
 import { registerDidiToolset } from './didi/index.mjs';
+import { registerX402Toolset } from './x402/index.mjs';
 
 const passthrough = (value) => String(value);
 
@@ -116,6 +117,10 @@ const TOOLSET_REGISTRY = {
     register: registerDidiToolset,
     description: 'Didi supportive listener tools for empathetic conversations.',
   },
+  x402: {
+    register: registerX402Toolset,
+    description: 'Auto-discovered paid APIs settled via x402.',
+  },
 };
 
 const DEFAULT_TOOLSET_KEYS = Object.keys(TOOLSET_REGISTRY);
@@ -183,7 +188,7 @@ function captureToolNames(server) {
   return new Set(listToolNames(server));
 }
 
-export function registerSelectedToolsets(server, selection) {
+export async function registerSelectedToolsets(server, selection) {
   const { keys, unknown } = resolveSelectedKeys(selection);
 
   const color = getColor();
@@ -197,7 +202,10 @@ export function registerSelectedToolsets(server, selection) {
   for (const key of keys) {
     try {
       const before = captureToolNames(server);
-      TOOLSET_REGISTRY[key].register(server);
+      const maybePromise = TOOLSET_REGISTRY[key].register(server);
+      if (maybePromise && typeof maybePromise.then === 'function') {
+        await maybePromise;
+      }
       const afterList = listToolNames(server);
       const afterSet = new Set(afterList);
       const added = afterList.filter((name) => !before.has(name) && afterSet.has(name));

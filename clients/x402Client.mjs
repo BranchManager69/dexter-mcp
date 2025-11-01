@@ -17,6 +17,63 @@ function parseBoolean(value, fallback = true) {
 }
 
 const X402_ENABLED = parseBoolean(process.env.MCP_X402_ENABLED, true);
+const X402_REGISTER_ENABLED = parseBoolean(process.env.MCP_X402_REGISTER_ENABLED, true);
+const X402_REGISTER_PATH = (process.env.MCP_X402_REGISTER_PATH || '/api/x402/resources/register').trim() || '/api/x402/resources/register';
+const DEFAULT_API_BASE = (process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || process.env.DEXTER_API_URL || 'http://localhost:3030').replace(/\/+$/, '');
+
+function resolveApiBase() {
+  const candidates = [process.env.API_BASE_URL, process.env.DEXTER_API_BASE_URL, process.env.DEXTER_API_URL];
+  for (const candidate of candidates) {
+    if (candidate && candidate.trim()) {
+      return candidate.replace(/\/+$/, '');
+    }
+  }
+  return DEFAULT_API_BASE;
+}
+
+function joinBasePath(base, path) {
+  const normalizedBase = base.replace(/\/+$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (normalizedBase.endsWith('/api') && normalizedPath.startsWith('/api/')) {
+    return `${normalizedBase}${normalizedPath.slice(4)}`;
+  }
+  if (normalizedBase.endsWith('/api') && normalizedPath === '/api') {
+    return normalizedBase;
+  }
+  return `${normalizedBase}${normalizedPath}`;
+}
+
+async function submitResourceSnapshot(resourceUrl, payload, context = {}) {
+  if (!X402_REGISTER_ENABLED) return;
+  try {
+    const base = resolveApiBase();
+    const target = joinBasePath(base, X402_REGISTER_PATH);
+    const headers = {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    };
+    const token = process.env.TOKEN_AI_MCP_TOKEN;
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const body = {
+      resourceUrl,
+      response: payload,
+      facilitatorUrl: context.facilitatorUrl || null,
+      payTo: context.payTo || process.env.MCP_X402_PAY_TO || process.env.X402_PAY_TO || null,
+      metadata: context.metadata || {},
+    };
+    await fetch(target, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    try {
+      console.debug('[x402] resource register failed', error?.message || error);
+    } catch {}
+  }
+}
 
 function createHeaders(input) {
   if (!input) return new Headers();
@@ -179,6 +236,12 @@ async function handlePaymentRequired(url, response, init, options) {
       reason: payload?.reason || null,
     },
   };
+
+  void submitResourceSnapshot(url, payload, {
+    metadata,
+    facilitatorUrl: options?.facilitatorUrl || null,
+    payTo: options?.payTo || null,
+  });
 
   const settlement = await attemptSettlement({
     settleUrl,

@@ -1180,7 +1180,7 @@ const server = http.createServer(async (req, res) => {
         const tools = url.searchParams.get('tools');
         if (tools) includeToolsets = tools;
       } catch {}
-      const mcpServer = buildMcpServer({ includeToolsets });
+      const mcpServer = await buildMcpServer({ includeToolsets });
       await mcpServer.connect(transport);
       // Propagate x-user-token on initialization, too
       try {
@@ -1273,7 +1273,7 @@ server.listen(PORT, () => {
   });
 
   // Post-start diagnostics
-  setTimeout(() => {
+  setTimeout(async () => {
     fetch(`${localUrl.replace('/mcp', '')}/health`)
       .then(async (resp) => {
         const status = resp.status;
@@ -1289,7 +1289,7 @@ server.listen(PORT, () => {
       });
 
     try {
-      const diagServer = buildMcpServer({ includeToolsets: process.env.TOKEN_AI_MCP_TOOLSETS });
+      const diagServer = await buildMcpServer({ includeToolsets: process.env.TOKEN_AI_MCP_TOOLSETS });
       const groups = Array.isArray(diagServer?.__dexterToolGroups) ? diagServer.__dexterToolGroups : null;
       if (groups && groups.length) {
         console.log(`${color.magentaBright('[diag]')} toolsets`);

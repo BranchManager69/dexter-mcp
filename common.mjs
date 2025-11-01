@@ -62,7 +62,7 @@ function getColor() {
 const MCP_NAME = process.env.MCP_SERVER_NAME || 'dexter-mcp';
 const MCP_VERSION = process.env.MCP_SERVER_VERSION || '0.1.0';
 
-export function buildMcpServer(options = {}) {
+export async function buildMcpServer(options = {}) {
   const instructions = [
     'Dexter connector tools exposed via MCP.',
     '- resolve_wallet provides the currently active managed wallet.',
@@ -77,7 +77,7 @@ export function buildMcpServer(options = {}) {
   wrapRegisterTool(server);
 
   const requestedToolsets = options.includeToolsets;
-  const loaded = registerSelectedToolsets(server, requestedToolsets);
+  const loaded = await registerSelectedToolsets(server, requestedToolsets);
 
   try {
     registerAppsSdkResources(server);

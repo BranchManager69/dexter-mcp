@@ -36,10 +36,10 @@ const includeToolsets = (() => {
   return t ? t : undefined; // pass through to common.mjs for parsing
 })();
 
-const server = buildMcpServer({ includeToolsets });
 const transport = new StdioServerTransport();
 (async () => {
   try {
+    const server = await buildMcpServer({ includeToolsets });
     await server.connect(transport);
     process.stdin.resume();
   } catch (e) {
