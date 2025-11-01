@@ -42,7 +42,7 @@ flowchart LR
     CTRL -- "0.446 SOL drip" --> BRIDGE
     BRIDGE -- "5.39 SOL cycle\nsig uJLaKQ…" --> HUB[Aggregator hub<br/>8bAVCeu…]
     HUB -- "118.58 SOL swap\nsig 4kDTcKR…" --> DLMM[Meteora DLMM router<br/>LBUZKhRx…]
-    HUB -- "96.99 SOL top-up" --> EUU[EUuUbDc… pool]
+    HUB -- "96.99 SOL" --> EUU[EUuUbDc… pool]
     HUB -- "24.31 SOL" --> EYJ[EYj9xKw… pool]
     subgraph Other facilitators feed hub
         DEX[Dexter payer<br/>DEXVS3su4d…]

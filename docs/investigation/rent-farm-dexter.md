@@ -37,7 +37,7 @@ Using Helius’ `getTransactionsForAddress` endpoint we quantified the damage ac
   
 Fresh pulls from the Helius RPC show where the reclaimed rent ultimately lands. The controller wallet batches the lamports it earns from every facilitator, flushes them into a single “bridge” wallet, then aggregates the proceeds in a larger hub that automates liquidity moves through Meteora’s DLMM router.  
   
-- **Controller 4dnAM… → Bridge AbcuyoPe…:** large bursts (e.g., **4.574959454 SOL**, `2U6Evuyf…`) plus smaller **0.446 SOL** top-ups feed the bridge wallet.  
+- **Controller 4dnAM… → Bridge AbcuyoPe…:** large bursts (e.g., **4.574959454 SOL**, `2U6Evuy…`) plus smaller **0.446 SOL** top-ups feed the bridge wallet.  
 - **Bridge AbcuyoPe… → Hub 8bAVCe…:** each cycle forwards roughly **5.387856776 SOL** (`uJLaKQG…`) alongside fee dust.  
 - **Hub 8bAVCe… → Meteora:** the hub dispatches 100+ SOL at a time to DLMM liquidity wallets (e.g., **118.575342398 SOL** via `4kDTcKR…` into `EYj9xKw…`) and funds additional pools such as `EUuUbDc…` (+**96.996971495 SOL**).  
   

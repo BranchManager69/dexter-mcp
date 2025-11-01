@@ -23,7 +23,7 @@
 
 ## Executive Summary
 
-Across three public x402 facilitators, we identified **16,674** settlements that match the same fingerprint: 0.0001 USDC invoice → payer creates a brand‑new USDC ATA (≈2,049,281 lamports burned) → controller wallet executes `BurnChecked` + `CloseAccount` to reclaim the rent. Aggregate burn during 2025‑10‑27 → 2025‑11‑01 is **~34.17 SOL**. 
+Across three public x402 facilitators, we identified **16,674** settlements that match the same fingerprint: 0.0001 USDC invoice → payer creates a brand-new USDC ATA (≈2,049,281 lamports burned) → controller wallet executes `BurnChecked` + `CloseAccount` to reclaim the rent. Aggregate burn during 2025‑10‑27 → 2025‑11‑01 is **~34.17 SOL**. 
 
 * **PayAI:** 10,923 events, ~22.3823 SOL burned. 
 * **Daydreams:** 4,927 events, ~10.0968 SOL burned. 
@@ -37,14 +37,14 @@ This is not an x402 protocol bug; it’s economic abuse of Solana ATA creation u
 
 **By Facilitator (Solana Mainnet, UTC):**
 
-| Facilitator   | Payer wallet(s)                                                                                  | Time span                                 | Rent‑farm settles |                    Lamports burned | SOL burned (≈) | Unique recipient wallets |
+| Facilitator   | Payer wallet(s)                                                                                  | Time span                                 | Rent-farm settles |                    Lamports burned | SOL burned (≈) | Unique recipient wallets |
 | ------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------- | ----------------: | ---------------------------------: | -------------: | -----------------------: |
 | **PayAI**     | `2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4`<br>`FYB56sVBW2r4Ka7W9kdJWTPY9FKQLxbT6h4Ysr6aLPZD` | 2025‑10‑27 01:02:20 → 2025‑10‑29 19:41:04 |        **10,923** |                 **22,382,257,083** |    **22.3823** |                   8,996  |
 | **Daydreams** | `DuQ4jFMmVABWGxabYHFkGzdyeJgS1hp4wrRuCtsJgT9a`<br>`Ds1QXjX3J7XYtu6SWfgjEWhqEWKyLNXGEqUXNhJRNgoP` | 2025‑10‑27 09:09:12 → 2025‑11‑01 05:34:59 |         **4,927** |                 **10,096,808,487** |    **10.0968** |                   3,194  |
 | **Dexter**    | `DEXVS3su4dZQWTvvPnLDJLRK1CeeKG6K3QqdzthgAkNV`                                                   | 2025‑10‑27 05:32:57 → 2025‑11‑01 11:51:06 |           **824** |                  **1,688,607,544** |     **1.6886** |                     417  |
 | **Totals**    | —                                                                                                | —                                         |        **16,674** | **34,167,672,114–34,167,673,114**† |     **~34.17** |               **12,607** |
 
-† The per‑row sum differs from the aggregate by **1,000 lamports** (0.000001 SOL), likely from rounding or a single non‑canonical lamport delta in the window. Numbers match the source docs. 
+† The per-row sum differs from the aggregate by **1,000 lamports** (0.000001 SOL), likely from rounding or a single non-canonical lamport delta in the window. Numbers match the source docs. 
 
 ```mermaid
 pie title Share of SOL burned by facilitator
@@ -60,7 +60,7 @@ pie title Share of SOL burned by facilitator
 1. **Invoice:** Attacker issues a 402 challenge for **0.0001 USDC** with `pay_to` set to a fresh wallet. 
 2. **Settle & ATA creation:** Facilitator payer settles → USDC **ATA is created**, burning ~**2,049,281 lamports** (≈0.002049 SOL).  
 3. **Rent reclaim:** Controller wallet **`4dnAM…`** submits `BurnChecked` + `CloseAccount`, clawing back ~**2,029,280 lamports** per close.  
-4. **Cycle:** Steps 1–3 repeat across thousands of one‑off wallets; funds consolidate and are redeployed into liquidity. 
+4. **Cycle:** Steps 1–3 repeat across thousands of one-off wallets; funds consolidate and are redeployed into liquidity. 
 
 ```mermaid
 sequenceDiagram
@@ -78,6 +78,8 @@ sequenceDiagram
     ATP-->>C: Return ~2,029,280 lamports (rent)
     C->>M: Consolidate → provide DLMM liquidity
 ```
+
+**Note:** The same controller and downstream wallets appear in the Daydreams & PayAI traces as well as the cross-facilitator investigation.  
 
 ---
 
@@ -103,8 +105,6 @@ flowchart LR
     HUB -- "96.996971495 SOL" --> EUU[EUuUbDc… pool]
     HUB -- "24.256735614 SOL" --> BFA[BFAWVm… pool]
 ```
-
-**Note:** The same controller and downstream wallets appear in the Daydreams & PayAI traces as well as the cross‑facilitator investigation.  
 
 ---
 
@@ -145,13 +145,13 @@ flowchart LR
 
 **Priority 0 — Block the vector**
 
-1. **Allowlist payees**: Only settle to approved `pay_to` treasuries/partners. Shuts down the rent‑farm entirely. 
+1. **Allowlist payees**: Only settle to approved `pay_to` treasuries/partners. Shuts down the rent-farm entirely. 
 2. **No new ATAs for unknowns**: Reject any settlement that would **create** a recipient ATA unless the payee is allowlisted. Amount thresholds help as a coarse filter but aren’t sufficient alone.  
 
 **Priority 1 — Detection & hygiene**
 
 * **Alerting**: Trigger when a payer funds **ATA creation** with payout ≤ 0.0001 USDC. 
-* **Pre‑create ATAs** for allowlisted counterparties to avoid surprise rent at settle‑time. 
+* **Pre-create ATAs** for allowlisted counterparties to avoid surprise rent at settle-time. 
 * **Peer coordination**: Share blocklists & fingerprints across facilitators (Dexter, Daydreams, PayAI). 
 
 ---
@@ -171,7 +171,7 @@ flowchart LR
 ## Appendix B — Methodology
 
 * **Source**: Helius `getTransactionsForAddress`, `transactionDetails: "full"`, `status: "succeeded"`. 
-* **Filter**: Token post‑balance ≤ 100 raw units (0.0001 USDC) to non‑payer address **and** lamport delta ≈ 2,049,281 on settle; matched to a close by the controller wallet recovering ~2,029,280 lamports.  
+* **Filter**: Token post-balance ≤ 100 raw units (0.0001 USDC) to non-payer address **and** lamport delta ≈ 2,049,281 on settle; matched to a close by the controller wallet recovering ~2,029,280 lamports.  
 * **Window**: 2025‑10‑27 through 2025‑11‑01 (UTC) — bounded by available payer history at time of pull. 
 
 ---
