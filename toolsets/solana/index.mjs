@@ -97,6 +97,19 @@ export function registerSolanaToolset(server) {
     const websites = Array.isArray(info.websites) ? info.websites : [];
 
     const priceChange = result.priceChange || {};
+    const jupiter = result.extensions && result.extensions.jupiter ? result.extensions.jupiter : null;
+
+    const resolvedPriceUsd =
+      (jupiter && typeof jupiter.usdPrice === 'number' ? jupiter.usdPrice : null) ??
+      (typeof result.priceUsd === 'number' ? result.priceUsd : null) ??
+      (primaryPair && typeof primaryPair.priceUsd === 'number' ? primaryPair.priceUsd : null);
+
+    const resolvedLiquidityUsd =
+      (jupiter && typeof jupiter.liquidityUsd === 'number' ? jupiter.liquidityUsd : null) ??
+      (typeof result.liquidityUsd === 'number' ? result.liquidityUsd : null) ??
+      (primaryPair && primaryPair.liquidity && typeof primaryPair.liquidity.usd === 'number'
+        ? primaryPair.liquidity.usd
+        : null);
 
     return {
       address: result.address || result.mintAddress || result.mint || null,
@@ -104,15 +117,20 @@ export function registerSolanaToolset(server) {
       symbol: result.symbol || null,
       category: result.category || result.tokenType || null,
       decimals: result.decimals ?? null,
-      liquidityUsd: result.liquidityUsd ?? primaryPair?.liquidity?.usd ?? null,
+      liquidityUsd: resolvedLiquidityUsd,
       fdvUsd: result.fdv ?? result.fdvUsd ?? result.marketCap ?? null,
-      priceUsd: result.priceUsd ?? primaryPair?.priceUsd ?? null,
+      priceUsd: resolvedPriceUsd,
       priceChange24hPct: priceChange.h24 ?? result.priceChange24h ?? null,
       volume24hUsd: result.volume24hUsd ?? primaryPair?.volume?.h24 ?? null,
       logoUri: info.imageUrl || info.logo || primaryPair?.info?.imageUrl || null,
       websiteUrl: websites.find((site) => site?.url)?.url || null,
       twitterUrl: socials.find((social) => social?.type === 'twitter')?.url || null,
       pairUrl: primaryPair?.url || null,
+      organicScore: jupiter && typeof jupiter.organicScore === 'number' ? jupiter.organicScore : null,
+      organicScoreLabel: jupiter?.organicScoreLabel ?? null,
+      isVerified: jupiter?.isVerified ?? null,
+      jupiterTags: jupiter?.tags ?? null,
+      audit: jupiter?.audit ?? null,
       raw: result,
     };
   }
