@@ -56,6 +56,11 @@ function transformRecord(record) {
     ...entry,
     outputSchema: entry?.outputSchema || entry?.output_schema || null,
   }));
+  const metadata =
+    record.metadata && typeof record.metadata === 'object' && !Array.isArray(record.metadata)
+      ? { ...record.metadata }
+      : {};
+
   return {
     id: record.id,
     resourceUrl: trimUrl(record.resource_url || ''),
@@ -64,7 +69,7 @@ function transformRecord(record) {
     x402Version: rawResponse.x402Version || record.x402_version || 1,
     accepts,
     raw: rawResponse,
-    metadata: record.metadata || {},
+    metadata,
     lastSeenAt: record.last_seen_at || record.updated_at || null,
   };
 }

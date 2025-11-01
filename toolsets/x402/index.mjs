@@ -101,14 +101,37 @@ export async function registerX402Toolset(server) {
       const toolName = buildToolName(resource, accept, index, takenNames);
       const resourceUrl = accept?.resource || resource.resourceUrl;
       const description = buildDescription(resourceUrl, accept);
+      const bountyMeta = resource.metadata?.bounty && typeof resource.metadata.bounty === 'object'
+        ? {
+            slug: resource.metadata.bounty.slug ?? null,
+            title: resource.metadata.bounty.title ?? null,
+            promptSlug: resource.metadata.bounty.promptSlug ?? null,
+          }
+        : null;
+      const promptSlug = bountyMeta?.promptSlug
+        || (bountyMeta?.slug ? `agent.community.bounty.${bountyMeta.slug}.${toolName}` : undefined);
+      const title = bountyMeta?.title ? `🏆 ${bountyMeta.title}` : accept?.title || description;
+      const decoratedDescription = bountyMeta?.slug
+        ? `${description} — Dexter Build-Off winner (${bountyMeta.slug})`
+        : description;
+      const tags = new Set(['x402', 'dynamic']);
+      if (bountyMeta?.slug) tags.add('bounty');
+      if (accept?.network) {
+        tags.add(String(accept.network).toLowerCase());
+      }
 
       server.registerTool(toolName, {
-        title: accept?.title || description,
-        description,
+        title,
+        description: decoratedDescription,
         _meta: {
           category: 'x402.dynamic',
           access: 'guest',
-          tags: ['x402', 'dynamic'],
+          tags: Array.from(tags),
+          promptSlug,
+          bountySlug: bountyMeta?.slug || null,
+          bountyTitle: bountyMeta?.title || null,
+          bountyPromptSlug: promptSlug || null,
+          bounty: bountyMeta,
         },
         inputSchema: shape,
       }, async (args = {}) => {

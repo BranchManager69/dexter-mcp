@@ -5,6 +5,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { randomUUID, createPrivateKey, createPublicKey, createHmac } from 'node:crypto';
 import { buildMcpServer } from './common.mjs';
+import { invalidateX402Cache } from './registry/x402/index.mjs';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import dotenv from 'dotenv';
 import path from 'node:path';
@@ -1025,6 +1026,26 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     
+    if (req.method === 'POST' && (url.pathname === '/internal/cache/x402/invalidate' || url.pathname === '/mcp/internal/cache/x402/invalidate')) {
+      const serverToken = String(process.env.TOKEN_AI_MCP_TOKEN || '').trim();
+      const authHeader = String(req.headers['authorization'] || '');
+      const authorized = !serverToken || authHeader === `Bearer ${serverToken}`;
+      if (!authorized) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'unauthorized' }));
+        return;
+      }
+      try {
+        invalidateX402Cache();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, cache: 'x402', status: 'invalidated' }));
+      } catch (error) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: error?.message || String(error) }));
+      }
+      return;
+    }
+
     const rawPath = url.pathname || '/';
     const normalizedPath = rawPath === '/' ? '/' : rawPath.replace(/\/+$/, '');
     const isRootEndpoint = normalizedPath === '/';
