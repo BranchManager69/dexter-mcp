@@ -51,6 +51,13 @@ body {
   gap: 12px;
 }
 
+.dexter-card__actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .dexter-card__title {
   margin: 0;
   font-size: 18px;
@@ -198,4 +205,12 @@ body {
 
 .dexter-link:hover {
   text-decoration: underline;
+}
+
+button.dexter-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
 }

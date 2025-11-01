@@ -4,6 +4,7 @@ import { AppShell, Card, Field, Grid, Status } from '../components/AppShell';
 import { formatValue } from '../components/utils';
 import { registerReactComponent } from '../register';
 import type { SwapExecution, SwapPayload } from '../types';
+import { useDisplayMode, useMaxHeight, useRequestDisplayMode, useWidgetProps } from '../sdk';
 
 function getExecution(props: SwapPayload): SwapExecution {
   if (!props.result) return {};
@@ -20,13 +21,30 @@ function buildExplorerLink(signature: string | null | undefined) {
   );
 }
 
-registerReactComponent<SwapPayload>('dexter-mcp/solana-swap-execute', (props) => {
+registerReactComponent<SwapPayload>('dexter/solana-swap-execute', (initialProps) => {
+  const props = useWidgetProps<SwapPayload>(() => initialProps);
   const execution = getExecution(props);
   const signature = execution.txSignature ?? execution.transactionSignature ?? execution.signature ?? null;
+  const maxHeight = useMaxHeight() ?? null;
+  const displayMode = useDisplayMode();
+  const requestDisplayMode = useRequestDisplayMode();
+
+  const style = maxHeight ? { maxHeight, overflow: 'auto' } : undefined;
+  const canExpand = displayMode !== 'fullscreen' && typeof requestDisplayMode === 'function';
 
   return (
-    <AppShell>
-      <Card title="Swap Execution" badge={{ label: execution.status ? execution.status.toUpperCase() : 'Executed' }}>
+    <AppShell style={style}>
+      <Card
+        title="Swap Execution"
+        badge={{ label: execution.status ? execution.status.toUpperCase() : 'Executed' }}
+        actions={
+          canExpand ? (
+            <button className="dexter-link" onClick={() => requestDisplayMode?.({ mode: 'fullscreen' })}>
+              Expand
+            </button>
+          ) : null
+        }
+      >
         <Grid columns={3}>
           <Field label="Input Mint" value={formatValue(execution.inputMint ?? props.request?.inputMint)} />
           <Field label="Output Mint" value={formatValue(execution.outputMint ?? props.request?.outputMint)} />

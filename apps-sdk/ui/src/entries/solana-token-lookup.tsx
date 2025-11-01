@@ -4,6 +4,7 @@ import { AppShell, Card, Field, Grid, EmptyState, Status } from '../components/A
 import { formatValue, initialsFromLabel, abbreviateAddress } from '../components/utils';
 import { registerReactComponent } from '../register';
 import type { TokenLookupPayload, TokenLookupResult } from '../types';
+import { useDisplayMode, useMaxHeight, useRequestDisplayMode, useWidgetProps } from '../sdk';
 
 function TokenLogo({ token }: { token: TokenLookupResult }) {
   const initials = initialsFromLabel(token.symbol || token.name || '');
@@ -27,17 +28,31 @@ function TokenMetrics({ token }: { token: TokenLookupResult }) {
   );
 }
 
-registerReactComponent<TokenLookupPayload>('dexter-mcp/solana-token-lookup', (props) => {
+registerReactComponent<TokenLookupPayload>('dexter/solana-token-lookup', (initialProps) => {
+  const props = useWidgetProps<TokenLookupPayload>(() => initialProps);
   const tokens = Array.isArray(props.results) ? props.results : [];
   const query = props.query ?? '';
+  const maxHeight = useMaxHeight() ?? null;
+  const displayMode = useDisplayMode();
+  const requestDisplayMode = useRequestDisplayMode();
+
+  const style = maxHeight ? { maxHeight, overflow: 'auto' } : undefined;
+  const canExpand = displayMode !== 'fullscreen' && typeof requestDisplayMode === 'function';
 
   return (
-    <AppShell>
+    <AppShell style={style}>
       <Card
         title="Solana Token Lookup"
         badge={{
           label: tokens.length ? `${tokens.length} result${tokens.length === 1 ? '' : 's'}` : 'No matches',
         }}
+        actions={
+          canExpand ? (
+            <button className="dexter-link" onClick={() => requestDisplayMode?.({ mode: 'fullscreen' })}>
+              Expand
+            </button>
+          ) : null
+        }
       >
         <Grid columns={2}>
           <Field label="Query" value={formatValue(query)} />

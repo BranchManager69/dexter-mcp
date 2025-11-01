@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { CSSProperties, PropsWithChildren, ReactNode } from 'react';
 
 type BadgeProps = {
   label: string;
@@ -6,11 +6,15 @@ type BadgeProps = {
   prefix?: ReactNode;
 };
 
-export function AppShell({ children }: PropsWithChildren) {
-  return <div className="dexter-app">{children}</div>;
+export function AppShell({ children, style }: PropsWithChildren<{ style?: CSSProperties }>) {
+  return (
+    <div className="dexter-app" style={style}>
+      {children}
+    </div>
+  );
 }
 
-export function Card({ title, badge, children }: PropsWithChildren<{ title: string; badge?: BadgeProps }>) {
+export function Card({ title, badge, actions, children }: PropsWithChildren<{ title: string; badge?: BadgeProps; actions?: ReactNode }>) {
   return (
     <section className="dexter-card">
       <header className="dexter-card__header">
@@ -21,6 +25,7 @@ export function Card({ title, badge, children }: PropsWithChildren<{ title: stri
             {badge.label}
           </span>
         ) : null}
+        {actions ? <div className="dexter-card__actions">{actions}</div> : null}
       </header>
       {children}
     </section>

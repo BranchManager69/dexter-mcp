@@ -2,8 +2,30 @@ import { z } from 'zod';
 
 import { fetchWithX402Json } from '../../clients/x402Client.mjs';
 import { resolveWalletForRequest } from '../wallet/index.mjs';
+import { createWidgetMeta } from '../widgetMeta.mjs';
 
 const DEFAULT_API_BASE_URL = process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || 'http://localhost:3030';
+
+const TOKEN_LOOKUP_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/solana-token-lookup',
+  widgetDescription: 'Lists candidate Solana tokens with liquidity and FDV stats.',
+  invoking: 'Searching tokens…',
+  invoked: 'Token results ready',
+});
+
+const SWAP_PREVIEW_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/solana-swap-preview',
+  widgetDescription: 'Shows the preview quote for a Solana swap request.',
+  invoking: 'Building swap preview…',
+  invoked: 'Swap preview ready',
+});
+
+const SWAP_EXECUTE_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/solana-swap-execute',
+  widgetDescription: 'Summarises the executed Solana swap and links to Solscan.',
+  invoking: 'Finalising swap…',
+  invoked: 'Swap executed',
+});
 
 function buildApiUrl(base, path) {
   const normalizedBase = (base || '').replace(/\/+$/, '');
@@ -142,7 +164,7 @@ export function registerSolanaToolset(server) {
       category: 'solana.trading',
       access: 'free',
       tags: ['token', 'lookup'],
-      'openai/outputTemplate': 'openai://app-assets/dexter-mcp/solana-token-lookup',
+      ...TOKEN_LOOKUP_WIDGET_META,
     },
     inputSchema: {
       query: z.string().min(1),
@@ -162,12 +184,14 @@ export function registerSolanaToolset(server) {
         structuredContent: structured,
         content: [{ type: 'text', text: JSON.stringify(mapped) }],
         status: structured.results.length ? 'completed' : 'in_progress',
+        _meta: { ...TOKEN_LOOKUP_WIDGET_META },
       };
     } catch (error) {
       return {
         content: [{ type: 'text', text: JSON.stringify({ error: 'token_lookup_failed', message: error?.message || String(error) }) }],
         status: 'failed',
         isError: true,
+        _meta: { ...TOKEN_LOOKUP_WIDGET_META },
       };
     }
   });
@@ -236,7 +260,7 @@ export function registerSolanaToolset(server) {
       category: 'solana.trading',
       access: 'managed',
       tags: ['swap', 'preview'],
-      'openai/outputTemplate': 'openai://app-assets/dexter-mcp/solana-swap-preview',
+      ...SWAP_PREVIEW_WIDGET_META,
     },
     inputSchema: swapInputShape,
   }, async (input, extra) => {
@@ -264,12 +288,14 @@ export function registerSolanaToolset(server) {
         structuredContent: structured,
         content: [{ type: 'text', text: JSON.stringify(result.result || result || {}) }],
         status: 'completed',
+        _meta: { ...SWAP_PREVIEW_WIDGET_META },
       };
     } catch (error) {
       return {
         content: [{ type: 'text', text: JSON.stringify({ error: 'swap_preview_failed', message: error?.message || String(error) }) }],
         status: 'failed',
         isError: true,
+        _meta: { ...SWAP_PREVIEW_WIDGET_META },
       };
     }
   });
@@ -281,7 +307,7 @@ export function registerSolanaToolset(server) {
       category: 'solana.trading',
       access: 'managed',
       tags: ['swap', 'execution'],
-      'openai/outputTemplate': 'openai://app-assets/dexter-mcp/solana-swap-execute',
+      ...SWAP_EXECUTE_WIDGET_META,
     },
     inputSchema: swapInputShape,
   }, async (input, extra) => {
@@ -309,12 +335,14 @@ export function registerSolanaToolset(server) {
         structuredContent: structured,
         content: [{ type: 'text', text: JSON.stringify(result.result || result || {}) }],
         status: 'completed',
+        _meta: { ...SWAP_EXECUTE_WIDGET_META },
       };
     } catch (error) {
       return {
         content: [{ type: 'text', text: JSON.stringify({ error: 'swap_execute_failed', message: error?.message || String(error) }) }],
         status: 'failed',
         isError: true,
+        _meta: { ...SWAP_EXECUTE_WIDGET_META },
       };
     }
   });

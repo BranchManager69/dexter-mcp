@@ -4,6 +4,7 @@ import { AppShell, Card, Field, Grid, Status, Warning } from '../components/AppS
 import { formatTimestamp, formatValue } from '../components/utils';
 import { registerReactComponent } from '../register';
 import type { SwapPayload, SwapQuote } from '../types';
+import { useDisplayMode, useMaxHeight, useRequestDisplayMode, useWidgetProps } from '../sdk';
 
 function getQuote(props: SwapPayload): SwapQuote {
   const isQuote = props.result && 'quoteId' in (props.result as SwapQuote);
@@ -11,13 +12,30 @@ function getQuote(props: SwapPayload): SwapQuote {
   return { ...(props.result as SwapQuote), ...props.request };
 }
 
-registerReactComponent<SwapPayload>('dexter-mcp/solana-swap-preview', (props) => {
+registerReactComponent<SwapPayload>('dexter/solana-swap-preview', (initialProps) => {
+  const props = useWidgetProps<SwapPayload>(() => initialProps);
   const quote = getQuote(props);
   const expired = Boolean(quote?.expired);
+  const maxHeight = useMaxHeight() ?? null;
+  const displayMode = useDisplayMode();
+  const requestDisplayMode = useRequestDisplayMode();
+
+  const style = maxHeight ? { maxHeight, overflow: 'auto' } : undefined;
+  const canExpand = displayMode !== 'fullscreen' && typeof requestDisplayMode === 'function';
 
   return (
-    <AppShell>
-      <Card title="Swap Preview" badge={{ label: expired ? 'Expired' : 'Preview' }}>
+    <AppShell style={style}>
+      <Card
+        title="Swap Preview"
+        badge={{ label: expired ? 'Expired' : 'Preview' }}
+        actions={
+          canExpand ? (
+            <button className="dexter-link" onClick={() => requestDisplayMode?.({ mode: 'fullscreen' })}>
+              Expand
+            </button>
+          ) : null
+        }
+      >
         <Grid columns={3}>
           <Field label="Input Mint" value={formatValue(quote.inputMint)} />
           <Field label="Output Mint" value={formatValue(quote.outputMint)} />

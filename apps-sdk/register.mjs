@@ -35,14 +35,18 @@ function fileExistsSync(filePath) {
 }
 
 function buildWidgetCsp() {
-  const sources = [`'self'`, `'unsafe-inline'`];
+  const extraOrigins = [];
   try {
     const origin = new URL(DEFAULT_ASSET_BASE).origin;
     if (origin) {
-      sources.push(origin);
+      extraOrigins.push(origin);
     }
   } catch {}
-  return `script-src 'self' 'unsafe-inline'; style-src ${sources.join(' ')}`;
+
+  const scriptSources = [`'self'`, `'unsafe-inline'`, ...extraOrigins];
+  const styleSources = [`'self'`, `'unsafe-inline'`, ...extraOrigins];
+
+  return `script-src ${scriptSources.join(' ')}; style-src ${styleSources.join(' ')}`;
 }
 
 function injectBootstrap(html, baseHref) {
