@@ -47,7 +47,7 @@ const optInSchema = z.object({
   agentName: z.string().min(3, 'agent_name_short').max(31, 'agent_name_long').optional(),
 });
 
-const copyTradeSchema = z.object({
+const perpTradeSchema = z.object({
   managedWalletPublicKey: z.string().min(1, 'managed_wallet_required'),
   hyperliquidSymbol: z.string().min(1, 'symbol_required'),
   side: z.enum(['buy', 'sell']),
@@ -62,6 +62,49 @@ const copyTradeSchema = z.object({
 
 export function registerHyperliquidToolset(server) {
   const base = resolveApiBase();
+
+  server.registerTool(
+    'hyperliquid_markets',
+    {
+      title: 'Hyperliquid Market List',
+      description: 'Returns the current list of tradable Hyperliquid perp symbols.',
+      _meta: {
+        category: 'hyperliquid',
+        access: 'pro',
+        tags: ['hyperliquid', 'markets', 'listing'],
+      },
+      inputSchema: z.object({}).passthrough(),
+    },
+    async (_input = {}, extra = {}) => {
+      const authHeader = extractAuthorization(extra);
+      const headers = {
+        Accept: 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
+      };
+
+      const { response, json, text } = await fetchWithX402Json(
+        `${base}/hyperliquid/markets`,
+        { method: 'GET', headers },
+        {
+          metadata: { tool: 'hyperliquid_markets' },
+          authHeaders: headers,
+        },
+      );
+
+      if (!response.ok) {
+        const message =
+          (json && (json.error || json.message)) ||
+          text ||
+          `hyperliquid_markets_failed:${response.status}`;
+        throw new Error(String(message));
+      }
+
+      return {
+        structuredContent: json,
+        content: [{ type: 'json', json }],
+      };
+    },
+  );
 
   server.registerTool(
     'hyperliquid_opt_in',
@@ -119,21 +162,20 @@ export function registerHyperliquidToolset(server) {
   );
 
   server.registerTool(
-    'hyperliquid_copytrade',
+    'hyperliquid_perp_trade',
     {
-      title: 'Hyperliquid Copytrade',
-      description:
-        'Executes Hyperliquid perpetual trades through Dexter managed wallets with x402 billing.',
+      title: 'Hyperliquid Perp Trade',
+      description: 'Submit a Hyperliquid perpetual order through a Dexter-managed wallet.',
       _meta: {
         category: 'hyperliquid',
         access: 'pro',
-        tags: ['hyperliquid', 'perps', 'copytrade', 'x402'],
-        promptSlug: 'agent.concierge.tool.hyperliquid_copytrade',
+        tags: ['hyperliquid', 'perps', 'trade', 'x402'],
+        promptSlug: 'agent.concierge.tool.hyperliquid_perp_trade',
       },
-      inputSchema: copyTradeSchema,
+      inputSchema: perpTradeSchema,
     },
     async (input = {}, extra = {}) => {
-      const payload = copyTradeSchema.parse(input);
+      const payload = perpTradeSchema.parse(input);
       const authHeader = extractAuthorization(extra);
 
       const headers = {
@@ -143,7 +185,7 @@ export function registerHyperliquidToolset(server) {
       };
 
       const { response, json, text } = await fetchWithX402Json(
-        `${base}/hyperliquid/copytrade`,
+        `${base}/hyperliquid/perp-trade`,
         {
           method: 'POST',
           headers,
@@ -151,7 +193,7 @@ export function registerHyperliquidToolset(server) {
         },
         {
           metadata: {
-            tool: 'hyperliquid_copytrade',
+            tool: 'hyperliquid_perp_trade',
             symbol: payload.hyperliquidSymbol,
             side: payload.side,
           },
@@ -163,7 +205,7 @@ export function registerHyperliquidToolset(server) {
         const message =
           (json && (json.error || json.message)) ||
           text ||
-          `hyperliquid_copytrade_failed:${response.status}`;
+          `hyperliquid_perp_trade_failed:${response.status}`;
         throw new Error(String(message));
       }
 
