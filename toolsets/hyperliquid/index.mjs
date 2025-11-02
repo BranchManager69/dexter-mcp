@@ -38,6 +38,15 @@ function extractAuthorization(extra) {
   return null;
 }
 
+const optInSchema = z.object({
+  managedWalletPublicKey: z
+    .string()
+    .min(32, 'managed_wallet_too_short')
+    .max(64, 'managed_wallet_too_long')
+    .optional(),
+  agentName: z.string().min(3, 'agent_name_short').max(31, 'agent_name_long').optional(),
+});
+
 const copyTradeSchema = z.object({
   managedWalletPublicKey: z.string().min(1, 'managed_wallet_required'),
   hyperliquidSymbol: z.string().min(1, 'symbol_required'),
@@ -55,6 +64,61 @@ export function registerHyperliquidToolset(server) {
   const base = resolveApiBase();
 
   server.registerTool(
+    'hyperliquid_opt_in',
+    {
+      title: 'Hyperliquid Opt-in',
+      description:
+        'Provision a Hyperliquid agent wallet for a Dexter-managed wallet so the user can trade perps.',
+      _meta: {
+        category: 'hyperliquid',
+        access: 'pro',
+        tags: ['hyperliquid', 'onboarding', 'x402'],
+        promptSlug: 'agent.concierge.tool.hyperliquid_opt_in',
+      },
+      inputSchema: optInSchema,
+    },
+    async (input = {}, extra = {}) => {
+      const payload = optInSchema.parse(input);
+      const authHeader = extractAuthorization(extra);
+
+      const headers = {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
+      };
+
+      const { response, json, text } = await fetchWithX402Json(
+        `${base}/hyperliquid/opt-in`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        },
+        {
+          metadata: {
+            tool: 'hyperliquid_opt_in',
+            wallet: payload.managedWalletPublicKey || null,
+          },
+          authHeaders: headers,
+        },
+      );
+
+      if (!response.ok) {
+        const message =
+          (json && (json.error || json.message)) ||
+          text ||
+          `hyperliquid_opt_in_failed:${response.status}`;
+        throw new Error(String(message));
+      }
+
+      return {
+        structuredContent: json,
+        content: [{ type: 'json', json }],
+      };
+    },
+  );
+
+  server.registerTool(
     'hyperliquid_copytrade',
     {
       title: 'Hyperliquid Copytrade',
@@ -64,6 +128,7 @@ export function registerHyperliquidToolset(server) {
         category: 'hyperliquid',
         access: 'pro',
         tags: ['hyperliquid', 'perps', 'copytrade', 'x402'],
+        promptSlug: 'agent.concierge.tool.hyperliquid_copytrade',
       },
       inputSchema: copyTradeSchema,
     },
