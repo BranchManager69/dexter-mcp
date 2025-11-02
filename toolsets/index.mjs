@@ -12,6 +12,7 @@ import { registerKolscanToolset } from './kolscan/index.mjs';
 import { registerOnchainToolset } from './onchain/index.mjs';
 import { registerDidiToolset } from './didi/index.mjs';
 import { registerX402Toolset } from './x402/index.mjs';
+import { registerHyperliquidToolset } from './hyperliquid/index.mjs';
 
 const passthrough = (value) => String(value);
 
@@ -120,6 +121,10 @@ const TOOLSET_REGISTRY = {
   x402: {
     register: registerX402Toolset,
     description: 'Auto-discovered paid APIs settled via x402.',
+  },
+  hyperliquid: {
+    register: registerHyperliquidToolset,
+    description: 'Hyperliquid perps execution (copytrade, stop-loss, take-profit).',
   },
 };
 
