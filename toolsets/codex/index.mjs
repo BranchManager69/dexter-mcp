@@ -40,106 +40,44 @@ function mapArguments(source, keyMap = {}, { omit = [] } = {}) {
   return out;
 }
 
-const startSchema = z
-  .object({
-    prompt: z.string().min(1, 'prompt_required'),
-    approval_policy: z.string().optional(),
-    base_instructions: z.string().optional(),
-    config: z.record(z.any()).optional(),
-    include_plan_tool: z.boolean().optional(),
-    model: z.string().optional(),
-    profile: z.string().optional(),
-    sandbox: z.string().optional(),
-  })
-  .passthrough();
-
-const START_JSON_SCHEMA = {
-  type: 'object',
-  properties: {
-    prompt: { type: 'string', minLength: 1 },
-    approval_policy: { type: 'string' },
-    base_instructions: { type: 'string' },
-    config: { type: 'object', additionalProperties: true },
-    include_plan_tool: { type: 'boolean' },
-    model: { type: 'string' },
-    profile: { type: 'string' },
-    sandbox: { type: 'string' },
-  },
-  required: ['prompt'],
-  additionalProperties: false,
-  $schema: 'http://json-schema.org/draft-07/schema#',
+const startShape = {
+  prompt: z.string().min(1, 'prompt_required'),
+  approval_policy: z.string().optional(),
+  base_instructions: z.string().optional(),
+  config: z.record(z.any()).optional(),
+  include_plan_tool: z.boolean().optional(),
+  model: z.string().optional(),
+  profile: z.string().optional(),
+  sandbox: z.string().optional(),
 };
+const startSchema = z.object(startShape).passthrough();
 
-const replySchema = z
-  .object({
-    conversation_id: z.string().min(1, 'conversation_id_required'),
-    prompt: z.string().min(1, 'prompt_required'),
-    approval_policy: z.string().optional(),
-    base_instructions: z.string().optional(),
-    config: z.record(z.any()).optional(),
-    include_plan_tool: z.boolean().optional(),
-    model: z.string().optional(),
-    profile: z.string().optional(),
-    sandbox: z.string().optional(),
-  })
-  .passthrough();
-
-const REPLY_JSON_SCHEMA = {
-  type: 'object',
-  properties: {
-    conversation_id: { type: 'string', minLength: 1 },
-    prompt: { type: 'string', minLength: 1 },
-    approval_policy: { type: 'string' },
-    base_instructions: { type: 'string' },
-    config: { type: 'object', additionalProperties: true },
-    include_plan_tool: { type: 'boolean' },
-    model: { type: 'string' },
-    profile: { type: 'string' },
-    sandbox: { type: 'string' },
-  },
-  required: ['conversation_id', 'prompt'],
-  additionalProperties: false,
-  $schema: 'http://json-schema.org/draft-07/schema#',
+const replyShape = {
+  conversation_id: z.string().min(1, 'conversation_id_required'),
+  prompt: z.string().min(1, 'prompt_required'),
+  approval_policy: z.string().optional(),
+  base_instructions: z.string().optional(),
+  config: z.record(z.any()).optional(),
+  include_plan_tool: z.boolean().optional(),
+  model: z.string().optional(),
+  profile: z.string().optional(),
+  sandbox: z.string().optional(),
 };
+const replySchema = z.object(replyShape).passthrough();
 
-const execSchema = z
-  .object({
-    prompt: z.string().min(1, 'prompt_required'),
-    output_schema: z.union([z.string(), z.record(z.any())]).optional(),
-    metadata: z.record(z.any()).optional(),
-    approval_policy: z.string().optional(),
-    base_instructions: z.string().optional(),
-    config: z.record(z.any()).optional(),
-    include_plan_tool: z.boolean().optional(),
-    model: z.string().optional(),
-    profile: z.string().optional(),
-    sandbox: z.string().optional(),
-  })
-  .passthrough();
-
-const EXEC_JSON_SCHEMA = {
-  type: 'object',
-  properties: {
-    prompt: { type: 'string', minLength: 1 },
-    output_schema: {
-      anyOf: [
-        { type: 'string' },
-        { type: 'object', additionalProperties: true },
-      ],
-    },
-    metadata: { type: 'object', additionalProperties: true },
-    approval_policy: { type: 'string' },
-    base_instructions: { type: 'string' },
-    config: { type: 'object', additionalProperties: true },
-    include_plan_tool: { type: 'boolean' },
-    model: { type: 'string' },
-    profile: { type: 'string' },
-    sandbox: { type: 'string' },
-  },
-  required: ['prompt'],
-  additionalProperties: false,
-  $schema: 'http://json-schema.org/draft-07/schema#',
+const execShape = {
+  prompt: z.string().min(1, 'prompt_required'),
+  output_schema: z.union([z.string(), z.record(z.any())]).optional(),
+  metadata: z.record(z.any()).optional(),
+  approval_policy: z.string().optional(),
+  base_instructions: z.string().optional(),
+  config: z.record(z.any()).optional(),
+  include_plan_tool: z.boolean().optional(),
+  model: z.string().optional(),
+  profile: z.string().optional(),
+  sandbox: z.string().optional(),
 };
+const execSchema = z.object(execShape).passthrough();
 
 function buildTextResponse({ conversationId, message }) {
   const lines = [];
@@ -271,8 +209,17 @@ async function ensureSuperAdmin(extra) {
     throw new Error('superadmin_required');
   }
   const jwtClaims = decodeDexterJwt(token);
+  if (!jwtClaims) {
+    const secretPreview = MCP_JWT_SECRET
+      ? createHmac('sha256', 'codex-secret-check').update(MCP_JWT_SECRET).digest('hex').slice(0, 8)
+      : 'missing';
+    console.warn('[codex-toolset] failed to decode MCP JWT; falling back to Supabase lookup', { secretPreview });
+  }
   if (jwtClaims) {
     const claimRoles = extractRoles(jwtClaims.roles);
+    if (!claimRoles.length) {
+      console.warn('[codex-toolset] decoded MCP JWT without roles claim', { sub: jwtClaims.sub || null });
+    }
     if (claimRoles.includes('superadmin')) {
       return;
     }
@@ -300,7 +247,7 @@ export function registerCodexToolset(server) {
         access: 'dev',
         tags: ['codex', 'session', 'start'],
       },
-      inputSchema: START_JSON_SCHEMA,
+      inputSchema: startShape,
     },
     async (input, extra) => {
       await ensureSuperAdmin(extra);
@@ -334,7 +281,7 @@ export function registerCodexToolset(server) {
         access: 'dev',
         tags: ['codex', 'session', 'reply'],
       },
-      inputSchema: REPLY_JSON_SCHEMA,
+      inputSchema: replyShape,
     },
     async (input, extra) => {
       await ensureSuperAdmin(extra);
@@ -369,7 +316,7 @@ export function registerCodexToolset(server) {
         access: 'dev',
         tags: ['codex', 'exec', 'structured'],
       },
-      inputSchema: EXEC_JSON_SCHEMA,
+      inputSchema: execShape,
     },
     async (input, extra) => {
       await ensureSuperAdmin(extra);

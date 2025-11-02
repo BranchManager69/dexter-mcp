@@ -10,8 +10,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 const DEFAULT_CLIENT_INFO = { name: 'dexter-codex-bridge', version: '0.1.0' };
 const DEFAULT_COMMAND = process.env.CODEX_BRIDGE_COMMAND || 'codex';
 const DEFAULT_ARGS = [
-  'mcp',
-  'serve',
+  'mcp-server',
   '--config', 'sandbox="read-only"',
   '--config', 'approval_policy="never"',
   '--config', 'tools.web_search=true',
