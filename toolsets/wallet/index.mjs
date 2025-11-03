@@ -21,7 +21,7 @@ const PORTFOLIO_WIDGET_META = createWidgetMeta({
   invoked: 'Wallet overview ready',
 });
 
-function buildApiUrl(base, path) {
+export function buildApiUrl(base, path) {
   const normalizedBase = (base || '').replace(/\/+$/, '');
   if (!path) return normalizedBase || '';
   let normalizedPath = path.startsWith('/') ? path : `/${path}`;

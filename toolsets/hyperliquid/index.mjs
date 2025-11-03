@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { fetchWithX402Json } from '../../clients/x402Client.mjs';
+import { buildApiUrl } from '../wallet/index.mjs';
 
 const DEFAULT_API_BASE_URL = 'http://localhost:3030';
 
@@ -11,11 +12,11 @@ function resolveApiBase() {
     DEFAULT_API_BASE_URL,
   ];
   for (const candidate of candidates) {
-    if (candidate && candidate.trim()) {
-      return candidate.replace(/\/+$/, '');
-    }
+    if (!candidate || !candidate.trim()) continue;
+    const normalized = buildApiUrl(candidate, '').replace(/\/api$/i, '');
+    if (normalized) return normalized.replace(/\/+$/, '');
   }
-  return DEFAULT_API_BASE_URL;
+  return buildApiUrl(DEFAULT_API_BASE_URL, '').replace(/\/api$/i, '').replace(/\/+$/, '');
 }
 
 function extractAuthorization(extra) {
