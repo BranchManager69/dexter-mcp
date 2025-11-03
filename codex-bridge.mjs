@@ -21,6 +21,18 @@ const DEFAULT_REQUEST_TIMEOUT_MS = Number(process.env.CODEX_BRIDGE_REQUEST_TIMEO
 const DEFAULT_MAX_TOTAL_TIMEOUT_MS = Number(process.env.CODEX_BRIDGE_MAX_TOTAL_TIMEOUT_MS || 1_800_000);
 const LOG_PREFIX = '[codex-bridge]';
 
+const BRIDGE_SANDBOX_CANONICAL = new Map([
+  ['readonly', 'read-only'],
+  ['read', 'read-only'],
+  ['default', 'read-only'],
+  ['production', 'read-only'],
+  ['workspacewrite', 'workspace-write'],
+  ['workspace', 'workspace-write'],
+  ['dangerfullaccess', 'danger-full-access'],
+  ['danger', 'danger-full-access'],
+  ['fullaccess', 'danger-full-access'],
+]);
+
 function log(...args) {
   if (process.env.CODEX_BRIDGE_SILENT === '1') return;
   console.log(LOG_PREFIX, ...args);
@@ -33,6 +45,45 @@ function warn(...args) {
 
 function error(...args) {
   console.error(LOG_PREFIX, ...args);
+}
+
+function normalizeSandboxKey(value) {
+  if (value === undefined || value === null) return null;
+  const str = String(value).trim().toLowerCase();
+  if (!str) return null;
+  return str.replace(/[\s_-]+/g, '');
+}
+
+function sanitizeSandboxForPayload(value) {
+  const requested = value;
+  const defaultSandbox = 'read-only';
+  const key = normalizeSandboxKey(value);
+  if (key === null) {
+    return { value: defaultSandbox, changed: false, requested, reason: null, isDanger: false };
+  }
+  const canonical = BRIDGE_SANDBOX_CANONICAL.get(key);
+  if (!canonical) {
+    return { value: defaultSandbox, changed: true, requested, reason: 'unknown_request', isDanger: false };
+  }
+  const changed = canonical !== requested;
+  return {
+    value: canonical,
+    changed,
+    requested,
+    reason: changed ? 'normalized' : null,
+    isDanger: canonical === 'danger-full-access',
+  };
+}
+
+function checkDangerSandbox(context, decision) {
+  if (!decision || decision.isDanger !== true) return;
+  warn('danger sandbox request', {
+    context,
+    requested: decision.requested ?? null,
+    applied: decision.value,
+    normalized: decision.changed,
+    reason: decision.reason,
+  });
 }
 
 async function ensureDir(dir) {
@@ -306,6 +357,16 @@ class CodexBridge {
       throw new Error('codex_prompt_required');
     }
     const payload = { prompt: String(prompt), ...rest };
+    const sandboxDecision = sanitizeSandboxForPayload(payload.sandbox);
+    if (sandboxDecision.changed) {
+      warn('normalized sandbox request', {
+        requested: sandboxDecision.requested ?? null,
+        applied: sandboxDecision.value,
+        reason: sandboxDecision.reason,
+      });
+    }
+    checkDangerSandbox('start_session', sandboxDecision);
+    payload.sandbox = sandboxDecision.value;
     const { result, events, durationMs } = await this.runToolCall('codex', payload, extra);
     const summary = summarizeEvents(events);
     if (!summary.sessionId) {
@@ -329,6 +390,16 @@ class CodexBridge {
       throw new Error('codex_prompt_required');
     }
     const payload = { conversationId: String(conversationId), prompt: String(prompt), ...rest };
+    const sandboxDecision = sanitizeSandboxForPayload(payload.sandbox);
+    if (sandboxDecision.changed) {
+      warn('normalized sandbox request', {
+        requested: sandboxDecision.requested ?? null,
+        applied: sandboxDecision.value,
+        reason: sandboxDecision.reason,
+      });
+    }
+    checkDangerSandbox('continue_session', sandboxDecision);
+    payload.sandbox = sandboxDecision.value;
     const { result, events, durationMs } = await this.runToolCall('codex-reply', payload, extra);
     const summary = summarizeEvents(events, { fallbackConversationId: conversationId });
     const message = extractFirstText(result) || summary.agentMessage || '';

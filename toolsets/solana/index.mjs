@@ -27,6 +27,13 @@ const SWAP_EXECUTE_WIDGET_META = createWidgetMeta({
   invoked: 'Swap executed',
 });
 
+const SEND_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/solana-send',
+  widgetDescription: 'Transfers SOL or SPL tokens to another wallet address or linked Twitter handle.',
+  invoking: 'Submitting transfer…',
+  invoked: 'Transfer sent',
+});
+
 function buildApiUrl(base, path) {
   const normalizedBase = (base || '').replace(/\/+$/, '');
   if (!path) return normalizedBase || '';
@@ -232,6 +239,120 @@ export function registerSolanaToolset(server) {
     if (limit != null) params.set('limit', String(limit));
     const result = await apiFetch(`/api/solana/balances?${params.toString()}`, { method: 'GET' }, extra);
     return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.balances || []) }] };
+  });
+
+  const sendInputSchema = z.object({
+    wallet_address: z.string().trim().optional(),
+    recipient_type: z.enum(['wallet', 'twitter']).optional(),
+    recipient_value: z.string().min(1, 'recipient_value is required'),
+    mint: z.string().trim().optional(),
+    amount_ui: z.union([z.number(), z.string()]).optional(),
+    amount: z.union([z.number(), z.string()]).optional(),
+    memo: z.string().max(280, 'Memo must be 280 characters or fewer').optional(),
+    confirm: z.boolean().optional(),
+  }).superRefine((value, ctx) => {
+    if (!value.recipient_value || !value.recipient_value.trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'recipient_value is required' });
+    }
+    if (value.memo && Buffer.byteLength(value.memo, 'utf8') > 566) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'memo exceeds maximum length' });
+    }
+  });
+
+  server.registerTool('solana_send', {
+    title: 'Send SOL or SPL Token',
+    description: 'Transfer SOL, DEXTER, USDC, PAYAI, or any SPL token to another wallet address or linked Twitter handle.',
+    _meta: {
+      category: 'solana.trading',
+      access: 'managed',
+      tags: ['transfer', 'send', 'spl', 'sol'],
+      ...SEND_WIDGET_META,
+    },
+    inputSchema: sendInputSchema,
+  }, async (input, extra) => {
+    const {
+      wallet_address,
+      recipient_type,
+      recipient_value,
+      mint,
+      amount_ui,
+      amount,
+      memo,
+      confirm,
+    } = sendInputSchema.parse(input);
+
+    const amountInput = amount_ui ?? amount ?? null;
+    const body = {
+      ...(wallet_address ? { walletAddress: wallet_address } : {}),
+      recipientType: recipient_type ?? 'wallet',
+      recipientValue: recipient_value,
+      ...(mint ? { mint } : {}),
+      ...(amountInput != null && amountInput !== '' ? { amountUi: amountInput } : {}),
+      ...(memo ? { memo } : {}),
+      ...(confirm != null ? { confirm } : {}),
+    };
+
+    try {
+      const result = await apiFetch('/api/solana/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }, extra);
+
+      if (!result?.ok && result?.error === 'confirmation_required') {
+        const transfer = result.transfer || {};
+        const summaryParts = [];
+        if (transfer.amountUi != null && transfer.mint) {
+          summaryParts.push(`${transfer.amountUi} ${transfer.mint}`);
+        }
+        if (transfer.valueUsd != null) {
+          summaryParts.push(`≈ $${Number(transfer.valueUsd).toFixed(2)}`);
+        }
+        const summary = summaryParts.length ? summaryParts.join(' ') : 'Transfer';
+        const message = `${summary} requires confirmation (threshold $${result.thresholdUsd ?? 50}). Re-run with confirm=true to proceed.`;
+        return {
+          structuredContent: result,
+          content: [{ type: 'text', text: message }],
+          status: 'requires_confirmation',
+          _meta: { ...SEND_WIDGET_META },
+        };
+      }
+
+      if (!result?.ok) {
+        const message = result?.message || result?.error || 'send_failed';
+        return {
+          structuredContent: result,
+          content: [{ type: 'text', text: message }],
+          isError: true,
+          _meta: { ...SEND_WIDGET_META },
+        };
+      }
+
+      const transfer = result.result || {};
+      const summaryParts = [];
+      if (transfer.amountUi != null && transfer.mint) {
+        summaryParts.push(`${transfer.amountUi} ${transfer.mint}`);
+      }
+      if (transfer.destination) {
+        summaryParts.push(`→ ${transfer.destination}`);
+      }
+      const summary = summaryParts.length ? summaryParts.join(' ') : 'Transfer sent';
+      const signatureText = transfer.signature ? `Signature: ${transfer.signature}` : '';
+      const textOutput = [summary, signatureText].filter(Boolean).join('\n');
+
+      return {
+        structuredContent: result,
+        content: [{ type: 'text', text: textOutput }],
+        status: 'completed',
+        _meta: { ...SEND_WIDGET_META },
+      };
+    } catch (error) {
+      return {
+        content: [{ type: 'text', text: error?.message || 'send_failed' }],
+        isError: true,
+        _meta: { ...SEND_WIDGET_META },
+      };
+    }
   });
 
   const swapInputShape = z.object({

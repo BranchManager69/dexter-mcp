@@ -88,11 +88,15 @@ function buildTextResponse({ conversationId, message }) {
   return lines.join('\n\n');
 }
 
-function warnSandboxOverride(tool, sandbox) {
-  console.warn(
-    '[codex-toolset]',
-    `${tool} ignoring sandbox override (${sandbox}); bridge enforces read-only sandbox.`,
-  );
+function logSandboxDecision(tool, requested, applied, reason) {
+  if (!requested && applied === 'read-only' && !reason) {
+    return;
+  }
+  console.warn('[codex-toolset]', `${tool} sandbox adjusted`, {
+    requested: requested ?? null,
+    applied,
+    reason: reason || null,
+  });
 }
 
 function headersFromExtra(extra) {
@@ -208,6 +212,15 @@ async function ensureSuperAdmin(extra) {
   if (!token) {
     throw new Error('superadmin_required');
   }
+  const context = {
+    token,
+    jwtClaims: null,
+    supabaseUser: null,
+    supabaseUserId: null,
+    roles: [],
+    isSuperAdmin: false,
+  };
+
   const jwtClaims = decodeDexterJwt(token);
   if (!jwtClaims) {
     const secretPreview = MCP_JWT_SECRET
@@ -215,25 +228,94 @@ async function ensureSuperAdmin(extra) {
       : 'missing';
     console.warn('[codex-toolset] failed to decode MCP JWT; falling back to Supabase lookup', { secretPreview });
   }
+  let roles = [];
   if (jwtClaims) {
-    const claimRoles = extractRoles(jwtClaims.roles);
-    if (!claimRoles.length) {
+    context.jwtClaims = jwtClaims;
+    roles = extractRoles(jwtClaims.roles);
+    if (!roles.length) {
       console.warn('[codex-toolset] decoded MCP JWT without roles claim', { sub: jwtClaims.sub || null });
     }
-    if (claimRoles.includes('superadmin')) {
-      return;
+    context.supabaseUserId = jwtClaims.supabase_user_id || jwtClaims.sub || null;
+  }
+
+  let isSuperAdmin = roles.includes('superadmin');
+  let user = null;
+
+  if (!isSuperAdmin) {
+    user = await fetchSupabaseUser(token);
+    if (!user) {
+      throw new Error('superadmin_required');
     }
+    context.supabaseUser = user;
+    context.supabaseUserId = context.supabaseUserId || user.id || null;
+    const userRoles = extractRoles(user.app_metadata?.roles);
+    roles = Array.from(new Set([...roles, ...userRoles]));
+    const metaSuper = normalizeBoolean(user.user_metadata?.isSuperAdmin);
+    if (metaSuper && !roles.includes('superadmin')) {
+      roles.push('superadmin');
+    }
+    const metaAdmin = normalizeBoolean(user.user_metadata?.isAdmin);
+    if (metaAdmin && !roles.includes('admin')) {
+      roles.push('admin');
+    }
+    isSuperAdmin = metaSuper || roles.includes('superadmin');
   }
-  const user = await fetchSupabaseUser(token);
-  if (!user) {
+
+  if (!isSuperAdmin) {
     throw new Error('superadmin_required');
   }
-  const roles = extractRoles(user.app_metadata?.roles);
-  const roleAllows = roles.includes('superadmin');
-  const metaAllows = normalizeBoolean(user.user_metadata?.isSuperAdmin);
-  if (!roleAllows && !metaAllows) {
-    throw new Error('superadmin_required');
+
+  context.roles = Array.from(new Set(roles));
+  context.isSuperAdmin = true;
+  return context;
+}
+
+const SANDBOX_CANONICAL_MAP = new Map([
+  ['readonly', 'read-only'],
+  ['read', 'read-only'],
+  ['default', 'read-only'],
+  ['production', 'read-only'],
+  ['workspacewrite', 'workspace-write'],
+  ['workspace', 'workspace-write'],
+  ['dangerfullaccess', 'danger-full-access'],
+  ['danger', 'danger-full-access'],
+  ['fullaccess', 'danger-full-access'],
+]);
+
+function normalizeSandboxKey(value) {
+  if (value === undefined || value === null) return null;
+  const str = String(value).trim().toLowerCase();
+  if (!str) return null;
+  return str.replace(/[\s_-]+/g, '');
+}
+
+function resolveSandbox(tool, requested, context) {
+  const defaultSandbox = 'read-only';
+  const key = normalizeSandboxKey(requested);
+  if (key === null) {
+    return { sandbox: defaultSandbox, requested };
   }
+  const canonical = SANDBOX_CANONICAL_MAP.get(key);
+  if (!canonical) {
+    logSandboxDecision(tool, requested, defaultSandbox, 'unknown_request');
+    return { sandbox: defaultSandbox, requested };
+  }
+  if (canonical === 'danger-full-access' && !context?.isSuperAdmin) {
+    logSandboxDecision(tool, requested, defaultSandbox, 'danger_denied');
+    return { sandbox: defaultSandbox, requested };
+  }
+  if (canonical !== 'read-only') {
+    if (canonical === 'workspace-write' && key !== 'workspacewrite') {
+      logSandboxDecision(tool, requested, canonical, 'alias_workspace');
+    } else if (canonical === 'danger-full-access' && key !== 'dangerfullaccess') {
+      logSandboxDecision(tool, requested, canonical, 'alias_danger');
+    }
+    return { sandbox: canonical, requested };
+  }
+  if (key !== 'readonly') {
+    logSandboxDecision(tool, requested, canonical, 'alias_readonly');
+  }
+  return { sandbox: canonical, requested };
 }
 
 export function registerCodexToolset(server) {
@@ -241,7 +323,8 @@ export function registerCodexToolset(server) {
     'codex_start',
     {
       title: 'Start Codex Session',
-      description: 'Begin a new Codex conversation (read-only, search-enabled).',
+      description:
+        'Begin a new Codex conversation. Default sandbox is read-only; superadmins may set sandbox="danger-full-access" when full access is required.',
       _meta: {
         category: 'codex.session',
         access: 'dev',
@@ -250,13 +333,19 @@ export function registerCodexToolset(server) {
       inputSchema: startShape,
     },
     async (input, extra) => {
-      await ensureSuperAdmin(extra);
+      const context = await ensureSuperAdmin(extra);
       const parsed = startSchema.parse(input || {});
-      const { prompt, sandbox, ...rest } = parsed;
-      if (sandbox && sandbox !== 'read-only') {
-        warnSandboxOverride('codex_start', sandbox);
+      const { prompt, sandbox: sandboxRaw, config: rawConfig, ...rest } = parsed;
+      const config = rawConfig && typeof rawConfig === 'object' ? { ...rawConfig } : undefined;
+      const configSandbox = config && Object.prototype.hasOwnProperty.call(config, 'sandbox') ? config.sandbox : undefined;
+      if (config && Object.prototype.hasOwnProperty.call(config, 'sandbox')) {
+        delete config.sandbox;
       }
-      const args = mapArguments(rest, START_KEY_MAP, { omit: ['sandbox'] });
+      const { sandbox } = resolveSandbox('codex_start', sandboxRaw ?? configSandbox, context);
+      const args = mapArguments({ ...rest, config }, START_KEY_MAP, { omit: ['sandbox'] });
+      if (sandbox) {
+        args.sandbox = sandbox;
+      }
       const result = await bridge.startSession({ prompt, ...args }, extra);
       const structured = formatStructuredResult(result);
       return {
@@ -275,7 +364,8 @@ export function registerCodexToolset(server) {
     'codex_reply',
     {
       title: 'Continue Codex Session',
-      description: 'Send a follow-up prompt to an existing Codex conversation.',
+      description:
+        'Send a follow-up prompt to an existing Codex conversation. Sandbox defaults to read-only unless a superadmin explicitly requests danger-full-access.',
       _meta: {
         category: 'codex.session',
         access: 'dev',
@@ -284,13 +374,19 @@ export function registerCodexToolset(server) {
       inputSchema: replyShape,
     },
     async (input, extra) => {
-      await ensureSuperAdmin(extra);
+      const context = await ensureSuperAdmin(extra);
       const parsed = replySchema.parse(input || {});
-      const { conversation_id, sandbox, ...rest } = parsed;
-      if (sandbox && sandbox !== 'read-only') {
-        warnSandboxOverride('codex_reply', sandbox);
+      const { conversation_id, sandbox: sandboxRaw, config: rawConfig, ...rest } = parsed;
+      const config = rawConfig && typeof rawConfig === 'object' ? { ...rawConfig } : undefined;
+      const configSandbox = config && Object.prototype.hasOwnProperty.call(config, 'sandbox') ? config.sandbox : undefined;
+      if (config && Object.prototype.hasOwnProperty.call(config, 'sandbox')) {
+        delete config.sandbox;
       }
-      const args = mapArguments(rest, REPLY_KEY_MAP, { omit: ['sandbox'] });
+      const { sandbox } = resolveSandbox('codex_reply', sandboxRaw ?? configSandbox, context);
+      const args = mapArguments({ ...rest, config }, REPLY_KEY_MAP, { omit: ['sandbox'] });
+      if (sandbox) {
+        args.sandbox = sandbox;
+      }
       const result = await bridge.continueSession({ conversationId: conversation_id, ...args }, extra);
       const structured = formatStructuredResult(result);
       return {
@@ -310,7 +406,7 @@ export function registerCodexToolset(server) {
     {
       title: 'Codex Exec Session',
       description:
-        'Run Codex exec with optional JSON schema. Returns structuredContent when the schema is provided.',
+        'Run Codex exec with optional JSON schema. Sandbox is read-only by default; superadmins can request danger-full-access when they need unrestricted execution.',
       _meta: {
         category: 'codex.session',
         access: 'dev',
@@ -319,13 +415,19 @@ export function registerCodexToolset(server) {
       inputSchema: execShape,
     },
     async (input, extra) => {
-      await ensureSuperAdmin(extra);
+      const context = await ensureSuperAdmin(extra);
       const parsed = execSchema.parse(input || {});
-      const { sandbox, ...rest } = parsed;
-      if (sandbox && sandbox !== 'read-only') {
-        warnSandboxOverride('codex_exec', sandbox);
+      const { sandbox: sandboxRaw, config: rawConfig, ...rest } = parsed;
+      const config = rawConfig && typeof rawConfig === 'object' ? { ...rawConfig } : undefined;
+      const configSandbox = config && Object.prototype.hasOwnProperty.call(config, 'sandbox') ? config.sandbox : undefined;
+      if (config && Object.prototype.hasOwnProperty.call(config, 'sandbox')) {
+        delete config.sandbox;
       }
-      const args = mapArguments(rest, EXEC_KEY_MAP, { omit: ['sandbox'] });
+      const { sandbox } = resolveSandbox('codex_exec', sandboxRaw ?? configSandbox, context);
+      const args = mapArguments({ ...rest, config }, EXEC_KEY_MAP, { omit: ['sandbox'] });
+      if (sandbox) {
+        args.sandbox = sandbox;
+      }
       const result = await bridge.execSession(args, extra);
       const structured = formatStructuredResult(result);
       const { structuredContent, raw, ...summary } = result;
