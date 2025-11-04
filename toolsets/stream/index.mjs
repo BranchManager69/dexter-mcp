@@ -296,8 +296,8 @@ async function ensureSignedIn(extra) {
 async function ensureProAccess(extra) {
   const user = await requireSupabaseUser(extra, 'pro_membership_required');
   const roles = extractRoles(user.app_metadata?.roles);
-  const isSuperAdmin = roles.includes('superadmin') || normalizeBoolean(user.user_metadata?.isSuperAdmin);
-  const isPro = roles.includes('pro') || normalizeBoolean(user.user_metadata?.isProMember);
+  const isSuperAdmin = roles.includes('superadmin');
+  const isPro = roles.includes('pro');
   if (!isSuperAdmin && !isPro) {
     throw new Error('pro_membership_required');
   }

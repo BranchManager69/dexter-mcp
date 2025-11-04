@@ -203,6 +203,14 @@ function summarizeEvents(events, { fallbackConversationId } = {}) {
   return summary;
 }
 
+function previewText(text, limit = 200) {
+  if (!text || typeof text !== 'string') return null;
+  const compact = text.replace(/\s+/g, ' ').trim();
+  if (!compact) return null;
+  if (compact.length <= limit) return compact;
+  return `${compact.slice(0, limit - 1)}…`;
+}
+
 class CodexBridge {
   constructor(options = {}) {
     this.options = {
@@ -373,6 +381,14 @@ class CodexBridge {
       throw new Error('codex_session_id_missing');
     }
     const message = extractFirstText(result) || summary.agentMessage || '';
+    log('session_start_complete', {
+      conversationId: summary.sessionId,
+      model: summary.model || null,
+      reasoningEffort: summary.reasoningEffort || null,
+      durationMs: Math.round(durationMs),
+      replyPreview: previewText(message),
+      tokenUsage: summary.tokenUsage || null,
+    });
     return {
       conversationId: summary.sessionId,
       message,
@@ -403,6 +419,14 @@ class CodexBridge {
     const { result, events, durationMs } = await this.runToolCall('codex-reply', payload, extra);
     const summary = summarizeEvents(events, { fallbackConversationId: conversationId });
     const message = extractFirstText(result) || summary.agentMessage || '';
+    log('session_reply_complete', {
+      conversationId,
+      model: summary.model || null,
+      reasoningEffort: summary.reasoningEffort || null,
+      durationMs: Math.round(durationMs),
+      replyPreview: previewText(message),
+      tokenUsage: summary.tokenUsage || null,
+    });
     return {
       conversationId: conversationId,
       message,
@@ -470,6 +494,12 @@ class CodexBridge {
       const message = getFinalMessage(parsedEvents) || '';
       const structuredContent = parseJsonSafely(message);
       const durationMs = performance.now() - started;
+
+      log('session_exec_complete', {
+        durationMs: Math.round(durationMs),
+        replyPreview: previewText(message),
+        tokenUsage: summary.tokenUsage || null,
+      });
 
       return {
         conversationId: null,

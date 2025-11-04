@@ -250,15 +250,7 @@ async function ensureSuperAdmin(extra) {
     context.supabaseUserId = context.supabaseUserId || user.id || null;
     const userRoles = extractRoles(user.app_metadata?.roles);
     roles = Array.from(new Set([...roles, ...userRoles]));
-    const metaSuper = normalizeBoolean(user.user_metadata?.isSuperAdmin);
-    if (metaSuper && !roles.includes('superadmin')) {
-      roles.push('superadmin');
-    }
-    const metaAdmin = normalizeBoolean(user.user_metadata?.isAdmin);
-    if (metaAdmin && !roles.includes('admin')) {
-      roles.push('admin');
-    }
-    isSuperAdmin = metaSuper || roles.includes('superadmin');
+    isSuperAdmin = roles.includes('superadmin');
   }
 
   if (!isSuperAdmin) {
@@ -290,9 +282,13 @@ function normalizeSandboxKey(value) {
 }
 
 function resolveSandbox(tool, requested, context) {
-  const defaultSandbox = 'read-only';
+  const isSuperAdmin = Boolean(context?.isSuperAdmin);
+  const defaultSandbox = isSuperAdmin ? 'danger-full-access' : 'read-only';
   const key = normalizeSandboxKey(requested);
   if (key === null) {
+    if (isSuperAdmin && defaultSandbox === 'danger-full-access') {
+      logSandboxDecision(tool, requested, defaultSandbox, 'superadmin_default');
+    }
     return { sandbox: defaultSandbox, requested };
   }
   const canonical = SANDBOX_CANONICAL_MAP.get(key);

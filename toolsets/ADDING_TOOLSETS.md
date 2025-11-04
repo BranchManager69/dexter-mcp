@@ -1,4 +1,5 @@
 # Adding MCP Toolsets
+(COULD be outdated; I don't remember)
 
 This repository groups related MCP tools into *toolsets*. Each toolset exposes one or more tools through `server.registerTool(...)` and is loaded by the shared registry in `toolsets/index.mjs`.
 

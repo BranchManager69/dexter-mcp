@@ -241,7 +241,7 @@ export function registerSolanaToolset(server) {
     return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.balances || []) }] };
   });
 
-  const sendInputSchema = z.object({
+  const sendInputShape = {
     wallet_address: z.string().trim().optional(),
     recipient_type: z.enum(['wallet', 'twitter']).optional(),
     recipient_value: z.string().min(1, 'recipient_value is required'),
@@ -250,7 +250,9 @@ export function registerSolanaToolset(server) {
     amount: z.union([z.number(), z.string()]).optional(),
     memo: z.string().max(280, 'Memo must be 280 characters or fewer').optional(),
     confirm: z.boolean().optional(),
-  }).superRefine((value, ctx) => {
+  };
+
+  const sendInputSchema = z.object(sendInputShape).superRefine((value, ctx) => {
     if (!value.recipient_value || !value.recipient_value.trim()) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'recipient_value is required' });
     }
@@ -268,7 +270,7 @@ export function registerSolanaToolset(server) {
       tags: ['transfer', 'send', 'spl', 'sol'],
       ...SEND_WIDGET_META,
     },
-    inputSchema: sendInputSchema,
+    inputSchema: sendInputShape,
   }, async (input, extra) => {
     const {
       wallet_address,
