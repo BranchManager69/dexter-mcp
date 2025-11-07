@@ -244,7 +244,10 @@ export function registerWalletToolset(server) {
     outputSchema: {
       wallet_address: z.string().nullable(),
       source: z.string(),
-      user_id: z.string().nullable().optional()
+      user_id: z.string().nullable().optional(),
+      detail: z.string().nullable().optional(),
+      bearer_source: z.string().nullable().optional(),
+      override_session: z.string().nullable().optional()
     }
   }, async (_args, extra) => {
     const { summary, diagnostics } = await collectWalletStatus(extra);
