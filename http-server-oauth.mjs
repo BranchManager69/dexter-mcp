@@ -476,6 +476,11 @@ function injectIdentityIntoBody(body, identity){
   try {
     if (!body || typeof body !== 'object') return body;
     if (!identity) return body;
+    try {
+      if (body.method === 'tools/list') {
+        console.log(`[mcp] tools_list_payload ${JSON.stringify(body).slice(0, 500)}`);
+      }
+    } catch {}
     if (body.method === 'tools/call' && body.params && typeof body.params === 'object') {
       if (!body.params.arguments || typeof body.params.arguments !== 'object') body.params.arguments = {};
       body.params.arguments.__issuer = String(identity.issuer||'');
@@ -484,6 +489,110 @@ function injectIdentityIntoBody(body, identity){
     }
   } catch {}
   return body;
+}
+
+function normalizeJsonRpcPayload(payload){
+  try {
+    if (Array.isArray(payload)) {
+      return payload.map((entry) => normalizeJsonRpcPayload(entry));
+    }
+    if (!payload || typeof payload !== 'object') {
+      return payload;
+    }
+    const hasParams = Object.prototype.hasOwnProperty.call(payload, 'params');
+    if (!hasParams) {
+      const clone = { ...payload, params: {} };
+      try { console.log(`[mcp] injected_missing_params method=${clone?.method || 'unknown'}`); } catch {}
+      return clone;
+    }
+
+    const paramsValue = payload.params;
+    if (Array.isArray(paramsValue)) {
+      const clone = { ...payload, params: {} };
+      try { console.log(`[mcp] normalized_array_params method=${clone?.method || 'unknown'}`); } catch {}
+      return clone;
+    }
+
+    if (paramsValue === null || paramsValue === undefined) {
+      const clone = { ...payload, params: {} };
+      try { console.log(`[mcp] normalized_null_params method=${clone?.method || 'unknown'}`); } catch {}
+      return clone;
+    }
+
+    if (paramsValue && typeof paramsValue === 'object' && !Array.isArray(paramsValue)) {
+      let mutated = false;
+      const cleaned = {};
+      for (const [key, value] of Object.entries(paramsValue)) {
+        if (value === null || value === undefined) {
+          mutated = true;
+          try { console.log(`[mcp] stripped_null_param key=${key} method=${payload?.method || 'unknown'}`); } catch {}
+          continue;
+        }
+        cleaned[key] = value;
+      }
+      if (mutated) {
+        return { ...payload, params: cleaned };
+      }
+    }
+  } catch {}
+  return payload;
+}
+
+async function logToolsListResponse(resultPromise){
+  try {
+    const result = await Promise.resolve(resultPromise);
+    if (result && typeof result === 'object') {
+      try {
+        console.log(`[mcp] tools_list_response ${JSON.stringify(result).slice(0, 2000)}`);
+      } catch {}
+    }
+    return result;
+  } catch (error) {
+    try {
+      console.error('[mcp] tools_list_response_error', error?.message || error);
+    } catch {}
+    throw error;
+  }
+}
+
+function attachToolsListLogger(res){
+  const originalEnd = res.end;
+  const originalWrite = res.write;
+  const chunks = [];
+  res.write = function wrappedWrite(...args){
+    const chunk = args[0];
+    const encoding = typeof args[1] === 'string' ? args[1] : undefined;
+    if (chunk) {
+      try {
+        if (Buffer.isBuffer(chunk)) {
+          chunks.push(Buffer.from(chunk));
+        } else if (typeof chunk === 'string') {
+          chunks.push(Buffer.from(chunk, encoding || 'utf8'));
+        }
+      } catch {}
+    }
+    return originalWrite.apply(this, args);
+  };
+  res.end = function wrappedEnd(...args){
+    try {
+      const chunk = args[0];
+      const encoding = typeof args[1] === 'string' ? args[1] : undefined;
+      if (chunk) {
+        if (Buffer.isBuffer(chunk)) {
+          chunks.push(Buffer.from(chunk));
+        } else if (typeof chunk === 'string') {
+          chunks.push(Buffer.from(chunk, encoding || 'utf8'));
+        }
+      }
+      const text = chunks.length ? Buffer.concat(chunks).toString('utf8') : '';
+      console.log(`[mcp] tools_list_response_http ${text ? text.slice(0, 2000) : '[empty]'}`);
+    } catch {}
+    return originalEnd.apply(this, args);
+  };
+  return () => {
+    res.write = originalWrite;
+    res.end = originalEnd;
+  };
 }
 
 function includeOpenId(scopesArr) {
@@ -1181,21 +1290,53 @@ const server = http.createServer(async (req, res) => {
             } catch {}
           }
         } catch {}
-        {
-          const body = await readBody(req);
-          const ident = buildIdentityForRequest(sessionId, req);
-          const patched = injectIdentityIntoBody(body, ident);
-          await transport.handleRequest(req, res, patched);
-        }
+      {
+        const rawBody = await readBody(req);
+        const normalizedBody = normalizeJsonRpcPayload(rawBody);
+        const ident = buildIdentityForRequest(sessionId, req);
+        let restoreToolsLogger = null;
+        const requestId = normalizedBody && (typeof normalizedBody.id === 'string' || typeof normalizedBody.id === 'number') ? String(normalizedBody.id) : null;
+        console.log('[mcp] session_request_received', { sid: sessionId, method: normalizedBody?.method, requestId });
+        try {
+          if (normalizedBody && typeof normalizedBody === 'object' && normalizedBody.method) {
+            const params = normalizedBody.params;
+            const hasParamsKey = Object.prototype.hasOwnProperty.call(normalizedBody, 'params');
+            const paramInfo = params == null ? 'null' : Array.isArray(params) ? 'array' : typeof params;
+            console.log(`[mcp] rpc request sid=${sessionId} method=${normalizedBody.method} params=${paramInfo} hasParams=${hasParamsKey}`);
+            if (normalizedBody.method === 'tools/list') {
+              restoreToolsLogger = attachToolsListLogger(res);
+              if (requestId) pendingToolsListIds.add(requestId);
+              console.log(`[mcp] tools_list_track_request id=${requestId ?? 'unknown'} sid=${sessionId}`);
+            }
+          }
+        } catch {}
+        const patched = injectIdentityIntoBody(normalizedBody, ident);
+        await transport.handleRequest(req, res, patched);
+        if (restoreToolsLogger) restoreToolsLogger();
+      }
         return;
       }
       // New session: initialize (allow per-session toolsets via ?tools=)
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => randomUUID(),
-        onsessioninitialized: (sid) => { transports.set(sid, transport); },
-        onsessionclosed: (sid) => { transports.delete(sid); const s = servers.get(sid); if (s) { try { s.close(); } catch {} servers.delete(sid); } },
-        enableDnsRebindingProtection: false,
-      });
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID(),
+    onsessioninitialized: (sid) => { transports.set(sid, transport); },
+    onsessionclosed: (sid) => { transports.delete(sid); const s = servers.get(sid); if (s) { try { s.close(); } catch {} servers.delete(sid); } },
+    enableDnsRebindingProtection: false,
+  });
+  const pendingToolsListIds = new Set();
+  const originalWriteSSEEvent = transport.writeSSEEvent.bind(transport);
+  transport.writeSSEEvent = function patchedWriteSSEEvent(res, message, eventId) {
+    try {
+      const messageId = message && typeof message === 'object' ? message.id : undefined;
+      if (messageId !== undefined && pendingToolsListIds.has(String(messageId))) {
+        console.log(`[mcp] tools_list_response_envelope ${JSON.stringify(message).slice(0, 4000)}`);
+        pendingToolsListIds.delete(String(messageId));
+      }
+    } catch (error) {
+      console.warn('[mcp] tools_list_response_log_failed', error?.message || error);
+    }
+    return originalWriteSSEEvent(res, message, eventId);
+  };
       let includeToolsets = undefined;
       try {
         const tools = url.searchParams.get('tools');
@@ -1219,10 +1360,28 @@ const server = http.createServer(async (req, res) => {
         }
       } catch {}
       {
-        const body = await readBody(req);
+        const rawBody = await readBody(req);
+        const normalizedBody = normalizeJsonRpcPayload(rawBody);
         const ident = buildIdentityForRequest(null, req);
-        const patched = injectIdentityIntoBody(body, ident);
+        let restoreToolsLogger = null;
+        const requestId = normalizedBody && (typeof normalizedBody.id === 'string' || typeof normalizedBody.id === 'number') ? String(normalizedBody.id) : null;
+        console.log('[mcp] new_session_request_received', { method: normalizedBody?.method, requestId });
+        try {
+          if (normalizedBody && typeof normalizedBody === 'object' && normalizedBody.method) {
+            const params = normalizedBody.params;
+            const hasParamsKey = Object.prototype.hasOwnProperty.call(normalizedBody, 'params');
+            const paramInfo = params == null ? 'null' : Array.isArray(params) ? 'array' : typeof params;
+            console.log(`[mcp] rpc request sid=new method=${normalizedBody.method} params=${paramInfo} hasParams=${hasParamsKey}`);
+            if (normalizedBody.method === 'tools/list') {
+              restoreToolsLogger = attachToolsListLogger(res);
+              if (requestId) pendingToolsListIds.add(requestId);
+              console.log(`[mcp] tools_list_track_request id=${requestId ?? 'unknown'} sid=new`);
+            }
+          }
+        } catch {}
+        const patched = injectIdentityIntoBody(normalizedBody, ident);
         await transport.handleRequest(req, res, patched);
+        if (restoreToolsLogger) restoreToolsLogger();
       }
       const sid = transport.sessionId;
       if (sid) {
