@@ -1,18 +1,7 @@
 import { createRoot } from 'react-dom/client';
-import { StrictMode } from 'react';
+import { StrictMode, type ReactElement } from 'react';
 
-declare global {
-  interface Window {
-    registerComponent?: (name: string, renderer: (props: unknown) => string | HTMLElement) => void;
-    openai?: {
-      apps?: {
-        registerComponent?: (name: string, renderer: (props: unknown) => string | HTMLElement) => void;
-      };
-    };
-  }
-}
-
-type Renderer<P> = (props: P) => JSX.Element;
+type Renderer<P> = (props: P) => ReactElement;
 
 export function registerReactComponent<P = any>(name: string, renderer: Renderer<P>) {
   const register =

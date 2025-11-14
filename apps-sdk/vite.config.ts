@@ -19,6 +19,7 @@ export default defineConfig({
         'solana-token-lookup': path.resolve(rootDir, 'solana-token-lookup.html'),
         'solana-swap-preview': path.resolve(rootDir, 'solana-swap-preview.html'),
         'solana-swap-execute': path.resolve(rootDir, 'solana-swap-execute.html'),
+        'solana-send': path.resolve(rootDir, 'solana-send.html'),
       },
     },
   },

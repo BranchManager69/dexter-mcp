@@ -75,8 +75,13 @@ export function registerAppsSdkResources(server) {
   if (!server || typeof server.registerResource !== 'function') return;
   if (!isAppsSdkEnabled()) return;
 
-  const widgetCsp = buildWidgetCsp();
+  const assetBase = DEFAULT_ASSET_BASE;
+  if (!assetBase.startsWith('https://')) {
+    console.warn('[apps-sdk] asset base is not HTTPS, skipping widget registration:', assetBase);
+    return;
+  }
 
+  const widgetCsp = buildWidgetCsp();
   const entries = [
     {
       name: 'dexter_portfolio_status',
@@ -127,6 +132,16 @@ export function registerAppsSdkResources(server) {
       widgetDescription: 'Summarises the executed Solana swap and links to Solscan.',
       invoking: 'Finalising swap…',
       invoked: 'Swap executed',
+    },
+    {
+      name: 'dexter_solana_send',
+      templateUri: 'ui://dexter/solana-send',
+      file: 'solana-send.html',
+      title: 'Dexter Solana send widget',
+      description: 'Displays confirmation prompts and execution summaries for Solana transfers.',
+      widgetDescription: 'Transfers SOL or SPL tokens to another wallet and shows confirmation or completion details.',
+      invoking: 'Submitting transfer…',
+      invoked: 'Transfer summary ready',
     },
   ];
 

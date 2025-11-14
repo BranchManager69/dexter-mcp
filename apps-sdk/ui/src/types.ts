@@ -97,3 +97,29 @@ export type SwapPayload = {
   request?: SwapRequest;
   result?: SwapQuote | SwapExecution | null;
 };
+
+export type SolanaSendTransfer = {
+  walletAddress?: string | null;
+  destination?: string | null;
+  recipient?: string | null;
+  recipientHandle?: string | null;
+  mint?: string | null;
+  amountUi?: number | string | null;
+  amountRaw?: string | null;
+  decimals?: number | null;
+  isNative?: boolean | null;
+  priceUsd?: number | null;
+  valueUsd?: number | null;
+  memo?: string | null;
+  signature?: string | null;
+  solscanUrl?: string | null;
+};
+
+export type SolanaSendPayload = {
+  ok?: boolean;
+  error?: string | null;
+  message?: string | null;
+  thresholdUsd?: number | null;
+  transfer?: SolanaSendTransfer | null;
+  result?: SolanaSendTransfer | null;
+};

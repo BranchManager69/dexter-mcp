@@ -54,6 +54,9 @@ export type OpenAIGlobals<
   sendFollowUpMessage: (args: { prompt: string }) => Promise<void>;
   openExternal: (payload: { href: string }) => void;
   requestDisplayMode: RequestDisplayMode;
+  apps?: {
+    registerComponent?: (name: string, renderer: (props: unknown) => string | HTMLElement) => void;
+  };
 };
 
 export const SET_GLOBALS_EVENT_TYPE = 'openai:set_globals';
@@ -65,6 +68,7 @@ export class SetGlobalsEvent extends CustomEvent<{ globals: Partial<OpenAIGlobal
 declare global {
   interface Window {
     openai: OpenAIGlobals;
+    registerComponent?: (name: string, renderer: (props: unknown) => string | HTMLElement) => void;
     __isChatGptApp?: boolean;
   }
 
