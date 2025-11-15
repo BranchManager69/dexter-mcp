@@ -61,6 +61,11 @@ function getColor() {
 
 const MCP_NAME = process.env.MCP_SERVER_NAME || 'dexter-mcp';
 const MCP_VERSION = process.env.MCP_SERVER_VERSION || '0.1.0';
+const SCHEMA_DEBUG_ENABLED = isTruthyEnv(process.env.MCP_SCHEMA_DEBUG || process.env.CODEX_SCHEMA_DEBUG || '');
+
+function isTruthyEnv(value) {
+  return ['1', 'true', 'yes', 'on'].includes(String(value || '').toLowerCase());
+}
 
 export async function buildMcpServer(options = {}) {
   const instructions = [
@@ -101,7 +106,7 @@ function wrapRegisterTool(server) {
     const color = getColor();
     const label = color.blue('[mcp-tool]');
     const inputSchemaNormalized = normalizeSchema(meta.inputSchema, {});
-    if (name && name.startsWith('codex_')) {
+    if (SCHEMA_DEBUG_ENABLED && name && name.startsWith('codex_')) {
       try {
         console.log('[codex-schema-debug]', name, JSON.stringify(inputSchemaNormalized));
       } catch {}

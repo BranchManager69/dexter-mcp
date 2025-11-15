@@ -175,6 +175,14 @@ const transports = new Map(); // sessionId -> transport
 const servers = new Map(); // sessionId -> McpServer instance
 const sessionUsers = new Map(); // sessionId -> identity (from IdP) or token preview
 const sessionIdentity = new Map(); // sessionId -> { issuer, sub, email }
+const sessionLabels = new Map(); // sessionId -> descriptive label (client-supplied)
+const sessionStartTimes = new Map(); // sessionId -> timestamp (ms)
+
+const SESSION_LABEL_HEADERS = (() => {
+  const raw = String(process.env.MCP_SESSION_LABEL_HEADER || '').trim().toLowerCase();
+  if (!raw) return [];
+  return Array.from(new Set(raw.split(',').map((entry) => entry.trim()).filter(Boolean)));
+})();
 
 // OAuth token cache (to avoid hitting IdP API on every request)
 const tokenCache = new Map(); // token -> { user, claims, expires }
@@ -197,6 +205,45 @@ function ensureBearerPrefix(raw) {
     return token ? `Bearer ${token}` : null;
   }
   return `Bearer ${trimmed}`;
+}
+
+function normalizeSessionLabel(value) {
+  if (!value) return null;
+  const normalized = String(value).trim().replace(/\s+/g, ' ');
+  if (!normalized) return null;
+  return normalized.length > 80 ? `${normalized.slice(0, 77)}…` : normalized;
+}
+
+function getIncomingSessionLabel(req) {
+  if (!req || !req.headers) return null;
+  for (const header of SESSION_LABEL_HEADERS) {
+    if (!header) continue;
+    const raw = req.headers[header];
+    if (raw) {
+      const label = normalizeSessionLabel(raw);
+      if (label) return label;
+    }
+  }
+  return null;
+}
+
+function logSession(event, payload = {}) {
+  try {
+    const summary = {
+      event,
+      sid: payload.sid || 'unknown',
+      label: payload.label || null,
+      user: payload.user || null,
+      issuer: payload.issuer || null,
+      email: payload.email || null,
+      agent: payload.agent || null,
+    };
+    if (payload.durationMs !== undefined) summary.durationMs = payload.durationMs;
+    const labelText = color.cyan ? color.cyan('[mcp-session]') : '[mcp-session]';
+    console.log(labelText, summary);
+  } catch (error) {
+    console.log('[mcp-session]', event, payload?.sid || 'unknown');
+  }
 }
 
 function effectiveBaseUrl(req){
@@ -1257,6 +1304,8 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const transport = transports.get(sessionId);
+      const existingLabel = getIncomingSessionLabel(req);
+      if (existingLabel) sessionLabels.set(sessionId, existingLabel);
       await transport.handleRequest(req, res);
       return;
     }
@@ -1266,6 +1315,8 @@ const server = http.createServer(async (req, res) => {
       if (sessionId) {
         const transport = transports.get(sessionId);
         if (!transport) { res.writeHead(400).end(JSON.stringify({ jsonrpc:'2.0', error:{ code:-32000, message:'Bad Request: No valid session ID provided' }, id:null })); return; }
+        const existingLabel = getIncomingSessionLabel(req);
+        if (existingLabel) sessionLabels.set(sessionId, existingLabel);
         // Propagate x-user-token for wallet resolution (map identity or raw bearer)
         try {
           if (!req.headers['x-user-token']) {
@@ -1316,11 +1367,36 @@ const server = http.createServer(async (req, res) => {
       }
         return;
       }
+      const requestedSessionLabel = getIncomingSessionLabel(req);
       // New session: initialize (allow per-session toolsets via ?tools=)
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
     onsessioninitialized: (sid) => { transports.set(sid, transport); },
-    onsessionclosed: (sid) => { transports.delete(sid); const s = servers.get(sid); if (s) { try { s.close(); } catch {} servers.delete(sid); } },
+    onsessionclosed: (sid) => {
+      transports.delete(sid);
+      const started = sessionStartTimes.get(sid);
+      const durationMs = typeof started === 'number' ? Math.max(0, Date.now() - started) : undefined;
+      const ident = sessionIdentity.get(sid) || {};
+      const label = sessionLabels.get(sid) || null;
+      const user = ident.sub || sessionUsers.get(sid) || 'unknown';
+      logSession('end', {
+        sid,
+        label,
+        user,
+        issuer: ident.issuer || null,
+        email: ident.email || null,
+        durationMs,
+      });
+      sessionUsers.delete(sid);
+      sessionIdentity.delete(sid);
+      sessionLabels.delete(sid);
+      sessionStartTimes.delete(sid);
+      const s = servers.get(sid);
+      if (s) {
+        try { s.close(); } catch {}
+        servers.delete(sid);
+      }
+    },
     enableDnsRebindingProtection: false,
   });
   const pendingToolsListIds = new Set();
@@ -1412,6 +1488,18 @@ const server = http.createServer(async (req, res) => {
             console.log(`[mcp] initialize ok user=unknown sid=${sid} authHeader=${hasAuth?'yes':'no'}`);
           } catch {}
         }
+        const labelForSession = requestedSessionLabel || sessionLabels.get(sid) || null;
+        if (labelForSession) sessionLabels.set(sid, labelForSession);
+        if (!sessionStartTimes.has(sid)) sessionStartTimes.set(sid, Date.now());
+        const ident = sessionIdentity.get(sid) || {};
+        logSession('start', {
+          sid,
+          label: labelForSession || null,
+          user: req.oauthUser || 'unknown',
+          issuer: ident.issuer || req.headers['x-user-issuer'] || null,
+          email: ident.email || req.headers['x-user-email'] || null,
+          agent: req.headers['user-agent'] || null,
+        });
       }
       return;
     }
