@@ -1,95 +1,119 @@
 import { z } from 'zod';
 
-import { searchTwitter } from '../../integrations/twitter.mjs';
+import { fetchWithX402Json } from '../../clients/x402Client.mjs';
 
-const LOG_PREFIX = '[twitter-toolset]';
+const DEFAULT_API_BASE_URL = process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || 'http://localhost:3030';
+
+function buildApiUrl(path) {
+  const base = (process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/+$/, '');
+  if (!path) return base;
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+function headersFromExtra(extra) {
+  try {
+    if (extra?.requestInfo?.headers) return extra.requestInfo.headers;
+  } catch {}
+  try {
+    if (extra?.request?.headers) return extra.request.headers;
+  } catch {}
+  try {
+    if (extra?.httpRequest?.headers) return extra.httpRequest.headers;
+  } catch {}
+  return {};
+}
+
+function resolveSupabaseToken(extra) {
+  const headers = headersFromExtra(extra);
+  const candidates = [
+    headers?.authorization || headers?.Authorization,
+    headers?.['x-authorization'] || headers?.['X-Authorization'],
+    headers?.['x-user-token'] || headers?.['X-User-Token'],
+  ];
+  for (const token of candidates) {
+    if (typeof token === 'string' && token.trim()) {
+      if (token.startsWith('Bearer ')) {
+        return token.slice(7).trim();
+      }
+      if (!token.includes(' ')) {
+        return token.trim();
+      }
+    }
+  }
+  const envToken = process.env.MCP_SUPABASE_BEARER;
+  return envToken ? String(envToken) : null;
+}
+
+async function callTwitterAnalyze(body, extra) {
+  const token = resolveSupabaseToken(extra);
+  const headers = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+  const url = buildApiUrl('/api/tools/twitter/analyze');
+  const { response, json, text } = await fetchWithX402Json(
+    url,
+    { method: 'POST', headers, body: JSON.stringify(body) },
+    { metadata: { toolset: 'twitter' }, authHeaders: headers },
+  );
+  if (!response.ok) {
+    let payload = json;
+    if (!payload && text) {
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = text;
+      }
+    }
+    const message = payload?.error || payload?.message || `twitter_analyze_failed:${response.status}`;
+    throw new Error(message);
+  }
+  return json;
+}
 
 const INPUT_SHAPE = {
-  query: z.string().min(1).describe('Search query (ticker, token name, hashtag, etc.).').optional(),
-  queries: z.array(z.string().min(1)).min(1).describe('List of search queries to execute (combined results).').optional(),
-  ticker: z.string().min(1).describe('Ticker shorthand; auto-expands into multiple query presets ($ticker, #ticker, ticker).').optional(),
-  mint: z.string().min(32).max(64).describe('Token mint address; resolves ticker presets automatically.').optional(),
-  max_results: z.number().int().min(1).max(100).describe('Maximum tweets to return (1-100). Defaults to 25.').optional(),
-  include_replies: z.boolean().describe('Include reply tweets in results (default true).').optional(),
-  language: z.string().min(2).max(5).describe('Optional language filter (e.g. en, es).').optional(),
-  media_only: z.boolean().describe('Only include tweets that contain media (photos or videos).').optional(),
-  verified_only: z.boolean().describe('Only include tweets from verified authors.').optional(),
+  topic: z.string().min(1).describe('Main topic or question to investigate.').optional(),
+  keywords: z.array(z.string().min(1)).max(10).describe('Specific keywords or hashtags to include.').optional(),
+  accounts: z.array(z.string().min(1)).max(10).describe('Twitter handles to focus on (with or without @).').optional(),
+  conversationId: z.string().min(5).describe('Conversation/tweet ID to analyze replies for.').optional(),
+  lookbackHours: z.number().int().min(1).max(168).describe('Time window in hours (default 24, max 168).').optional(),
+  maxTweets: z.number().int().min(10).max(400).describe('Total tweets to analyze (default 100, max 400).').optional(),
+  language: z.string().min(2).max(5).describe('ISO language filter (optional).').optional(),
+  minEngagement: z.number().int().min(0).describe('Minimum likes+reposts+replies required.').optional(),
+  includeReplies: z.boolean().describe('Include replies in analysis (default true).').optional(),
+  includeQuotes: z.boolean().describe('Include quote tweets (default true).').optional(),
+  summarize: z.boolean().describe('Return a natural-language summary (default true).').optional(),
+  highlightsPerBucket: z.number().int().min(1).max(10).describe('Representative tweets per highlight bucket (default 3).').optional(),
 };
 
-const INPUT_SCHEMA = z.object(INPUT_SHAPE).superRefine((value, ctx) => {
-  const hasQuery = typeof value.query === 'string' && value.query.trim().length > 0;
-  const hasQueries = Array.isArray(value.queries) && value.queries.length > 0;
-  const hasTicker = typeof value.ticker === 'string' && value.ticker.trim().length > 0;
-  const hasMint = typeof value.mint === 'string' && value.mint.trim().length > 0;
-  if (!hasQuery && !hasQueries && !hasTicker && !hasMint) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'At least one of query, queries, ticker, or mint is required.',
-      path: ['query'],
-    });
-  }
-});
+const INPUT_SCHEMA = z.object(INPUT_SHAPE).refine((value) => {
+  return Boolean((value.topic && value.topic.trim()) || (value.keywords?.length) || (value.accounts?.length) || value.conversationId);
+}, 'Provide at least one of topic, keywords, accounts, or conversationId');
 
 const INPUT_JSON_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   type: 'object',
   additionalProperties: false,
   properties: {
-    query: {
-      type: 'string',
-      minLength: 1,
-      description: 'Search query (ticker, token name, hashtag, etc.).',
-    },
-    queries: {
-      type: 'array',
-      minItems: 1,
-      items: {
-        type: 'string',
-        minLength: 1,
-      },
-      description: 'List of search queries to execute; results are merged.',
-    },
-    ticker: {
-      type: 'string',
-      minLength: 1,
-      description: 'Ticker shorthand; expands into multiple presets like $ticker, #ticker, ticker.',
-    },
-    mint: {
-      type: 'string',
-      minLength: 32,
-      maxLength: 64,
-      description: 'Token mint address; resolves ticker presets automatically before searching.',
-    },
-    max_results: {
-      type: 'integer',
-      minimum: 1,
-      maximum: 100,
-      description: 'Maximum tweets to return (1-100). Defaults to 25.',
-    },
-    include_replies: {
-      type: 'boolean',
-      description: 'Include reply tweets in results (default true).',
-    },
-    language: {
-      type: 'string',
-      minLength: 2,
-      maxLength: 5,
-      description: 'Optional language filter (e.g. en, es).',
-    },
-    media_only: {
-      type: 'boolean',
-      description: 'Only include tweets that contain media (photos or videos).',
-    },
-    verified_only: {
-      type: 'boolean',
-      description: 'Only include tweets from verified authors.',
-    },
+    topic: { type: 'string', description: 'Main topic or question to investigate.' },
+    keywords: { type: 'array', items: { type: 'string' }, description: 'Keywords/hashtags to include.' },
+    accounts: { type: 'array', items: { type: 'string' }, description: 'Handles to focus on.' },
+    conversationId: { type: 'string', description: 'Tweet/conversation ID for thread analysis.' },
+    lookbackHours: { type: 'integer', minimum: 1, maximum: 168 },
+    maxTweets: { type: 'integer', minimum: 10, maximum: 400 },
+    language: { type: 'string', description: 'ISO language filter.' },
+    minEngagement: { type: 'integer', minimum: 0 },
+    includeReplies: { type: 'boolean' },
+    includeQuotes: { type: 'boolean' },
+    summarize: { type: 'boolean' },
+    highlightsPerBucket: { type: 'integer', minimum: 1, maximum: 10 },
   },
   anyOf: [
-    { required: ['query'] },
-    { required: ['queries'] },
-    { required: ['ticker'] },
-    { required: ['mint'] },
+    { required: ['topic'] },
+    { required: ['keywords'] },
+    { required: ['accounts'] },
+    { required: ['conversationId'] },
   ],
 };
 
@@ -97,155 +121,87 @@ export function registerTwitterToolset(server) {
   server.registerTool(
     'twitter_search',
     {
-      title: 'Search X/Twitter',
-      description: 'Find recent tweets about a topic on X (Twitter).',
+      title: 'Twitter Analysis',
+      description: 'Analyze any topic, account, or conversation on X/Twitter and return engagement metrics plus highlights.',
       _meta: {
         category: 'social.search',
         access: 'guest',
         tags: ['twitter', 'search', 'social'],
       },
       inputSchema: INPUT_SHAPE,
+      jsonSchema: INPUT_JSON_SCHEMA,
       outputSchema: {
-        query: z.string().nullable().optional(),
-        queries: z.array(z.string()).optional(),
-        ticker: z.string().nullable().optional(),
-        mint: z.string().nullable().optional(),
-        language: z.string().nullable().optional(),
-        include_replies: z.boolean(),
-        media_only: z.boolean().optional(),
-        verified_only: z.boolean().optional(),
-        fetched: z.number().int(),
-        searches: z.array(z.object({
-          query: z.string(),
-          fetched: z.number().int(),
-          limit: z.number().int(),
-        })).optional(),
-        tweets: z.array(
-          z.object({
+        metadata: z.record(z.any()),
+        summary: z.string().optional(),
+        metrics: z.object({
+          tweetCount: z.number(),
+          uniqueAuthors: z.number(),
+          engagementTotals: z.object({ likes: z.number(), reposts: z.number(), replies: z.number(), quotes: z.number() }),
+          engagementPerTweet: z.number(),
+        }),
+        topAuthors: z.array(z.object({
+          handle: z.string(),
+          displayName: z.string().nullable(),
+          followers: z.number().nullable(),
+          tweetCount: z.number(),
+          engagement: z.number(),
+        })),
+        topHashtags: z.array(z.object({ hashtag: z.string(), count: z.number() })),
+        highlights: z.object({
+          topTweets: z.array(z.object({
             id: z.string(),
-            url: z.string().nullable(),
+            url: z.string(),
             timestamp: z.string().nullable(),
-            text: z.string().nullable(),
-            is_reply: z.boolean().optional(),
-            source_queries: z.array(z.string()).optional(),
+            text: z.string(),
+            engagement: z.object({ likes: z.number(), reposts: z.number(), replies: z.number(), quotes: z.number() }),
             author: z.object({
-              handle: z.string().nullable(),
-              display_name: z.string().nullable(),
-              profile_url: z.string().nullable().optional(),
-              avatar_url: z.string().nullable().optional(),
-              banner_image_url: z.string().nullable().optional(),
-              bio: z.string().nullable().optional(),
-              location: z.string().nullable().optional(),
-              join_date: z.string().nullable().optional(),
-              website: z.string().nullable().optional(),
-              followers: z.number().nullable().optional(),
-              following: z.number().nullable().optional(),
-              is_verified: z.boolean().nullable().optional(),
+              handle: z.string(),
+              displayName: z.string().nullable(),
+              followers: z.number().nullable(),
+              profileImageUrl: z.string().nullable(),
+              verified: z.boolean().nullable(),
             }),
-            stats: z.object({
-              likes: z.number().nullable().optional(),
-              retweets: z.number().nullable().optional(),
-              replies: z.number().nullable().optional(),
-              views: z.number().nullable().optional(),
-            }).optional(),
-            media: z.object({
-              has_media: z.boolean().optional(),
-              photos: z.array(z.string()).optional(),
-              videos: z.array(z.string()).optional(),
-            }).optional(),
-          }),
-        ),
+            sourceReason: z.string().optional(),
+          })),
+          conversationHighlights: z.array(z.any()).optional(),
+          accountHighlights: z.array(z.any()).optional(),
+          rawTweets: z.array(z.any()).optional(),
+        }),
+        rawTweets: z.array(z.any()).optional(),
+        errors: z.array(z.string()).optional(),
       },
     },
-    async (args = {}) => {
+    async (args = {}, extra) => {
       const startedAt = Date.now();
       let parsed;
       try {
         parsed = INPUT_SCHEMA.parse(args);
       } catch (error) {
-        console.warn(LOG_PREFIX, 'search:invalid-args', { error: error?.message || String(error) });
+        console.warn('[twitter-toolset]', 'analyze:invalid-args', { error: error?.message || String(error) });
         return {
           content: [{ type: 'text', text: JSON.stringify({ error: 'invalid_arguments', details: error?.message }) }],
           isError: true,
         };
       }
-
-      const requestSummary = {
-        query: parsed.query ?? null,
-        queriesCount: Array.isArray(parsed.queries) ? parsed.queries.length : 0,
-        ticker: parsed.ticker ?? null,
-        mint: parsed.mint ?? null,
-        maxResults: parsed.max_results ?? null,
-        includeReplies: parsed.include_replies !== false,
-        language: parsed.language ?? null,
-        mediaOnly: parsed.media_only === true,
-        verifiedOnly: parsed.verified_only === true,
-        sessionPath: process.env.TWITTER_SESSION_PATH || null,
-      };
-      console.log(LOG_PREFIX, 'search:start', requestSummary);
-
       try {
-        const result = await searchTwitter({
-          query: parsed.query,
-          queries: parsed.queries,
-          ticker: parsed.ticker,
-          mint: parsed.mint,
-          maxResults: parsed.max_results,
-          includeReplies: parsed.include_replies !== false,
-          language: parsed.language,
-          mediaOnly: parsed.media_only === true,
-          verifiedOnly: parsed.verified_only === true,
-        });
-
+        const payload = await callTwitterAnalyze(parsed, extra);
+        const result = payload?.result ?? payload;
         const durationMs = Date.now() - startedAt;
-        console.log(LOG_PREFIX, 'search:success', {
-          durationMs,
-          fetched: result.fetched,
-          tweets: Array.isArray(result.tweets) ? result.tweets.length : 0,
-          queriesCount: Array.isArray(result.queries) ? result.queries.length : 0,
-          ticker: result.ticker ?? null,
-          mint: result.mint ?? null,
-        });
-
-        const summary = {
-          query: result.query,
-          queries: result.queries,
-          ticker: result.ticker,
-          mint: result.mint ?? null,
-          mint: result.mint ?? null,
-          fetched: result.fetched,
-          include_replies: result.include_replies,
-          language: result.language,
-          media_only: result.media_only,
-          verified_only: result.verified_only,
-        };
-
-        const tweets = Array.isArray(result.tweets) ? result.tweets : [];
-        const previewLines = tweets.slice(0, 6).map((tweet) => {
-          const handle = tweet?.author?.handle ? `@${tweet.author.handle}` : 'unknown';
-          const text = typeof tweet?.text === 'string' ? tweet.text.replace(/\s+/g, ' ').trim() : '';
-          const clipped = text.length > 160 ? `${text.slice(0, 157)}…` : text;
-          return `- ${handle}${tweet?.timestamp ? ` · ${tweet.timestamp}` : ''}${clipped ? ` · ${clipped}` : ''}`;
-        });
-        const previewText = previewLines.length
-          ? [`Tweets (${tweets.length > previewLines.length ? `${previewLines.length}/${tweets.length}` : `${previewLines.length}`})`, ...previewLines].join('\n')
-          : 'Tweets (0)';
-
+        console.log('[twitter-toolset]', 'analyze:success', { durationMs, tweets: result?.metrics?.tweetCount ?? 0 });
+        const preview = typeof result?.summary === 'string' && result.summary.trim().length
+          ? result.summary
+          : `Analyzed ${result?.metrics?.tweetCount ?? 0} tweets.`;
         return {
           structuredContent: result,
           content: [
-            { type: 'text', text: JSON.stringify(summary) },
-            { type: 'text', text: previewText },
+            { type: 'text', text: preview },
           ],
         };
       } catch (error) {
         const durationMs = Date.now() - startedAt;
-        console.error(LOG_PREFIX, 'search:error', {
-          durationMs,
-          error: error?.message || 'twitter_search_failed',
-        });
+        console.error('[twitter-toolset]', 'analyze:error', { durationMs, error: error?.message || String(error) });
         return {
-          content: [{ type: 'text', text: JSON.stringify({ error: error?.message || 'twitter_search_failed' }) }],
+          content: [{ type: 'text', text: JSON.stringify({ error: error?.message || 'twitter_analyze_failed' }) }],
           isError: true,
         };
       }
