@@ -1618,24 +1618,7 @@ server.listen(PORT, () => {
     try {
       const diagServer = await buildMcpServer({ includeToolsets: process.env.TOKEN_AI_MCP_TOOLSETS });
       const groups = Array.isArray(diagServer?.__dexterToolGroups) ? diagServer.__dexterToolGroups : null;
-      if (groups && groups.length) {
-        console.log(`${color.magentaBright('[diag]')} toolsets`);
-        const arrow = color.dim ? color.dim('>') : '>';
-        const separator = color.dim ? color.dim(', ') : ', ';
-        for (const entry of groups) {
-          const key = entry?.key || 'unknown';
-          const tools = Array.isArray(entry?.tools) ? entry.tools : [];
-          const groupLabel = color.bold ? color.bold(color.cyanBright ? color.cyanBright(`• ${key}`) : `• ${key}`) : `• ${key}`;
-          const formattedTools = tools.length
-            ? tools.map((name) => (color.cyan ? color.cyan(name) : name)).join(separator)
-            : color.yellow('none');
-          console.log(`       ${groupLabel} ${arrow} ${formattedTools}`);
-        }
-      } else {
-        const registered = diagServer?._registeredTools || {};
-        const toolNames = Object.keys(registered).join(', ');
-        console.log(`${color.magentaBright('[diag]')} tools -> ${toolNames ? color.cyan(toolNames) : color.yellow('none')}`);
-      }
+      server.__dexterToolGroups = groups || [];
     } catch (err) {
       console.warn(`${color.magentaBright('[diag]')} tools listing failed: ${color.red(err?.message || err)}`);
     }
