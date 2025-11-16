@@ -177,6 +177,7 @@ const sessionUsers = new Map(); // sessionId -> identity (from IdP) or token pre
 const sessionIdentity = new Map(); // sessionId -> { issuer, sub, email }
 const sessionLabels = new Map(); // sessionId -> descriptive label (client-supplied)
 const sessionStartTimes = new Map(); // sessionId -> timestamp (ms)
+const sessionClientHints = new Map(); // sessionId -> inferred client label
 
 const SESSION_LABEL_HEADERS = (() => {
   const raw = String(process.env.MCP_SESSION_LABEL_HEADER || '').trim().toLowerCase();
@@ -228,6 +229,17 @@ function getIncomingSessionLabel(req) {
   return null;
 }
 
+function identifyClient(userAgent = '') {
+  const ua = String(userAgent || '').toLowerCase();
+  if (!ua) return null;
+  if (ua.includes('dexchat')) return 'Dexchat CLI';
+  if (ua.includes('codex-tui') || ua.includes('codextendo')) return 'Codex CLI';
+  if (ua.includes('claude')) return 'Claude Connector';
+  if (ua.includes('mozilla') || ua.includes('chrome') || ua.includes('safari')) return 'Browser Client';
+  if (ua.includes('node')) return 'Node Client';
+  return null;
+}
+
 function logSession(event, payload = {}) {
   try {
     const summary = {
@@ -238,6 +250,7 @@ function logSession(event, payload = {}) {
       issuer: payload.issuer || null,
       email: payload.email || null,
       agent: payload.agent || null,
+      client: payload.client || identifyClient(payload.agent) || null,
     };
     if (payload.durationMs !== undefined) summary.durationMs = payload.durationMs;
     const labelText = color.cyan ? color.cyan('[mcp-session]') : '[mcp-session]';
@@ -1417,18 +1430,21 @@ const server = http.createServer(async (req, res) => {
       const ident = sessionIdentity.get(sid) || {};
       const label = sessionLabels.get(sid) || null;
       const user = ident.sub || sessionUsers.get(sid) || 'unknown';
+      const client = sessionClientHints.get(sid) || null;
       logSession('end', {
         sid,
         label,
         user,
         issuer: ident.issuer || null,
         email: ident.email || null,
+        client,
         durationMs,
       });
       sessionUsers.delete(sid);
       sessionIdentity.delete(sid);
       sessionLabels.delete(sid);
       sessionStartTimes.delete(sid);
+      sessionClientHints.delete(sid);
       const s = servers.get(sid);
       if (s) {
         try { s.close(); } catch {}
@@ -1532,6 +1548,8 @@ const server = http.createServer(async (req, res) => {
         if (labelForSession) sessionLabels.set(sid, labelForSession);
         if (!sessionStartTimes.has(sid)) sessionStartTimes.set(sid, Date.now());
         const ident = sessionIdentity.get(sid) || {};
+        const inferredClient = identifyClient(req.headers['user-agent'] || '') || null;
+        if (inferredClient) sessionClientHints.set(sid, inferredClient);
         logSession('start', {
           sid,
           label: labelForSession || null,
@@ -1539,6 +1557,7 @@ const server = http.createServer(async (req, res) => {
           issuer: ident.issuer || req.headers['x-user-issuer'] || null,
           email: ident.email || req.headers['x-user-email'] || null,
           agent: req.headers['user-agent'] || null,
+          client: inferredClient || null,
         });
       }
       return;
