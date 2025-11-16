@@ -183,6 +183,7 @@ const SESSION_LABEL_HEADERS = (() => {
   if (!raw) return [];
   return Array.from(new Set(raw.split(',').map((entry) => entry.trim()).filter(Boolean)));
 })();
+const pendingToolsListRequests = new Map(); // requestId -> { sid, startedAt }
 
 // OAuth token cache (to avoid hitting IdP API on every request)
 const tokenCache = new Map(); // token -> { user, claims, expires }
@@ -243,6 +244,54 @@ function logSession(event, payload = {}) {
     console.log(labelText, summary);
   } catch (error) {
     console.log('[mcp-session]', event, payload?.sid || 'unknown');
+  }
+}
+
+function summarizeParamType(value) {
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
+}
+
+function logRpcRequest({ sid, phase, method, params, hasParamsKey, requestId }) {
+  try {
+    console.log('[mcp] rpc', {
+      sid,
+      phase,
+      method: method || 'unknown',
+      params: summarizeParamType(params),
+      hasParams: Boolean(hasParamsKey),
+      id: requestId ?? null,
+    });
+  } catch {}
+}
+
+function logToolsListRequest(sid, requestId, params) {
+  try {
+    const keys = params && typeof params === 'object' ? Object.keys(params) : [];
+    console.log('[mcp] tools/list requested', { sid, id: requestId ?? null, keys });
+  } catch {}
+}
+
+function logToolsListResponseSummary(sid, payload, channel = 'sse') {
+  try {
+    const tools = Array.isArray(payload?.result?.tools) ? payload.result.tools : null;
+    const count = Array.isArray(tools) ? tools.length : null;
+    console.log('[mcp] tools/list response', {
+      sid,
+      channel,
+      toolCount: count,
+      hasError: Boolean(payload?.error),
+    });
+  } catch {}
+}
+
+function safeJsonParse(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
   }
 }
 
@@ -523,11 +572,6 @@ function injectIdentityIntoBody(body, identity){
   try {
     if (!body || typeof body !== 'object') return body;
     if (!identity) return body;
-    try {
-      if (body.method === 'tools/list') {
-        console.log(`[mcp] tools_list_payload ${JSON.stringify(body).slice(0, 500)}`);
-      }
-    } catch {}
     if (body.method === 'tools/call' && body.params && typeof body.params === 'object') {
       if (!body.params.arguments || typeof body.params.arguments !== 'object') body.params.arguments = {};
       body.params.arguments.__issuer = String(identity.issuer||'');
@@ -585,24 +629,7 @@ function normalizeJsonRpcPayload(payload){
   return payload;
 }
 
-async function logToolsListResponse(resultPromise){
-  try {
-    const result = await Promise.resolve(resultPromise);
-    if (result && typeof result === 'object') {
-      try {
-        console.log(`[mcp] tools_list_response ${JSON.stringify(result).slice(0, 2000)}`);
-      } catch {}
-    }
-    return result;
-  } catch (error) {
-    try {
-      console.error('[mcp] tools_list_response_error', error?.message || error);
-    } catch {}
-    throw error;
-  }
-}
-
-function attachToolsListLogger(res){
+function attachToolsListLogger(res, sidLabel, requestId){
   const originalEnd = res.end;
   const originalWrite = res.write;
   const chunks = [];
@@ -632,7 +659,18 @@ function attachToolsListLogger(res){
         }
       }
       const text = chunks.length ? Buffer.concat(chunks).toString('utf8') : '';
-      console.log(`[mcp] tools_list_response_http ${text ? text.slice(0, 2000) : '[empty]'}`);
+      const parsed = safeJsonParse(text);
+      if (parsed) {
+        logToolsListResponseSummary(sidLabel || 'http', parsed, 'http');
+      } else {
+        console.log('[mcp] tools/list response', {
+          sid: sidLabel || 'http',
+          channel: 'http',
+          toolCount: null,
+          note: text ? `non-json (${text.length} chars)` : 'empty',
+        });
+      }
+      if (requestId) pendingToolsListRequests.delete(String(requestId));
     } catch {}
     return originalEnd.apply(this, args);
   };
@@ -1347,17 +1385,17 @@ const server = http.createServer(async (req, res) => {
         const ident = buildIdentityForRequest(sessionId, req);
         let restoreToolsLogger = null;
         const requestId = normalizedBody && (typeof normalizedBody.id === 'string' || typeof normalizedBody.id === 'number') ? String(normalizedBody.id) : null;
-        console.log('[mcp] session_request_received', { sid: sessionId, method: normalizedBody?.method, requestId });
         try {
           if (normalizedBody && typeof normalizedBody === 'object' && normalizedBody.method) {
             const params = normalizedBody.params;
             const hasParamsKey = Object.prototype.hasOwnProperty.call(normalizedBody, 'params');
-            const paramInfo = params == null ? 'null' : Array.isArray(params) ? 'array' : typeof params;
-            console.log(`[mcp] rpc request sid=${sessionId} method=${normalizedBody.method} params=${paramInfo} hasParams=${hasParamsKey}`);
+            logRpcRequest({ sid: sessionId, phase: 'session', method: normalizedBody.method, params, hasParamsKey, requestId });
             if (normalizedBody.method === 'tools/list') {
-              restoreToolsLogger = attachToolsListLogger(res);
-              if (requestId) pendingToolsListIds.add(requestId);
-              console.log(`[mcp] tools_list_track_request id=${requestId ?? 'unknown'} sid=${sessionId}`);
+              restoreToolsLogger = attachToolsListLogger(res, sessionId, requestId);
+              if (requestId) {
+                pendingToolsListRequests.set(String(requestId), { sid: sessionId, startedAt: Date.now() });
+              }
+              logToolsListRequest(sessionId, requestId, params);
             }
           }
         } catch {}
@@ -1399,14 +1437,16 @@ const server = http.createServer(async (req, res) => {
     },
     enableDnsRebindingProtection: false,
   });
-  const pendingToolsListIds = new Set();
   const originalWriteSSEEvent = transport.writeSSEEvent.bind(transport);
   transport.writeSSEEvent = function patchedWriteSSEEvent(res, message, eventId) {
     try {
       const messageId = message && typeof message === 'object' ? message.id : undefined;
-      if (messageId !== undefined && pendingToolsListIds.has(String(messageId))) {
-        console.log(`[mcp] tools_list_response_envelope ${JSON.stringify(message).slice(0, 4000)}`);
-        pendingToolsListIds.delete(String(messageId));
+      if (messageId !== undefined) {
+        const meta = pendingToolsListRequests.get(String(messageId));
+        if (meta) {
+          logToolsListResponseSummary(meta.sid, message, 'sse');
+          pendingToolsListRequests.delete(String(messageId));
+        }
       }
     } catch (error) {
       console.warn('[mcp] tools_list_response_log_failed', error?.message || error);
@@ -1441,17 +1481,17 @@ const server = http.createServer(async (req, res) => {
         const ident = buildIdentityForRequest(null, req);
         let restoreToolsLogger = null;
         const requestId = normalizedBody && (typeof normalizedBody.id === 'string' || typeof normalizedBody.id === 'number') ? String(normalizedBody.id) : null;
-        console.log('[mcp] new_session_request_received', { method: normalizedBody?.method, requestId });
         try {
           if (normalizedBody && typeof normalizedBody === 'object' && normalizedBody.method) {
             const params = normalizedBody.params;
             const hasParamsKey = Object.prototype.hasOwnProperty.call(normalizedBody, 'params');
-            const paramInfo = params == null ? 'null' : Array.isArray(params) ? 'array' : typeof params;
-            console.log(`[mcp] rpc request sid=new method=${normalizedBody.method} params=${paramInfo} hasParams=${hasParamsKey}`);
+            logRpcRequest({ sid: 'new', phase: 'initialize', method: normalizedBody.method, params, hasParamsKey, requestId });
             if (normalizedBody.method === 'tools/list') {
-              restoreToolsLogger = attachToolsListLogger(res);
-              if (requestId) pendingToolsListIds.add(requestId);
-              console.log(`[mcp] tools_list_track_request id=${requestId ?? 'unknown'} sid=new`);
+              restoreToolsLogger = attachToolsListLogger(res, 'new', requestId);
+              if (requestId) {
+                pendingToolsListRequests.set(String(requestId), { sid: 'new', startedAt: Date.now() });
+              }
+              logToolsListRequest('new', requestId, params);
             }
           }
         } catch {}

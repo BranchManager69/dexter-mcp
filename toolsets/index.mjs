@@ -215,10 +215,6 @@ export async function registerSelectedToolsets(server, selection) {
       const afterSet = new Set(afterList);
       const added = afterList.filter((name) => !before.has(name) && afterSet.has(name));
       groups.push({ key, tools: added });
-      const separator = color.dim ? color.dim(', ') : ', ';
-      const arrow = color.dim ? color.dim('>') : '>';
-      const toolList = added.length ? ` ${arrow} ${added.map((name) => (color.cyan ? color.cyan(name) : name)).join(separator)}` : '';
-      console.log(`${label} loaded ${color.cyanBright(key)}${toolList}`);
     } catch (error) {
       console.error(`${label} ${color.red('failed to load')} ${color.cyanBright(key)}: ${color.red(error?.message || error)}`);
     }
@@ -226,6 +222,20 @@ export async function registerSelectedToolsets(server, selection) {
 
   server.__dexterLoadedToolsets = [...keys];
   server.__dexterToolGroups = groups;
+
+  if (groups.length) {
+    try {
+      const arrow = color.dim ? color.dim('>') : '>';
+      const groupSummaries = groups.map(({ key, tools }) => {
+        if (!tools.length) return color.cyanBright(key);
+        const names = tools.map((name) => (color.cyan ? color.cyan(name) : name)).join(color.dim ? color.dim(', ') : ', ');
+        return `${color.cyanBright(key)} ${arrow} ${names}`;
+      });
+      console.log(`${label} initialized ${groupSummaries.join(color.dim ? color.dim(' | ') : ' | ')}`);
+    } catch (error) {
+      console.warn(`${label} summary_failed`, error?.message || error);
+    }
+  }
 
   return keys;
 }
