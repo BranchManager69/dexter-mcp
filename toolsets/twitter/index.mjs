@@ -163,6 +163,7 @@ export function registerTwitterToolset(server) {
             }),
             sourceReason: z.string().optional(),
             mediaUrls: z.array(z.string()).optional(),
+            relevanceScore: z.number().optional(),
           })),
           conversationHighlights: z.array(z.any()).optional(),
           accountHighlights: z.array(z.any()).optional(),
