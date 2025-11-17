@@ -197,24 +197,27 @@ export function logToolsetGroups(label, groups, color = getColor()) {
   if (!Array.isArray(groups) || !groups.length) return;
   try {
     const divider = color.dim ? color.dim('─'.repeat(48)) : '────────────────────────────────────────────────';
-    console.log(`${label} initialized (${color.yellow(groups.length)} bundle${groups.length === 1 ? '' : 's'})`);
+    console.log(`${label} initialized ${color.yellow(`[${groups.length}]`)} bundle${groups.length === 1 ? '' : 's'}`);
     console.log(`   ${divider}`);
     const arrow = color.dim ? color.dim('↳') : '↳';
-    const separator = color.dim ? color.dim(', ') : ', ';
     for (const entry of groups) {
       const key = entry?.key || 'unknown';
       const tools = Array.isArray(entry?.tools) ? entry.tools : [];
-      const formattedTools = tools.length
-        ? tools.map((name, idx) => {
-            const badge = color.green ? color.green(String(idx + 1).padStart(2, '0')) : String(idx + 1).padStart(2, '0');
-            return `${badge}${color.dim ? color.dim('·') : '.'}${color.cyan ? color.cyan(name) : name}`;
-          }).join(separator)
-        : color.red('none registered');
-      const countBadge = color.magentaBright ? color.magentaBright(`(${tools.length})`) : `(${tools.length})`;
-      const bulletBase = color.cyanBright ? color.cyanBright(`• ${key}`) : `• ${key}`;
+      const countBadge = color.magentaBright ? color.magentaBright(`[${tools.length}]`) : `[${tools.length}]`;
+      const categoryName = color.blueBright ? color.blueBright(key) : key;
+      const bulletBase = color.cyanBright ? color.cyanBright(`• ${countBadge} ${categoryName}`) : `• ${countBadge} ${key}`;
       const bullet = color.bold ? color.bold(bulletBase) : bulletBase;
-      console.log(`   ${bullet} ${countBadge}`);
-      console.log(`      ${arrow} ${formattedTools}`);
+      console.log(`   ${bullet}`);
+      if (tools.length) {
+        for (let idx = 0; idx < tools.length; idx += 1) {
+          const name = tools[idx];
+          const badge = color.green ? color.green(String(idx + 1).padStart(2, '0')) : String(idx + 1).padStart(2, '0');
+          const toolName = color.yellow ? color.yellow(name) : name;
+          console.log(`      ${arrow} ${badge} ${toolName}`);
+        }
+      } else {
+        console.log(`      ${arrow} ${color.red ? color.red('none registered') : 'none registered'}`);
+      }
     }
   } catch (error) {
     console.warn(`${label} summary_failed`, error?.message || error);
