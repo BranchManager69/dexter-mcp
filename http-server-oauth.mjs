@@ -5,6 +5,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { randomUUID, createPrivateKey, createPublicKey, createHmac } from 'node:crypto';
 import { buildMcpServer } from './common.mjs';
+import { logToolsetGroups } from './toolsets/index.mjs';
 import { invalidateX402Cache } from './registry/x402/index.mjs';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import dotenv from 'dotenv';
@@ -1619,6 +1620,9 @@ server.listen(PORT, () => {
       const diagServer = await buildMcpServer({ includeToolsets: process.env.TOKEN_AI_MCP_TOOLSETS });
       const groups = Array.isArray(diagServer?.__dexterToolGroups) ? diagServer.__dexterToolGroups : null;
       server.__dexterToolGroups = groups || [];
+      if (groups && groups.length) {
+        logToolsetGroups(color.magentaBright('[diag]'), groups, color);
+      }
     } catch (err) {
       console.warn(`${color.magentaBright('[diag]')} tools listing failed: ${color.red(err?.message || err)}`);
     }

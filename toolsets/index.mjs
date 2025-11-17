@@ -193,6 +193,26 @@ function captureToolNames(server) {
   return new Set(listToolNames(server));
 }
 
+export function logToolsetGroups(label, groups, color = getColor()) {
+  if (!Array.isArray(groups) || !groups.length) return;
+  try {
+    console.log(`${label} initialized:`);
+    const arrow = color.dim ? color.dim('>') : '>';
+    const separator = color.dim ? color.dim(', ') : ', ';
+    for (const entry of groups) {
+      const key = entry?.key || 'unknown';
+      const tools = Array.isArray(entry?.tools) ? entry.tools : [];
+      const formattedTools = tools.length
+        ? tools.map((name) => (color.cyan ? color.cyan(name) : name)).join(separator)
+        : color.yellow('none');
+      const bullet = color.bold ? color.bold(color.cyanBright ? color.cyanBright(`• ${key}`) : `• ${key}`) : `• ${key}`;
+      console.log(`   ${bullet} ${arrow} ${formattedTools}`);
+    }
+  } catch (error) {
+    console.warn(`${label} summary_failed`, error?.message || error);
+  }
+}
+
 export async function registerSelectedToolsets(server, selection) {
   const { keys, unknown } = resolveSelectedKeys(selection);
 
@@ -224,17 +244,7 @@ export async function registerSelectedToolsets(server, selection) {
   server.__dexterToolGroups = groups;
 
   if (groups.length) {
-    try {
-      const arrow = color.dim ? color.dim('>') : '>';
-      const groupSummaries = groups.map(({ key, tools }) => {
-        if (!tools.length) return color.cyanBright(key);
-        const names = tools.map((name) => (color.cyan ? color.cyan(name) : name)).join(color.dim ? color.dim(', ') : ', ');
-        return `${color.cyanBright(key)} ${arrow} ${names}`;
-      });
-      console.log(`${label} initialized ${groupSummaries.join(color.dim ? color.dim(' | ') : ' | ')}`);
-    } catch (error) {
-      console.warn(`${label} summary_failed`, error?.message || error);
-    }
+    logToolsetGroups(label, groups, color);
   }
 
   return keys;
