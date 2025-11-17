@@ -3,44 +3,176 @@ import { buildInputSchemaShape } from '../../lib/x402/zod.mjs';
 import { normalizeX402Fields, trimUrl } from '../../lib/x402/utils.mjs';
 import { fetchWithX402Json } from '../../clients/x402Client.mjs';
 
-function formatAmount(accept) {
-  const amountRaw = accept?.maxAmountRequired ?? accept?.max_amount_required;
-  if (amountRaw === undefined || amountRaw === null) return null;
-  const decimalsRaw = accept?.extra?.decimals ?? accept?.decimals ?? 6;
-  const decimals = Number.isFinite(Number(decimalsRaw)) ? Number(decimalsRaw) : 6;
-  const denom = 10 ** decimals;
-  const parsed = Number(amountRaw);
-  if (!Number.isFinite(parsed) || !Number.isFinite(denom) || denom === 0) return null;
-  const normalized = parsed / denom;
-  const symbol = accept?.extra?.symbol || accept?.assetSymbol || 'USDC';
-  return `${normalized} ${symbol}`;
-}
+const ALLOWED_HOSTS = new Set(['api.dexter.cash']);
 
-function buildDescription(resourceUrl, accept) {
-  const base = accept?.description || `Invoke ${resourceUrl}`;
-  const amount = formatAmount(accept);
-  if (!amount) return base;
-  return `${base} (cost: ${amount})`;
-}
+const PATH_OVERRIDES = new Map([
+  [
+    '/stream/shout',
+    {
+      name: 'stream_public_shout',
+      title: 'Send Stream Public Shout',
+      category: 'stream.engagement',
+      access: 'member',
+      tags: ['stream', 'shout', 'engagement'],
+    },
+  ],
+  [
+    '/onchain/activity',
+    {
+      name: 'onchain_activity_overview',
+      title: 'On-chain Activity Overview',
+      category: 'onchain.analytics',
+      access: 'member',
+      tags: ['onchain', 'activity', 'flows'],
+    },
+  ],
+  [
+    '/onchain/entity',
+    {
+      name: 'onchain_entity_insight',
+      title: 'On-chain Entity Insight',
+      category: 'onchain.analytics',
+      access: 'member',
+      tags: ['onchain', 'entity', 'analysis'],
+    },
+  ],
+  [
+    '/api/slippage/sentinel',
+    {
+      name: 'slippage_sentinel',
+      title: 'Slippage Sentinel Analysis',
+      category: 'risk.monitoring',
+      access: 'member',
+      tags: ['slippage', 'risk'],
+    },
+  ],
+  [
+    '/api/jupiter/quote',
+    {
+      name: 'jupiter_quote_preview',
+      title: 'Jupiter Swap Quote Preview',
+      category: 'solana.trading',
+      access: 'member',
+      tags: ['jupiter', 'quote', 'swap'],
+    },
+  ],
+  [
+    '/api/tools/twitter/analyze',
+    {
+      name: 'twitter_topic_analysis',
+      title: 'Twitter Topic Analysis',
+      category: 'research.social',
+      access: 'member',
+      tags: ['twitter', 'analysis'],
+    },
+  ],
+  [
+    '/api/tools/solscan/trending',
+    {
+      name: 'solscan_trending_tokens',
+      title: 'Solscan Trending Tokens',
+      category: 'research.market',
+      access: 'member',
+      tags: ['solscan', 'trending'],
+    },
+  ],
+  [
+    '/api/tools/sora/jobs',
+    {
+      name: 'sora_video_job',
+      title: 'Submit Sora Video Job',
+      category: 'creative.jobs',
+      access: 'member',
+      tags: ['sora', 'video', 'job'],
+    },
+  ],
+  [
+    '/api/tools/memes/jobs',
+    {
+      name: 'meme_generator_job',
+      title: 'Submit Meme Generator Job',
+      category: 'creative.jobs',
+      access: 'member',
+      tags: ['memes', 'job'],
+    },
+  ],
+  [
+    '/api/payments/x402/access/gmgn',
+    {
+      name: 'gmgn_snapshot_access',
+      title: 'Unlock GMGN Snapshot Access',
+      category: 'gmgn.analytics',
+      access: 'member',
+      tags: ['gmgn', 'access'],
+    },
+  ],
+]);
 
-function buildToolName(resource, accept, index, taken) {
-  const baseUrl = accept?.resource || resource.resourceUrl;
-  let slug = trimUrl(baseUrl);
-  slug = slug.replace(/^https?:\/\//, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
-  if (!slug) slug = 'x402_resource';
-  const network = (accept?.network || '').toString().replace(/[^a-zA-Z0-9]+/g, '_').toLowerCase();
-  const parts = ['x402', slug];
-  if (network) parts.push(network);
-  let candidate = parts.join('_');
-  if (taken.has(candidate)) {
-    let suffix = index + 1;
-    while (taken.has(`${candidate}_${suffix}`)) {
-      suffix += 1;
+function isToolRegistered(server, name) {
+  if (!server || !name) return false;
+  try {
+    if (typeof server.listTools === 'function') {
+      const listed = server.listTools();
+      if (Array.isArray(listed)) {
+        return listed.some((tool) => tool?.name === name);
+      }
     }
-    candidate = `${candidate}_${suffix}`;
+  } catch {}
+  try {
+    if (server._registeredTools && typeof server._registeredTools === 'object') {
+      return Boolean(server._registeredTools[name]);
+    }
+  } catch {}
+  return false;
+}
+
+function normalizePath(inputPath) {
+  if (!inputPath) return '/';
+  const urlLike = (() => {
+    try {
+      const url = new URL(inputPath);
+      return url.pathname;
+    } catch {
+      return inputPath;
+    }
+  })();
+  let path = urlLike.trim();
+  if (!path.startsWith('/')) path = `/${path}`;
+  path = path.replace(/\/+/g, '/');
+  if (path.length > 1 && path.endsWith('/')) {
+    path = path.slice(0, -1);
   }
-  taken.add(candidate);
-  return candidate;
+  return path || '/';
+}
+
+function slugFromPath(pathname) {
+  const normalized = normalizePath(pathname);
+  const segments = normalized.split('/').filter(Boolean);
+  if (!segments.length) return 'resource';
+  if (segments[0] === 'api' && segments.length > 1) {
+    segments.shift();
+  }
+  return segments.join('_');
+}
+
+function deriveHost(url) {
+  try {
+    return new URL(url).host.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function deriveToolMeta({ resourceUrl, resource, accept }) {
+  const normalizedPath = normalizePath(resource?.metadata?.path || resourceUrl);
+  const override = PATH_OVERRIDES.get(normalizedPath);
+  const name = override?.name || slugFromPath(normalizedPath);
+  const title = override?.title || accept?.title || accept?.description || `Invoke ${normalizedPath}`;
+  const description = override?.description || accept?.description || `Invoke ${trimUrl(resourceUrl)}`;
+  const category = override?.category || 'x402.dynamic';
+  const access = override?.access || 'guest';
+  const tags = Array.from(new Set([...(override?.tags || []), 'paid']));
+  return { name, title, description, category, access, tags, path: normalizedPath };
 }
 
 function applyQueryParams(url, params) {
@@ -93,14 +225,25 @@ export async function registerX402Toolset(server) {
         ? normalized.accepts
         : [];
 
-    accepts.forEach((accept, index) => {
+    accepts.forEach((accept) => {
+      const resourceUrl = accept?.resource || resource.resourceUrl;
+      const host = deriveHost(resourceUrl);
+      if (!host || !ALLOWED_HOSTS.has(host)) {
+        return;
+      }
+
+      const toolMeta = deriveToolMeta({ resourceUrl, resource, accept });
+      if (!toolMeta?.name || takenNames.has(toolMeta.name) || isToolRegistered(server, toolMeta.name)) {
+        return;
+      }
+
+      takenNames.add(toolMeta.name);
+
       const outputSchema = accept?.outputSchema || {};
       const input = outputSchema?.input || {};
       const method = String(input?.method || 'GET').toUpperCase();
       const shape = buildInputSchemaShape(input, method);
-      const toolName = buildToolName(resource, accept, index, takenNames);
-      const resourceUrl = accept?.resource || resource.resourceUrl;
-      const description = buildDescription(resourceUrl, accept);
+
       const bountyMeta = resource.metadata?.bounty && typeof resource.metadata.bounty === 'object'
         ? {
             slug: resource.metadata.bounty.slug ?? null,
@@ -109,23 +252,24 @@ export async function registerX402Toolset(server) {
           }
         : null;
       const promptSlug = bountyMeta?.promptSlug
-        || (bountyMeta?.slug ? `agent.community.bounty.${bountyMeta.slug}.${toolName}` : undefined);
-      const title = bountyMeta?.title ? `🏆 ${bountyMeta.title}` : accept?.title || description;
+        || (bountyMeta?.slug ? `agent.community.bounty.${bountyMeta.slug}.${toolMeta.name}` : undefined);
+      const title = bountyMeta?.title ? `🏆 ${bountyMeta.title}` : toolMeta.title;
       const decoratedDescription = bountyMeta?.slug
-        ? `${description} — Dexter Build-Off winner (${bountyMeta.slug})`
-        : description;
-      const tags = new Set(['x402', 'dynamic']);
+        ? `${toolMeta.description} — Dexter Build-Off winner (${bountyMeta.slug})`
+        : toolMeta.description;
+
+      const tags = new Set([...(toolMeta.tags || [])]);
       if (bountyMeta?.slug) tags.add('bounty');
       if (accept?.network) {
         tags.add(String(accept.network).toLowerCase());
       }
 
-      server.registerTool(toolName, {
+      server.registerTool(toolMeta.name, {
         title,
         description: decoratedDescription,
         _meta: {
-          category: 'x402.dynamic',
-          access: 'guest',
+          category: toolMeta.category,
+          access: toolMeta.access,
           tags: Array.from(tags),
           promptSlug,
           bountySlug: bountyMeta?.slug || null,
@@ -155,7 +299,7 @@ export async function registerX402Toolset(server) {
           },
           {
             metadata: {
-              tool: 'x402_dynamic',
+              tool: toolMeta.name,
               resourceUrl,
               acceptNetwork: accept?.network || null,
               acceptDescription: accept?.description || null,
