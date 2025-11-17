@@ -1621,7 +1621,7 @@ server.listen(PORT, () => {
       const groups = Array.isArray(diagServer?.__dexterToolGroups) ? diagServer.__dexterToolGroups : null;
       server.__dexterToolGroups = groups || [];
       if (groups && groups.length) {
-        logToolsetGroups(color.magentaBright('[diag]'), groups, color);
+        logToolsetGroups(color.magentaBright('[diag] toolsets'), groups, color);
       }
     } catch (err) {
       console.warn(`${color.magentaBright('[diag]')} tools listing failed: ${color.red(err?.message || err)}`);
