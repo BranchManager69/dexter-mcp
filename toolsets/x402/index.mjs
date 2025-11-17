@@ -97,6 +97,16 @@ const PATH_OVERRIDES = new Map([
     },
   ],
   [
+    '/api/tools/x402/scan/stats',
+    {
+      name: 'x402_scan_stats',
+      title: 'x402 Catalog Scan Stats',
+      category: 'diagnostics.x402',
+      access: 'member',
+      tags: ['x402', 'diagnostics'],
+    },
+  ],
+  [
     '/api/payments/x402/access/gmgn',
     {
       name: 'gmgn_snapshot_access',

@@ -34,9 +34,9 @@ Fully managed Model Context Protocol (MCP) bridge for Dexter. The service expose
 
 | Label | Who can call | Notes | Examples |
 |-------|--------------|-------|----------|
-| `guest` | Shared demo bearer (`TOKEN_AI_MCP_TOKEN`), no login required | Read-only research and wallet discovery; no trade execution. | `general/search`, `pumpstream_live_summary`, `markets_fetch_ohlcv`, `wallet/resolve_wallet`, `twitter_search` |
-| `member` | Authenticated Supabase session / `dexter_mcp_jwt` | Unlocks personal wallet context and member-only helpers. | `wallet/list_my_wallets`, `wallet/set_session_wallet_override` |
-| `pro` | Role-gated (Pro or Super Admin) | Supabase role check gates stream controls. | `stream_get_scene`, `stream_set_scene` |
+| `guest` | Shared demo bearer (`TOKEN_AI_MCP_TOKEN`), no login required | Read-only research and wallet discovery; no trade execution. | `general/search`, `pumpstream_live_summary`, `markets_fetch_ohlcv`, `wallet/resolve_wallet` |
+| `member` | Authenticated Supabase session / `dexter_mcp_jwt` | Unlocks personal wallet context and member-only helpers. | `wallet/list_my_wallets`, `wallet/set_session_wallet_override`, `stream_public_shout` |
+| `pro` | Role-gated (Pro or Super Admin) | Supabase role check gates paid trading surfaces. | `hyperliquid_markets`, `hyperliquid_perp_trade` |
 | `dev` | Super Admins only | Protected experimental surfaces. | `codex_start`, `codex_exec` |
 | `internal` | Diagnostic tooling | Not exposed to end users. | `wallet/auth_info` |
 
@@ -116,11 +116,11 @@ Currently shipped:
 - **wallet** – Session-aware helpers (`resolve_wallet`, `list_my_wallets`, `set_session_wallet_override`, `auth_info`) backed by the Supabase resolver with per-session overrides stored in-memory.
 - **solana** – Managed Solana trading utilities (`solana_resolve_token`, balance listings, swap preview/execute) proxied through `dexter-api` with entitlement checks.
 - **markets** – `markets_fetch_ohlcv` pipes Birdeye v3 pair data, auto-selecting the top-liquidity pair when only a mint is supplied to power price history charts.
-- **twitter** – Playwright-powered `twitter_search` against X with multi-query presets, language/reply/media filters, verified-only toggles, and enriched author metadata.
-- **stream** – DexterVision scene monitoring (`stream_get_scene`) and switching (`stream_set_scene`) for `pro` access tiers.
 - **codex** – Bridges MCP clients to the Codex CLI via `codex_start`, `codex_reply`, and `codex_exec`, supporting optional JSON schemas for structured exec-mode responses.
-- **gmgn** – Headless GMGN snapshotter (`gmgn_fetch_token_snapshot`) that clears Cloudflare and returns aggregated stats, trades, and candles for a Solana mint.
-- **kolscan** – Kolscan research endpoints (`kolscan_leaderboard`, wallet & token detail, trending tokens, resolver lookups) surfaced through `dexter-api`.
+- **stream** – DexterVision shout utilities only (`stream_public_shout`, `stream_shout_feed`) so concierge sessions can create/read overlay shouts without touching scene state.
+- **onchain** – `onchain_activity_overview` and `onchain_entity_insight` surface wallet/token analytics from dexter-api with Supabase auth passthrough.
+- **x402** – Auto-registered paid resources from dexter-api (slippage sentinel, Jupiter quote preview, Twitter topic analysis, Solscan trending, Sora video jobs, meme jobs, GMGN snapshot access, etc.). The bundle updates itself whenever `/api/x402/resources` changes.
+- **hyperliquid** – `hyperliquid_markets`, `hyperliquid_opt_in`, and `hyperliquid_perp_trade` expose Hyperliquid copy-trading helpers.
 
 Each tool definition exposes an `_meta` block so downstream clients can group or gate consistently:
 
@@ -145,7 +145,7 @@ The `/tools` API simply relays this metadata so UIs (including `dexter-fe`) pick
 
 Selection options:
 
-- **Environment default:** leave `TOKEN_AI_MCP_TOOLSETS` unset to load every registered bundle (general, pumpstream, wallet, solana, markets, twitter, stream, codex, gmgn, kolscan). Set it (comma-separated) to restrict the selection, e.g. `TOKEN_AI_MCP_TOOLSETS=wallet`.
+- **Environment default:** leave `TOKEN_AI_MCP_TOOLSETS` unset to load every registered bundle (general, pumpstream, wallet, solana, markets, stream, codex, onchain, x402, hyperliquid). Set it (comma-separated) to restrict the selection, e.g. `TOKEN_AI_MCP_TOOLSETS=wallet`.
 - **CLI/stdio:** `node server.mjs --tools=wallet`.
 - **HTTP query:** `POST /mcp?tools=wallet`.
 - **Codex:** set `TOKEN_AI_MCP_TOOLSETS` in the env before launching, or add `includeToolsets` when invoking `buildMcpServer` manually.

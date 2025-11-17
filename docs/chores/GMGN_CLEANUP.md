@@ -1,13 +1,15 @@
 # GMGN Cleanup Inventory
 
+> **Status (Nov 17 2025):** The standalone MCP GMGN bundle was removed; paid access now flows through the auto-registered `x402` tool `gmgn_snapshot_access`. Use the reference list below to finish retiring or migrating concierge prompt slugs, x402 configs, and Supabase records outside dexter-mcp.
+
 Comprehensive references to the GMGN snapshot toolset across the `~/websites` monorepo and Supabase prompt modules (query date: 2025-11-02, agent session).
 
 ## dexter-mcp
 - `README.md:122,148` – documents GMGN tool availability and default loading behavior.
 - `AGENTS.md:12` – agent-facing description of the `gmgn_fetch_token_snapshot` tool.
-- `toolsets/index.mjs` – imports `registerGmgnToolset` and describes the bundle in `TOOLSET_REGISTRY`.
-- `toolsets/gmgn/index.mjs` – MCP tool registration, billing integration, and argument handling for GMGN snapshots.
-- `integrations/gmgn.mjs` – headless browser integration that interacts with gmgn.ai (Cloudflare bypass, scraping helpers).
+- `toolsets/index.mjs` – previously imported `registerGmgnToolset`; entry removed Nov 17 2025.
+- `toolsets/gmgn/index.mjs` – (removed Nov 17 2025) legacy MCP implementation; reference retained for context.
+- `integrations/gmgn.mjs` – (removed Nov 17 2025) legacy headless integration retained in git history only.
 
 ## dexter-agents
 - `src/app/hooks/usePromptProfiles.ts` – maps `gmgn_fetch_token_snapshot` to its concierge prompt slug.

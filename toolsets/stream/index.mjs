@@ -30,13 +30,6 @@ function resolveBaseUrl() {
     DEFAULT_API_BASE_URL;
   return raw.replace(/\/$/, '');
 }
-function resolveEnvPassword() {
-  return (
-    process.env.MCP_STREAM_SCENE_PASSWORD ||
-    process.env.STREAM_SCENE_PASSWORD ||
-    ''
-  );
-}
 
 function headersFromExtra(extra) {
   try {
@@ -101,18 +94,6 @@ async function apiFetch(path, init, extra) {
   return json ?? {};
 }
 
-const getSceneSchema = z
-  .object({})
-  .passthrough();
-
-const setSceneSchema = z
-  .object({
-    scene: z.string().min(1, 'scene_required'),
-    password: z.string().min(1).optional(),
-    use_env_password: z.boolean().optional(),
-  })
-  .passthrough();
-
 const shoutInputSchema = z.object({
   message: z
     .string()
@@ -136,10 +117,6 @@ const shoutFeedSchema = z.object({
     .describe('Maximum number of shouts to fetch (1-50).')
     .optional(),
 });
-
-function normalizeScene(scene) {
-  return typeof scene === 'string' ? scene.trim().toLowerCase() : '';
-}
 
 function extractRoles(value) {
   if (!value) return [];
@@ -293,104 +270,7 @@ async function ensureSignedIn(extra) {
   return requireSupabaseUser(extra, 'authentication_required');
 }
 
-async function ensureProAccess(extra) {
-  const user = await requireSupabaseUser(extra, 'pro_membership_required');
-  const roles = extractRoles(user.app_metadata?.roles);
-  const isSuperAdmin = roles.includes('superadmin');
-  const isPro = roles.includes('pro');
-  if (!isSuperAdmin && !isPro) {
-    throw new Error('pro_membership_required');
-  }
-  return user;
-}
-
 export function registerStreamToolset(server) {
-  server.registerTool(
-    'stream_get_scene',
-    {
-      title: 'Get Stream Scene',
-      description: 'Fetch the current DexterVision scene and available options.',
-      _meta: {
-        category: 'stream.management',
-        access: 'pro',
-        tags: ['scene', 'status'],
-      },
-      inputSchema: getSceneSchema.shape,
-    },
-    async (_input, extra) => {
-      await ensureProAccess(extra);
-      const result = await apiFetch('/stream/scene', { method: 'GET' }, extra);
-      return {
-        structuredContent: result,
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(result),
-          },
-        ],
-        metadata: {
-          updatedAt: result?.updatedAt || null,
-          scenes: result?.scenes || null,
-        },
-      };
-    }
-  );
-
-  server.registerTool(
-    'stream_set_scene',
-    {
-      title: 'Set Stream Scene',
-      description: 'Switch the DexterVision scene (requires scene password).',
-      _meta: {
-        category: 'stream.management',
-        access: 'pro',
-        tags: ['scene', 'control'],
-      },
-      inputSchema: setSceneSchema.shape,
-    },
-    async (input, extra) => {
-      const parsed = setSceneSchema.parse(input || {});
-      const scene = normalizeScene(parsed.scene);
-      if (!scene) {
-        throw new Error('scene_required');
-      }
-
-      const passwordFromInput = typeof parsed.password === 'string' ? parsed.password.trim() : '';
-      const shouldUseEnv = parsed.use_env_password !== false;
-      const envPassword = shouldUseEnv ? resolveEnvPassword().trim() : '';
-      const chosenPassword = passwordFromInput || envPassword;
-
-      const body = { scene };
-      if (chosenPassword) {
-        body.password = chosenPassword;
-      }
-
-      await ensureProAccess(extra);
-      const result = await apiFetch(
-        '/stream/scene',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        },
-        extra
-      );
-
-      return {
-        structuredContent: result,
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(result),
-          },
-        ],
-        metadata: {
-          updatedAt: result?.updatedAt || null,
-          scene: result?.scene || null,
-        },
-      };
-    }
-  );
 
   server.registerTool(
     'stream_public_shout',

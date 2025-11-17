@@ -1,12 +1,14 @@
 # Kolscan Cleanup Inventory
 
+> **Status (Nov 17 2025):** The MCP Kolscan bundle (`toolsets/kolscan`) has been removed from dexter-mcp. The references below are retained so we can finish scrubbing dexter-api, dexter-agents, and Supabase prompt modules—their call sites still exist until those follow-ups land.
+
 Comprehensive references to the Kolscan toolset across the `~/websites` monorepo and Supabase prompt modules (query date: 2025-11-02, agent session).
 
 ## dexter-mcp
 - `README.md:123,148` – documents Kolscan toolset availability and default loading behavior.
 - `AGENTS.md:13` – agent-facing description of Kolscan tools.
-- `toolsets/index.mjs` – imports and registers `registerKolscanToolset` in `TOOLSET_REGISTRY`.
-- `toolsets/kolscan/index.mjs` – full Kolscan MCP implementation (fetch helper, tool registration, logging, error handling).
+- `toolsets/index.mjs` – previously imported `registerKolscanToolset`; entry removed Nov 17 2025.
+- `toolsets/kolscan/index.mjs` – (removed Nov 17 2025) former MCP implementation; reference kept for cross-repo cleanup notes.
 
 ## dexter-agents
 - `src/app/hooks/usePromptProfiles.ts` – maps Kolscan MCP tool names to concierge prompt slugs.

@@ -6,11 +6,11 @@
 - **wallet** – Session-aware wallet helpers (`resolve_wallet`, `list_my_wallets`, `set_session_wallet_override`, `auth_info`) backed by `/api/wallets/resolver`. Session overrides are stored in-memory and keyed by the MCP session header.
 - **solana** – Managed Solana trading utilities (`solana_resolve_token`, balance listings, swap preview/execute) proxied through Dexter API.
 - **markets** – `markets_fetch_ohlcv` uses Birdeye’s v3 pair endpoint; provide a pair address or let it auto-pick the top-liquidity pair for a mint (`toolsets/markets/index.mjs`).
-- **twitter** – `twitter_search` runs Playwright against X search using the shared session (`toolsets/twitter/index.mjs`). Supports multi-query/ticker presets, optional language/reply filters, media-only + verified-only toggles, and enriched author metadata.
 - **codex** – Conversational (`codex_start`, `codex_reply`) and exec-mode (`codex_exec`) bridges to the Codex CLI. Exec mode supports optional JSON schemas for structured output.
-- **stream** – DexterVision scene controls (`stream_get_scene`, `stream_set_scene`) for monitoring and switching OBS overlay states.
-- **gmgn** – `gmgn_fetch_token_snapshot` launches a stealth headless browser, clears Cloudflare, and returns the token page’s aggregated stats/trades/candles for a supplied Solana mint.
-- **kolscan** – Kolscan analytics (`kolscan_leaderboard`, `kolscan_wallet_detail`, `kolscan_trending_tokens`, `kolscan_token_detail`, `kolscan_resolve_wallet`) proxied from dexter-api’s Kolscan endpoints for KOL research.
+- **stream** – Public shout utilities only (`stream_public_shout`, `stream_shout_feed`) so MCP concierge sessions can read/write overlay shouts once authenticated. Scene management now lives outside the MCP toolset.
+- **onchain** – Token/wallet analytics (`onchain_activity_overview`, `onchain_entity_insight`) proxied through Dexter API with Supabase auth passthrough.
+- **x402** – Auto-registered paid resources from dexter-api (`slippage_sentinel`, `jupiter_quote_preview`, `twitter_topic_analysis`, `solscan_trending_tokens`, `sora_video_job`, `meme_generator_job`, `gmgn_snapshot_access`, etc.). Catalog updates automatically feed new tools as soon as the API advertises them.
+- **hyperliquid** – `hyperliquid_markets`, `hyperliquid_opt_in`, and `hyperliquid_perp_trade` expose the managed Hyperliquid copy-trading helpers.
 
 All toolsets register through `toolsets/index.mjs`. If `TOKEN_AI_MCP_TOOLSETS` is unset, every registered group loads; set the variable (comma-separated keys or `all`) to control selection.
 

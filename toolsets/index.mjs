@@ -6,11 +6,7 @@ import { registerSolanaToolset } from './solana/index.mjs';
 import { registerCodexToolset } from './codex/index.mjs';
 import { registerStreamToolset } from './stream/index.mjs';
 import { registerMarketsToolset } from './markets/index.mjs';
-import { registerTwitterToolset } from './twitter/index.mjs';
-import { registerGmgnToolset } from './gmgn/index.mjs';
-import { registerKolscanToolset } from './kolscan/index.mjs';
 import { registerOnchainToolset } from './onchain/index.mjs';
-import { registerDidiToolset } from './didi/index.mjs';
 import { registerX402Toolset } from './x402/index.mjs';
 import { registerHyperliquidToolset } from './hyperliquid/index.mjs';
 
@@ -98,25 +94,9 @@ const TOOLSET_REGISTRY = {
     register: registerMarketsToolset,
     description: 'Market data utilities (Birdeye OHLCV, analytics).',
   },
-  twitter: {
-    register: registerTwitterToolset,
-    description: 'Twitter/X scraping utilities (session-backed search).',
-  },
-  gmgn: {
-    register: registerGmgnToolset,
-    description: 'GMGN token snapshot scraper (headless, Cloudflare-aware).',
-  },
-  kolscan: {
-    register: registerKolscanToolset,
-    description: 'Kolscan KOL analytics (leaderboard, wallet, trending, token summaries).',
-  },
   onchain: {
     register: registerOnchainToolset,
     description: 'Dexter on-chain analytics (token flows, wallet summaries, transaction deltas).',
-  },
-  didi: {
-    register: registerDidiToolset,
-    description: 'Didi supportive listener tools for empathetic conversations.',
   },
   x402: {
     register: registerX402Toolset,
