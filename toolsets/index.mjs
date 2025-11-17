@@ -196,18 +196,24 @@ function captureToolNames(server) {
 export function logToolsetGroups(label, groups, color = getColor()) {
   if (!Array.isArray(groups) || !groups.length) return;
   try {
-    console.log(`${label} initialized (${groups.length} bundle${groups.length === 1 ? '' : 's'}):`);
+    const divider = color.dim ? color.dim('─'.repeat(48)) : '────────────────────────────────────────────────';
+    console.log(`${label} initialized (${color.yellow(groups.length)} bundle${groups.length === 1 ? '' : 's'})`);
+    console.log(`   ${divider}`);
     const arrow = color.dim ? color.dim('↳') : '↳';
     const separator = color.dim ? color.dim(', ') : ', ';
     for (const entry of groups) {
       const key = entry?.key || 'unknown';
       const tools = Array.isArray(entry?.tools) ? entry.tools : [];
       const formattedTools = tools.length
-        ? tools.map((name) => (color.cyan ? color.cyan(name) : name)).join(separator)
-        : color.yellow('none registered');
+        ? tools.map((name, idx) => {
+            const badge = color.green ? color.green(String(idx + 1).padStart(2, '0')) : String(idx + 1).padStart(2, '0');
+            return `${badge}${color.dim ? color.dim('·') : '.'}${color.cyan ? color.cyan(name) : name}`;
+          }).join(separator)
+        : color.red('none registered');
+      const countBadge = color.magentaBright ? color.magentaBright(`(${tools.length})`) : `(${tools.length})`;
       const bulletBase = color.cyanBright ? color.cyanBright(`• ${key}`) : `• ${key}`;
       const bullet = color.bold ? color.bold(bulletBase) : bulletBase;
-      console.log(`   ${bullet}`);
+      console.log(`   ${bullet} ${countBadge}`);
       console.log(`      ${arrow} ${formattedTools}`);
     }
   } catch (error) {
