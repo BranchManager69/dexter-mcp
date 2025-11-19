@@ -214,6 +214,31 @@ function buildBody(args) {
   return JSON.stringify(body);
 }
 
+function resolveAuthToken(extra) {
+  const headerSources = [
+    extra?.requestInfo?.headers,
+    extra?.httpRequest?.headers,
+    extra?.request?.headers,
+  ].filter(Boolean);
+
+  for (const headers of headerSources) {
+    const token =
+      headers?.authorization ||
+      headers?.Authorization ||
+      headers?.['x-user-token'] ||
+      headers?.['X-User-Token'];
+    if (typeof token === 'string' && token.trim()) {
+      if (token.startsWith('Bearer ')) {
+        return token.slice(7).trim();
+      }
+      return token.trim();
+    }
+  }
+
+  const fallback = String(process.env.MCP_SUPABASE_BEARER || '').trim();
+  return fallback || null;
+}
+
 export async function registerX402Toolset(server) {
   let resources = [];
   try {
@@ -304,11 +329,17 @@ export async function registerX402Toolset(server) {
 
         console.log(`[x402-debug] Tool: ${toolMeta.name}, Method: ${method}, URL: ${finalUrl}`);
 
+        const authToken = resolveAuthToken(args?._extra || {});
+        const authHeaders = { ...headers };
+        if (authToken) {
+            authHeaders['Authorization'] = `Bearer ${authToken}`;
+        }
+
         const { response, json, text } = await fetchWithX402Json(
           finalUrl,
           {
             method,
-            headers,
+            headers: authHeaders,
             body,
           },
           {
@@ -318,6 +349,7 @@ export async function registerX402Toolset(server) {
               acceptNetwork: accept?.network || null,
               acceptDescription: accept?.description || null,
             },
+            authHeaders: authHeaders,
           },
         );
 
