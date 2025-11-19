@@ -281,6 +281,7 @@ export async function fetchWithX402(url, init = {}, options = {}) {
   let attempt = 0;
   let paymentResult = null;
   let lastSettlement = null;
+  let settlementCount = 0;
 
   while (attempt < maxAttempts) {
     const headers = createHeaders(originalInit.headers);
@@ -302,23 +303,34 @@ export async function fetchWithX402(url, init = {}, options = {}) {
       return { response, paymentReceipt: lastSettlement };
     }
 
-    if (attempt + 1 >= maxAttempts) {
+    attempt += 1;
+    if (attempt >= maxAttempts) {
       const error = new Error('x402_retry_limit');
       error.response = response;
       throw error;
     }
 
-    try {
-      paymentResult = await handlePaymentRequired(url, response, attemptInit, {
-        ...options,
-        settlementPath,
-        attempt: attempt + 1,
-      });
-      attempt += 1;
-      lastSettlement = paymentResult;
-    } catch (error) {
-      error.response = error.response || response;
-      throw error;
+    const shouldRefreshPayment =
+      !paymentResult || options.refreshPaymentOnEach402 || options.forceRefreshPayment;
+
+    if (shouldRefreshPayment) {
+      try {
+        const settlementAttempt = settlementCount + 1;
+        paymentResult = await handlePaymentRequired(url, response, attemptInit, {
+          ...options,
+          settlementPath,
+          attempt: settlementAttempt,
+        });
+        settlementCount = settlementAttempt;
+        lastSettlement = paymentResult;
+      } catch (error) {
+        error.response = error.response || response;
+        throw error;
+      }
+    } else {
+      try {
+        console.debug('[x402] reusing existing settlement header');
+      } catch {}
     }
   }
 
