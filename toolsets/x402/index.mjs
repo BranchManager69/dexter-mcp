@@ -361,7 +361,7 @@ export async function registerX402Toolset(server) {
         if (json !== null && json !== undefined) {
           return {
             structuredContent: json,
-            content: [{ type: 'json', json }],
+            content: [{ type: 'text', text: JSON.stringify(json) }],
           };
         }
 
