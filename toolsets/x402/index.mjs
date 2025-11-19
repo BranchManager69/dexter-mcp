@@ -206,13 +206,11 @@ function applyQueryParams(url, params) {
 
 function buildBody(args) {
   const body = {};
-  let hasValue = false;
   for (const [key, value] of Object.entries(args)) {
     if (value === undefined) continue;
     body[key] = value;
-    hasValue = true;
   }
-  if (!hasValue) return null;
+  // Always return a JSON object, even if empty, for POST requests
   return JSON.stringify(body);
 }
 

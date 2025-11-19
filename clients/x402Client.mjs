@@ -187,6 +187,12 @@ async function attemptSettlement({
     const error = new Error('x402_settlement_failed');
     error.response = response;
     error.details = details;
+    console.error('[x402] settlement failed', {
+      status: response.status,
+      statusText: response.statusText,
+      url: settleUrl,
+      details: JSON.stringify(details)
+    });
     throw error;
   }
 
