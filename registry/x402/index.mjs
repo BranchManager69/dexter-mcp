@@ -63,7 +63,7 @@ function transformRecord(record) {
 
   return {
     id: record.id,
-    resourceUrl: trimUrl(record.resource_url || ''),
+    resourceUrl: trimUrl(record.resource_url || '').replace(/^http:\/\/api\.dexter\.cash/, 'https://api.dexter.cash'),
     facilitatorUrl: record.facilitator_url || null,
     payTo: record.pay_to || null,
     x402Version: rawResponse.x402Version || record.x402_version || 1,

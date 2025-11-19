@@ -298,6 +298,12 @@ export async function registerX402Toolset(server) {
           body = buildBody(args);
         }
 
+        if (finalUrl.startsWith('http://api.dexter.cash')) {
+          finalUrl = finalUrl.replace('http://', 'https://');
+        }
+
+        console.log(`[x402-debug] Tool: ${toolMeta.name}, Method: ${method}, URL: ${finalUrl}`);
+
         const { response, json, text } = await fetchWithX402Json(
           finalUrl,
           {
