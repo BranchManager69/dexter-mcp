@@ -102,7 +102,7 @@ export function registerHyperliquidToolset(server) {
 
       return {
         structuredContent: json,
-        content: [{ type: 'json', json }],
+        content: [{ type: 'text', text: JSON.stringify(json) }],
       };
     },
   );
@@ -157,7 +157,7 @@ export function registerHyperliquidToolset(server) {
 
       return {
         structuredContent: json,
-        content: [{ type: 'json', json }],
+        content: [{ type: 'text', text: JSON.stringify(json) }],
       };
     },
   );
@@ -212,7 +212,7 @@ export function registerHyperliquidToolset(server) {
 
       return {
         structuredContent: json,
-        content: [{ type: 'json', json }],
+        content: [{ type: 'text', text: JSON.stringify(json) }],
       };
     },
   );
