@@ -531,7 +531,7 @@ export function registerOnchainToolset(server) {
       _meta: {
         category: 'onchain.analytics',
         access: 'public',
-        tags: ['onchain', 'dexter', 'analytics'],
+        tags: ['onchain', 'dexter', 'analytics', 'x402'],
         parameters: ACTIVITY_PARAMETER_METADATA,
       },
       inputSchema: ActivityBaseSchema.shape,
@@ -571,7 +571,7 @@ export function registerOnchainToolset(server) {
       _meta: {
         category: 'onchain.analytics',
         access: 'public',
-        tags: ['onchain', 'insight', 'dexter'],
+        tags: ['onchain', 'insight', 'dexter', 'x402'],
         parameters: ENTITY_PARAMETER_METADATA,
       },
       inputSchema: EntityBaseSchema.shape,

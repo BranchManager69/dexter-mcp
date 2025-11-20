@@ -119,9 +119,10 @@ function wrapRegisterTool(server) {
 
     const wrapped = async (args, extra) => {
       const started = Date.now();
+      const timestamp = new Date(started).toISOString().split('T')[1].slice(0, 8) + ' UTC';
       try {
         const argPreview = JSON.stringify(args || {}).slice(0, 200);
-        console.log(`${label} ${color.yellow('start')} name=${color.blueBright(name)} args=${color.dim(argPreview)}`);
+        console.log(`${timestamp} ${label} ${color.yellow('start')} name=${color.blueBright(name)} args=${color.dim(argPreview)}`);
         const result = await handler(args, extra);
         const duration = Date.now() - started;
         
@@ -138,7 +139,7 @@ function wrapRegisterTool(server) {
            summary = `content=[${result.content.length}]`;
         }
         
-        console.log(`${label} ${color.green('ok')} name=${color.blueBright(name)} ms=${color.cyan(duration)} ${color.yellow(summary)}`);
+        console.log(`${timestamp} ${label} ${color.green('ok')} name=${color.blueBright(name)} ms=${color.cyan(duration)} ${color.yellow(summary)}`);
         return result;
       } catch (error) {
         const duration = Date.now() - started;
@@ -147,7 +148,7 @@ function wrapRegisterTool(server) {
         const isHtmlError = message.includes('<!DOCTYPE') || message.includes('<html');
         const cleanMessage = isHtmlError ? 'HTML Error Response (likely 404/500)' : message;
         
-        console.error(`${label} ${color.red('err')} name=${color.blueBright(name)} ms=${color.cyan(duration)} error=${color.red(cleanMessage)}`);
+        console.error(`${timestamp} ${label} ${color.red('err')} name=${color.blueBright(name)} ms=${color.cyan(duration)} error=${color.red(cleanMessage)}`);
         if (!isHtmlError && process.env.MCP_LOG_STACK === 'true') {
            console.error(error);
         }

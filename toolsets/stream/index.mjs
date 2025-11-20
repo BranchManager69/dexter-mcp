@@ -280,7 +280,7 @@ export function registerStreamToolset(server) {
       _meta: {
         category: 'stream.engagement',
         access: 'member',
-        tags: ['stream', 'shout', 'engagement'],
+        tags: ['stream', 'shout', 'engagement', 'x402'],
       },
       inputSchema: shoutInputSchema.shape,
     },

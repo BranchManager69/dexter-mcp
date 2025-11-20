@@ -104,6 +104,7 @@ const PATH_OVERRIDES = new Map([
       category: 'diagnostics.x402',
       access: 'member',
       tags: ['x402', 'diagnostics'],
+      promptSlug: 'agent.concierge.tool.x402_scan_stats',
     },
   ],
   [

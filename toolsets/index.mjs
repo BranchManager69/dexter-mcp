@@ -234,6 +234,36 @@ export async function registerSelectedToolsets(server, selection) {
   server.__dexterLoadedToolsets = [...keys];
   server.__dexterToolGroups = groups;
 
+  try {
+    const allTools = [];
+    if (server._registeredTools && typeof server._registeredTools === 'object') {
+      for (const [name, tool] of Object.entries(server._registeredTools)) {
+        allTools.push({ name, ...tool });
+      }
+    }
+    
+    const paidTools = allTools.filter(t => 
+      t._meta?.tags?.includes('paid') || 
+      t._meta?.tags?.includes('x402') ||
+      t._meta?.category?.includes('x402')
+    );
+
+    if (paidTools.length > 0) {
+        const divider = color.dim ? color.dim('─'.repeat(48)) : '────────────────────────────────────────────────';
+        console.log(`${label} ${color.yellow('Paid Tools (x402)')} ${color.green(`[${paidTools.length}]`)}`);
+        console.log(`   ${divider}`);
+        const arrow = color.dim ? color.dim('↳') : '↳';
+        for (let i = 0; i < paidTools.length; i++) {
+            const tool = paidTools[i];
+            const name = color.bgBlue ? color.bgBlue.black(` ${tool.name} `) : tool.name;
+            const badge = color.green ? color.green(String(i + 1).padStart(2, '0')) : String(i + 1).padStart(2, '0');
+            console.log(`   ${arrow} ${badge} ${name} ${color.dim(`(${tool._meta?.category || 'unknown'})`)}`);
+        }
+    }
+  } catch (err) {
+     // Ignore logging errors
+  }
+
   return keys;
 }
 
