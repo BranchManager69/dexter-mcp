@@ -146,7 +146,16 @@ function wrapRegisterTool(server) {
         const message = error?.message || String(error);
         // Only print stack if it's not a standard error message or if explicit debugging is on
         const isHtmlError = message.includes('<!DOCTYPE') || message.includes('<html');
-        const cleanMessage = isHtmlError ? 'HTML Error Response (likely 404/500)' : message;
+        let cleanMessage = isHtmlError ? 'HTML Error Response (likely 404/500)' : message;
+
+        if (isHtmlError) {
+           // Try to extract HTTP status code if embedded in error context or message
+           if (message.includes('502')) cleanMessage = 'HTML Error Response (502 Bad Gateway)';
+           else if (message.includes('504')) cleanMessage = 'HTML Error Response (504 Gateway Timeout)';
+           else if (message.includes('404')) cleanMessage = 'HTML Error Response (404 Not Found)';
+           else if (message.includes('403')) cleanMessage = 'HTML Error Response (403 Forbidden)';
+           else if (message.includes('500')) cleanMessage = 'HTML Error Response (500 Internal Server Error)';
+        }
         
         console.error(`${timestamp} ${label} ${color.red('err')} name=${color.blueBright(name)} ms=${color.cyan(duration)} error=${color.red(cleanMessage)}`);
         if (!isHtmlError && process.env.MCP_LOG_STACK === 'true') {
