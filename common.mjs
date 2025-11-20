@@ -120,15 +120,37 @@ function wrapRegisterTool(server) {
     const wrapped = async (args, extra) => {
       const started = Date.now();
       try {
-        console.log(`${label} ${color.yellow('start')} name=${color.blueBright(name)}`);
+        const argPreview = JSON.stringify(args || {}).slice(0, 200);
+        console.log(`${label} ${color.yellow('start')} name=${color.blueBright(name)} args=${color.dim(argPreview)}`);
         const result = await handler(args, extra);
         const duration = Date.now() - started;
-        console.log(`${label} ${color.green('ok')} name=${color.blueBright(name)} ms=${color.cyan(duration)}`);
+        
+        let summary = '';
+        if (result?.structuredContent) {
+           const keys = Object.keys(result.structuredContent).filter(k => k !== 'ok');
+           summary = keys.map(k => {
+             const val = result.structuredContent[k];
+             if (Array.isArray(val)) return `${k}=${val.length}`;
+             if (typeof val === 'object' && val !== null) return `${k}={...}`;
+             return `${k}=${val}`;
+           }).join(' ');
+        } else if (result?.content && Array.isArray(result.content)) {
+           summary = `content=[${result.content.length}]`;
+        }
+        
+        console.log(`${label} ${color.green('ok')} name=${color.blueBright(name)} ms=${color.cyan(duration)} ${color.yellow(summary)}`);
         return result;
       } catch (error) {
         const duration = Date.now() - started;
-        const message = error?.stack || error?.message || String(error);
-        console.error(`${label} ${color.red('err')} name=${color.blueBright(name)} ms=${color.cyan(duration)} error=${color.red(message)}`);
+        const message = error?.message || String(error);
+        // Only print stack if it's not a standard error message or if explicit debugging is on
+        const isHtmlError = message.includes('<!DOCTYPE') || message.includes('<html');
+        const cleanMessage = isHtmlError ? 'HTML Error Response (likely 404/500)' : message;
+        
+        console.error(`${label} ${color.red('err')} name=${color.blueBright(name)} ms=${color.cyan(duration)} error=${color.red(cleanMessage)}`);
+        if (!isHtmlError && process.env.MCP_LOG_STACK === 'true') {
+           console.error(error);
+        }
         throw error;
       }
     };
