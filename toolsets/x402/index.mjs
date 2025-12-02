@@ -312,16 +312,16 @@ export async function registerX402Toolset(server) {
           bounty: bountyMeta,
         },
         inputSchema: shape,
-      }, async (args = {}) => {
+      }, async (args, extra) => {
         const headers = { Accept: 'application/json' };
         let finalUrl = resourceUrl;
         let body;
 
         if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
-          finalUrl = applyQueryParams(resourceUrl, args);
+          finalUrl = applyQueryParams(resourceUrl, args || {});
         } else {
           headers['Content-Type'] = 'application/json';
-          body = buildBody(args);
+          body = buildBody(args || {});
         }
 
         if (finalUrl.startsWith('http://api.dexter.cash')) {
@@ -330,7 +330,8 @@ export async function registerX402Toolset(server) {
 
         console.log(`[x402-debug] Tool: ${toolMeta.name}, Method: ${method}, URL: ${finalUrl}`);
 
-        const authToken = resolveAuthToken(args?._extra || {});
+        // Correctly resolve auth token from the extra context passed by MCP server
+        const authToken = resolveAuthToken(extra || args?._extra || {});
         const authHeaders = { ...headers };
         if (authToken) {
             authHeaders['Authorization'] = `Bearer ${authToken}`;

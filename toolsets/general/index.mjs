@@ -207,7 +207,7 @@ export function registerGeneralToolset(server) {
       };
 
       return {
-        content: [{ type: 'text', text: JSON.stringify({ url, title: structured.title, has_content: Boolean(structured.content) }) }],
+        content: [{ type: 'text', text: structured.text || structured.content || JSON.stringify({ url, title: structured.title, has_content: false }) }],
         structuredContent: structured,
       };
     },

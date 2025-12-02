@@ -84,6 +84,12 @@ function getSupabaseBearer(extra) {
 async function apiFetch(path, init, extra) {
   const base = (process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '');
   const token = getSupabaseBearer(extra);
+  if (token) {
+     const preview = token.slice(0, 5) + '...' + token.slice(-5);
+     // console.log(`[solana] apiFetch using token: ${preview} for ${path}`);
+  } else {
+     // console.log(`[solana] apiFetch using NO token for ${path}`);
+  }
   const headers = Object.assign(
     {
       Accept: 'application/json',
