@@ -102,6 +102,17 @@ async function fetchWalletContext(extra) {
 
   try {
     const url = buildApiUrl(apiBase, '/api/wallets/resolver');
+    // Debug: Validate token string before fetch
+    try {
+      const headerVal = `Bearer ${token}`;
+      for (let i = 0; i < Math.min(headerVal.length, 25); i++) {
+        const code = headerVal.charCodeAt(i);
+        if (code > 255) {
+          console.warn(`[wallet-auth] Bad char at index ${i}: ${code} in token prefix: ${headerVal.slice(0, 20)}...`);
+        }
+      }
+    } catch {}
+
     const resp = await fetch(url, {
       method: 'GET',
       headers: {

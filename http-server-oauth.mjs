@@ -309,6 +309,12 @@ function safeJsonParse(text) {
   }
 }
 
+function resolveAppBase() {
+  const configured = process.env.CONNECTOR_LOGIN_BASE || process.env.PUBLIC_CONNECTOR_BASE;
+  if (configured) return configured.replace(/\/$/, '');
+  return 'https://dexter.cash';
+}
+
 function effectiveBaseUrl(req){
   const forwardedHost = String(req?.headers?.['x-forwarded-host'] || '').split(',')[0].trim();
 const rawHost = forwardedHost || String(req?.headers?.host || '').split(',')[0].trim();
@@ -711,7 +717,8 @@ function requestPrefersHtml(req) {
 
 async function forwardAuthorize(req, res) {
   const url = new URL(req.url || '', `http://${req.headers.host}`);
-  const targetUrl = buildConnectorApiUrl('connector/oauth/authorize', url.search);
+  // Force /api/ prefix for connector routes (hosted under /api in dexter-api)
+  const targetUrl = buildConnectorApiUrl('api/connector/oauth/authorize', url.search);
   let apiResponse;
   try {
     apiResponse = await fetch(targetUrl, {
@@ -765,7 +772,8 @@ async function forwardAuthorize(req, res) {
 
 async function forwardToken(req, res) {
   const url = new URL(req.url || '', `http://${req.headers.host}`);
-  const targetUrl = buildConnectorApiUrl('connector/oauth/token', url.search);
+  // Force /api/ prefix for connector routes
+  const targetUrl = buildConnectorApiUrl('api/connector/oauth/token', url.search);
   let body;
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     body = await readRawBody(req);
@@ -800,7 +808,8 @@ async function forwardToken(req, res) {
 
 async function forwardRegister(req, res) {
   const url = new URL(req.url || '', `http://${req.headers.host}`);
-  const targetUrl = buildConnectorApiUrl('mcp/dcr/register', url.search);
+  // Force /api/ prefix for connector routes
+  const targetUrl = buildConnectorApiUrl('api/mcp/dcr/register', url.search);
   let body;
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     body = await readRawBody(req);
@@ -1099,7 +1108,7 @@ function serveOAuthMetadata(pathname, res, req) {
         type: 'oauth',
         authorization_url: advertised.authorization,
         token_url: advertised.token,
-        client_id: clientId || '',
+        // client_id: clientId || '', // Omitted for DCR compatibility; clients should use their registered ID
         redirect_uri: `${base}/callback`,
         scopes: publishWithOpenId,
         pkce_required: true,
@@ -1107,6 +1116,8 @@ function serveOAuthMetadata(pathname, res, req) {
       } : null,
       // Expose client info here as well for clients that read only mcp.json
       mcp: { client_id: clientId || '', redirect_uri: `${base}/callback` },
+      privacy_policy_url: `${resolveAppBase()}/privacy`,
+      terms_of_service_url: `${resolveAppBase()}/terms`,
     }));
     return true;
   }

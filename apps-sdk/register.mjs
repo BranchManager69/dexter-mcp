@@ -6,17 +6,11 @@ import { buildWidgetBootstrapScript } from './bootstrap.js';
 const SKYBRIDGE_MIME = 'text/html+skybridge';
 const DEFAULT_WIDGET_DOMAIN = 'dexter-mcp';
 const APPS_SDK_DIR = path.resolve(new URL('.', import.meta.url).pathname, '../public/apps-sdk');
-const MCP_PUBLIC_URL = String(process.env.TOKEN_AI_MCP_PUBLIC_URL || 'http://localhost:3930/mcp').replace(/\/+$/, '');
-const DEFAULT_ASSET_BASE = (() => {
-  const raw = String(process.env.TOKEN_AI_APPS_SDK_ASSET_BASE || '').trim();
-  const base = raw.length ? raw : `${MCP_PUBLIC_URL}/app-assets`;
-  return base.replace(/\/+$/, '');
-})();
 
-function rewriteHtmlForAssets(html) {
+function rewriteHtmlForAssets(html, assetBase) {
   if (!html) return html;
   return html
-    .replace(/(src|href)="\.\/assets\/([^"]+)"/g, (_, attr, file) => `${attr}="${DEFAULT_ASSET_BASE}/${file}"`)
+    .replace(/(src|href)="\.\/assets\/([^"]+)"/g, (_, attr, file) => `${attr}="${assetBase}/${file}"`)
     .replace(/\sdata-asset-base="[^"]*"/g, '');
 }
 
@@ -44,10 +38,10 @@ function fileExistsSync(filePath) {
   }
 }
 
-function buildWidgetCsp() {
+function buildWidgetCsp(assetBase) {
   const extraOrigins = [];
   try {
-    const origin = new URL(DEFAULT_ASSET_BASE).origin;
+    const origin = new URL(assetBase).origin;
     if (origin) {
       extraOrigins.push(origin);
     }
@@ -75,13 +69,18 @@ export function registerAppsSdkResources(server) {
   if (!server || typeof server.registerResource !== 'function') return;
   if (!isAppsSdkEnabled()) return;
 
-  const assetBase = DEFAULT_ASSET_BASE;
+  const MCP_PUBLIC_URL = String(process.env.TOKEN_AI_MCP_PUBLIC_URL || 'http://localhost:3930/mcp').replace(/\/+$/, '');
+  const assetBase = (() => {
+    const raw = String(process.env.TOKEN_AI_APPS_SDK_ASSET_BASE || '').trim();
+    const base = raw.length ? raw : `${MCP_PUBLIC_URL}/app-assets`;
+    return base.replace(/\/+$/, '');
+  })();
   if (!assetBase.startsWith('https://')) {
     console.warn('[apps-sdk] asset base is not HTTPS, skipping widget registration:', assetBase);
     return;
   }
 
-  const widgetCsp = buildWidgetCsp();
+  const widgetCsp = buildWidgetCsp(assetBase);
   const entries = [
     {
       name: 'dexter_portfolio_status',
@@ -167,7 +166,7 @@ export function registerAppsSdkResources(server) {
       },
       async () => {
         const rawHtml = await fsp.readFile(assetPath, 'utf8');
-        const rewritten = tagEntryScript(rewriteHtmlForAssets(rawHtml), entry.name);
+        const rewritten = tagEntryScript(rewriteHtmlForAssets(rawHtml, assetBase), entry.name);
         const html = injectBootstrap(rewritten, MCP_PUBLIC_URL);
 
         return {

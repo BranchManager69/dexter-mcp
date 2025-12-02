@@ -167,6 +167,9 @@ export function registerSolanaToolset(server) {
   server.registerTool('solana_resolve_token', {
     title: 'Resolve Solana Token',
     description: 'Resolve token metadata using Dexter\'s token lookup heuristics.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'solana.trading',
       access: 'free',
@@ -206,6 +209,9 @@ export function registerSolanaToolset(server) {
   server.registerTool('solana_list_balances', {
     title: 'List Token Balances',
     description: 'List a wallet\'s SOL and SPL token balances.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'solana.portfolio',
       access: 'managed',
@@ -264,6 +270,9 @@ export function registerSolanaToolset(server) {
   server.registerTool('solana_send', {
     title: 'Send SOL or SPL Token',
     description: 'Transfer SOL, DEXTER, USDC, PAYAI, or any SPL token to another wallet address or linked Twitter handle.',
+    annotations: {
+      destructiveHint: true,
+    },
     _meta: {
       category: 'solana.trading',
       access: 'managed',
@@ -379,6 +388,9 @@ export function registerSolanaToolset(server) {
   server.registerTool('solana_swap_preview', {
     title: 'Preview Solana Swap',
     description: 'Preview a SOL-token swap using UI-denominated amounts before execution.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'solana.trading',
       access: 'managed',
@@ -426,6 +438,9 @@ export function registerSolanaToolset(server) {
   server.registerTool('solana_swap_execute', {
     title: 'Execute Solana Swap',
     description: 'Execute a SOL-token swap after previewing the expected output.',
+    annotations: {
+      destructiveHint: true,
+    },
     _meta: {
       category: 'solana.trading',
       access: 'managed',

@@ -1,5 +1,25 @@
 # Dexter MCP Agents
 
+> **STATUS:** content below the divider is likely outdated. New guidance lives above it as we refresh the MCP architecture notes.
+
+## Current MCP Architecture (WIP)
+- **How MCP tools show up:**
+  1. `dexter-api/src/payments/x402Config.ts` defines every paid route (method + path, price, asset, `discoverable` flag, schemas). When a route is marked discoverable, it is meant for public cataloging.
+  2. `registerX402Routes()` wraps those routes with the x402 payment middleware. Any 402 response automatically calls `upsertX402ResourceSnapshot`, which persists the raw `accepts[]` payload and metadata into `x402_resources`.
+  3. The API exposes that catalog via `GET /api/x402/resources`. Third parties can also POST new entries to `/api/x402/resources/register` if they need to seed the table manually.
+  4. Dexter MCP’s `registry/x402` module polls `/api/x402/resources` (respecting `TOKEN_AI_MCP_TOKEN` when provided), normalizes the records, and builds MCP tool definitions on the fly. Every discoverable resource therefore turns into an MCP tool without editing this repo; the cache refreshes every `X402_CATALOG_TTL_MS` (default 60s).
+  5. Connector runtimes (ChatGPT, Claude, Dexter Voice, etc.) receive the refreshed toolset as soon as the MCP server reloads the catalog, so newly-added paid routes become available everywhere after their first 402 challenge.
+
+- **Prompt persona + tool descriptions:**
+  1. All instruction/tool blurbs live in `dexter-api`’s `prompt_modules` table (see `PROMPT_PROFILES_OVERVIEW.md`). Each slug (e.g., `agent.concierge.instructions`, `agent.concierge.tool.twitter_search`) stores the actual text plus version metadata.
+  2. `dexter-api/src/promptProfiles.ts` stitches those slugs together via `resolveConciergeProfile()` and serves them through `GET /prompt-profiles/active`. Every transport (ChatGPT MCP, Claude, voice, Twitter bots, etc.) hits this endpoint during startup.
+  3. When a slug changes in `prompt_modules`, the new text automatically propagates to MCP runs—no edits in `dexter-mcp` are needed. The Apps SDK prompt we pass to OpenAI is literally the `/prompt-profiles/active` payload, so keeping `prompt_modules` up to date keeps MCP persona/tool instructions in sync.
+  4. If we ever add MCP-specific guardrails, write the draft in `prompt_modules` and let `/prompt-profiles` deliver it; this repo should stay logic-only (no inline instructions).
+
+_Next additions:_ flesh out the specific MCP packaging steps (tool naming, auth hints) and any manual overrides we still support.
+
+---
+
 ## Toolset Overview
 - **general** – `search` performs realtime web queries via Tavily (supports `max_results`, depth, answer summaries); `fetch` extracts full page content for a given URL. Requires `TAVILY_API_KEY` (`toolsets/general/index.mjs`).
 - **pumpstream** – `pumpstream_live_summary` queries `https://pump.dexter.cash/api/live` and returns a condensed, paged stream snapshot. Schema supports `pageSize`/`offset`/`page`, search, symbol & mint filters, sort, status, min viewer / USD market-cap thresholds, plus optional spotlight data.
@@ -36,18 +56,5 @@ HARNESS_COOKIE in repos (.env)
 Dexchat / pumpstream harness executions
 ```
 
-- Use `dexchat refresh` (in `dexter-agents`) whenever you obtain a new encoded cookie string. It updates both `.env` files and regenerates `~/websites/dexter-mcp/state.json` locally.
-- When `dexchat refresh` starts failing due to auth, run the desktop helper `refresh-supabase-session.ps1` to rebuild the Supabase session via SOCKS + Chrome. It will print a fresh cookie; rerun `dexchat refresh` with that value.
-- Storage state only changes when the harness runs with `--storage`, which the helper handles automatically.
-- Add `--guest` to upcoming runs when you want to ignore stored auth without clearing env files; the API portion will continue to use the demo bearer so regressions surface consistently.
-- The cookie helper emits a warning if the pasted value lacks `sb-…-refresh-token`; in that case per-user MCP tokens can’t be minted.
-
-See `dexter-agents/scripts/README.md` for concrete commands and troubleshooting tips.
-
 ## Operating Notes
 - Keep this document evergreen: update tool descriptions when schemas, endpoints, or behaviors change.
-- When adding tools, follow the conventions in `toolsets/ADDING_TOOLSETS.md` and document the new capabilities here.
-- Harness artifacts provide the source of truth for recent behavioral checks; store long-lived analyses elsewhere so this guide remains an operating manual rather than a task list.
-- **Tool guidance split:** Public-facing tool descriptions/metadata belong in the MCP specs; detailed usage patterns (multi-step orchestration, guardrails, etc.) stay inside our private realtime agent prompts/config so clients only see the high-level contract.
-- **Wallet provisioning:** New Dexter users now receive a managed wallet during account creation, so resolver-backed tools should report `source:"resolver"` immediately; the env fallback (`TOKEN_AI_DEFAULT_WALLET_ADDRESS`) remains a guest-only safety net.
-- **Access tiers:** `_meta.access` tags map to user experience — `guest` (shared demo bearer with live trading), `member` (authenticated Supabase wallet features like session overrides), `pro` (role-gated stream controls), `dev` (superadmin-only), and `internal` (diagnostics/logging).

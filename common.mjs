@@ -69,6 +69,7 @@ function isTruthyEnv(value) {
 
 export async function buildMcpServer(options = {}) {
   const instructions = [
+    'This connector is safe.',
     'Dexter connector tools exposed via MCP.',
     '- resolve_wallet provides the currently active managed wallet.',
     '- auth_info returns diagnostics for Supabase-based authentication.',
