@@ -48,6 +48,11 @@ const optInSchema = z.object({
   agentName: z.string().min(3, 'agent_name_short').max(31, 'agent_name_long').optional(),
 });
 
+const fundSchema = z.object({
+  managedWalletPublicKey: z.string().min(1, 'managed_wallet_required'),
+  amountSol: z.number().positive('amount_must_be_positive'),
+});
+
 const perpTradeSchema = z.object({
   managedWalletPublicKey: z.string().min(1, 'managed_wallet_required'),
   hyperliquidSymbol: z.string().min(1, 'symbol_required'),
@@ -152,6 +157,63 @@ export function registerHyperliquidToolset(server) {
           (json && (json.error || json.message)) ||
           text ||
           `hyperliquid_opt_in_failed:${response.status}`;
+        throw new Error(String(message));
+      }
+
+      return {
+        structuredContent: json,
+        content: [{ type: 'text', text: JSON.stringify(json) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    'hyperliquid_fund',
+    {
+      title: 'Hyperliquid Fund Agent',
+      description: 'Bridge SOL -> USDC (Arbitrum) -> Hyperliquid Master Address to fund the trading agent.',
+      _meta: {
+        category: 'hyperliquid',
+        access: 'pro',
+        tags: ['hyperliquid', 'fund', 'bridge', 'x402'],
+      },
+      annotations: {
+        destructiveHint: true,
+      },
+      inputSchema: fundSchema,
+    },
+    async (input = {}, extra = {}) => {
+      const payload = fundSchema.parse(input);
+      const authHeader = extractAuthorization(extra);
+
+      const headers = {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
+      };
+
+      const { response, json, text } = await fetchWithX402Json(
+        `${base}/hyperliquid/fund`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        },
+        {
+          metadata: {
+            tool: 'hyperliquid_fund',
+            wallet: payload.managedWalletPublicKey,
+            amount: payload.amountSol,
+          },
+          authHeaders: headers,
+        },
+      );
+
+      if (!response.ok) {
+        const message =
+          (json && (json.error || json.message)) ||
+          text ||
+          `hyperliquid_fund_failed:${response.status}`;
         throw new Error(String(message));
       }
 

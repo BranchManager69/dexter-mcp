@@ -41,9 +41,10 @@ const PATH_OVERRIDES = new Map([
     {
       name: 'slippage_sentinel',
       title: 'Slippage Sentinel Analysis',
+      description: 'Analyze token volatility and market depth to calculate optimal slippage settings for swaps.',
       category: 'risk.monitoring',
       access: 'member',
-      tags: ['slippage', 'risk'],
+      tags: ['slippage', 'risk', 'volatility'],
     },
   ],
   [
@@ -61,9 +62,10 @@ const PATH_OVERRIDES = new Map([
     {
       name: 'twitter_topic_analysis',
       title: 'Twitter Topic Analysis',
+      description: 'Analyze recent Twitter conversation volume, sentiment, and engagement for a specific topic or cashtag.',
       category: 'research.social',
       access: 'member',
-      tags: ['twitter', 'analysis'],
+      tags: ['twitter', 'analysis', 'sentiment'],
     },
   ],
   [
@@ -101,9 +103,10 @@ const PATH_OVERRIDES = new Map([
     {
       name: 'x402_scan_stats',
       title: 'x402 Catalog Scan Stats',
+      description: 'Retrieve live x402 network statistics for Facilitators (Dexter, Coinbase, PayAI...), Resource Servers, Agents, and Origins. Use this to check transaction volumes, active agents, server health, or specific entity performance.',
       category: 'diagnostics.x402',
       access: 'member',
-      tags: ['x402', 'diagnostics'],
+      tags: ['x402', 'diagnostics', 'network', 'stats', 'facilitators', 'agents', 'servers'],
       promptSlug: 'agent.concierge.tool.x402_scan_stats',
     },
   ],
