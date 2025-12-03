@@ -51,6 +51,12 @@ const optInSchema = z.object({
 const fundSchema = z.object({
   managedWalletPublicKey: z.string().min(1, 'managed_wallet_required'),
   amountSol: z.number().positive('amount_must_be_positive'),
+  token: z.enum(['USDC', 'ETH']).optional(),
+});
+
+const depositSchema = z.object({
+  managedWalletPublicKey: z.string().min(1, 'managed_wallet_required'),
+  amountUsd: z.number().positive('amount_must_be_positive'),
 });
 
 const perpTradeSchema = z.object({
@@ -214,6 +220,60 @@ export function registerHyperliquidToolset(server) {
           (json && (json.error || json.message)) ||
           text ||
           `hyperliquid_fund_failed:${response.status}`;
+        throw new Error(String(message));
+      }
+
+      return {
+        structuredContent: json,
+        content: [{ type: 'text', text: JSON.stringify(json) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    'hyperliquid_bridge_deposit',
+    {
+      title: 'Hyperliquid Bridge Deposit',
+      description: 'Deposit funds from Arbitrum L2 (Master Wallet) into Hyperliquid L1 bridge contract.',
+      _meta: {
+        category: 'hyperliquid',
+        access: 'pro',
+        tags: ['hyperliquid', 'deposit', 'L2', 'L1'],
+      },
+      inputSchema: depositSchema,
+    },
+    async (input = {}, extra = {}) => {
+      const payload = depositSchema.parse(input);
+      const authHeader = extractAuthorization(extra);
+
+      const headers = {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
+      };
+
+      const { response, json, text } = await fetchWithX402Json(
+        `${base}/hyperliquid/deposit`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        },
+        {
+          metadata: {
+            tool: 'hyperliquid_bridge_deposit',
+            wallet: payload.managedWalletPublicKey,
+            amount: payload.amountUsd,
+          },
+          authHeaders: headers,
+        },
+      );
+
+      if (!response.ok) {
+        const message =
+          (json && (json.error || json.message)) ||
+          text ||
+          `hyperliquid_deposit_failed:${response.status}`;
         throw new Error(String(message));
       }
 
