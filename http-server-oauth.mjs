@@ -243,19 +243,21 @@ function identifyClient(userAgent = '') {
 
 function logSession(event, payload = {}) {
   try {
-    const summary = {
-      event,
-      sid: payload.sid || 'unknown',
-      label: payload.label || null,
-      user: payload.user || null,
-      issuer: payload.issuer || null,
-      email: payload.email || null,
-      agent: payload.agent || null,
-      client: payload.client || identifyClient(payload.agent) || null,
-    };
-    if (payload.durationMs !== undefined) summary.durationMs = payload.durationMs;
+    const sid = payload.sid || 'unknown';
+    const email = payload.email || null;
+    const user = payload.user || null;
+    const client = payload.client || identifyClient(payload.agent) || 'unknown';
+    
+    // Prefer email for display, fallback to user (uuid), or 'unknown'
+    const userDisplay = email ? `${email} (${user})` : (user || 'unknown');
     const labelText = color.cyan ? color.cyan('[mcp-session]') : '[mcp-session]';
-    console.log(labelText, summary);
+    const eventColor = event === 'start' ? color.green : (event === 'end' ? color.yellow : (s) => s);
+    
+    let msg = `${labelText} ${eventColor(event)} user=${color.white(userDisplay)} client=${color.blue(client)} sid=${color.dim(sid)}`;
+    if (payload.label) msg += ` label="${payload.label}"`;
+    if (payload.durationMs !== undefined) msg += ` duration=${payload.durationMs}ms`;
+    
+    console.log(msg);
   } catch (error) {
     console.log('[mcp-session]', event, payload?.sid || 'unknown');
   }
@@ -270,14 +272,17 @@ function summarizeParamType(value) {
 
 function logRpcRequest({ sid, phase, method, params, hasParamsKey, requestId }) {
   try {
-    console.log('[mcp] rpc', {
-      sid,
-      phase,
-      method: method || 'unknown',
-      params: summarizeParamType(params),
-      hasParams: Boolean(hasParamsKey),
-      id: requestId ?? null,
-    });
+    const ident = sessionIdentity.get(sid);
+    const email = ident?.email || null;
+    const sub = ident?.sub || null;
+    const userDisplay = email || sub || 'unknown';
+    
+    // Condensed log format
+    const methodStr = color.blueBright(method || 'unknown');
+    const paramStr = hasParamsKey ? ` params=${summarizeParamType(params)}` : '';
+    const idStr = requestId ? ` id=${requestId}` : '';
+    
+    console.log(`[mcp] rpc ${phase} user=${color.white(userDisplay)} method=${methodStr}${paramStr}${idStr}`);
   } catch {}
 }
 

@@ -121,9 +121,12 @@ function wrapRegisterTool(server) {
     const wrapped = async (args, extra) => {
       const started = Date.now();
       const timestamp = new Date(started).toISOString().split('T')[1].slice(0, 8) + ' UTC';
+      const userIdent = args?.__email ? color.cyan(args.__email) : (args?.__sub ? color.dim(args.__sub) : '');
+      const userLog = userIdent ? ` user=${userIdent}` : '';
+      
       try {
         const argPreview = JSON.stringify(args || {}).slice(0, 200);
-        console.log(`${timestamp} ${label} ${color.yellow('start')} name=${color.blueBright(name)} args=${color.dim(argPreview)}`);
+        console.log(`${timestamp} ${label} ${color.yellow('start')} name=${color.blueBright(name)}${userLog} args=${color.dim(argPreview)}`);
         const result = await handler(args, extra);
         const duration = Date.now() - started;
         
@@ -140,7 +143,7 @@ function wrapRegisterTool(server) {
            summary = `content=[${result.content.length}]`;
         }
         
-        console.log(`${timestamp} ${label} ${color.green('ok')} name=${color.blueBright(name)} ms=${color.cyan(duration)} ${color.yellow(summary)}`);
+        console.log(`${timestamp} ${label} ${color.green('ok')} name=${color.blueBright(name)}${userLog} ms=${color.cyan(duration)} ${color.yellow(summary)}`);
         return result;
       } catch (error) {
         const duration = Date.now() - started;
@@ -158,7 +161,7 @@ function wrapRegisterTool(server) {
            else if (message.includes('500')) cleanMessage = 'HTML Error Response (500 Internal Server Error)';
         }
         
-        console.error(`${timestamp} ${label} ${color.red('err')} name=${color.blueBright(name)} ms=${color.cyan(duration)} error=${color.red(cleanMessage)}`);
+        console.error(`${timestamp} ${label} ${color.red('err')} name=${color.blueBright(name)}${userLog} ms=${color.cyan(duration)} error=${color.red(cleanMessage)}`);
         if (!isHtmlError && process.env.MCP_LOG_STACK === 'true') {
            console.error(error);
         }
