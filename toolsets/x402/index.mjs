@@ -3,9 +3,19 @@ import { buildInputSchemaShape } from '../../lib/x402/zod.mjs';
 import { normalizeX402Fields, trimUrl } from '../../lib/x402/utils.mjs';
 import { fetchWithX402Json } from '../../clients/x402Client.mjs';
 
-const ALLOWED_HOSTS = new Set(['api.dexter.cash']);
+const ALLOWED_HOSTS = new Set(['api.dexter.cash', 'x402.dexter.cash']);
 
 const PATH_OVERRIDES = new Map([
+  [
+    '/hyperliquid/perp-trade',
+    {
+      name: 'hyperliquid_perp_trade',
+      title: 'Hyperliquid Perp Trade',
+      category: 'hyperliquid',
+      access: 'pro',
+      tags: ['hyperliquid', 'perps', 'trade', 'x402'],
+    },
+  ],
   [
     '/stream/shout',
     {
@@ -244,6 +254,9 @@ function resolveAuthToken(extra) {
 }
 
 export async function registerX402Toolset(server) {
+  // NOTE: We intentionally do NOT filter on "discoverable" here.
+  // Discoverable is a public catalog concern; MCP clients may use non-discoverable
+  // resources (e.g., authenticated surfaces like Hyperliquid). Keep them available.
   let resources = [];
   try {
     resources = await listX402Resources();
@@ -272,6 +285,12 @@ export async function registerX402Toolset(server) {
       const toolMeta = deriveToolMeta({ resourceUrl, resource, accept });
       if (!toolMeta?.name || takenNames.has(toolMeta.name) || isToolRegistered(server, toolMeta.name)) {
         return;
+      }
+      if (toolMeta.name.includes('-')) {
+        const underscoreName = toolMeta.name.replace(/-/g, '_');
+        if (takenNames.has(underscoreName) || isToolRegistered(server, underscoreName)) {
+          return;
+        }
       }
 
       takenNames.add(toolMeta.name);

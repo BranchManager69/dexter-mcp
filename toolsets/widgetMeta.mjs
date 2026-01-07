@@ -15,7 +15,7 @@ export function createWidgetMeta({
   const meta = {
     'openai/outputTemplate': templateUri,
     'openai/resultCanProduceWidget': true,
-    'openai/widgetAccessible': false,
+    'openai/widgetAccessible': true,
     'openai/widgetDomain': widgetDomain,
     'openai/widgetPrefersBorder': true,
     ...extra,

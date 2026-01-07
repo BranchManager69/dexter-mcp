@@ -6,6 +6,8 @@
   "description": "Dexter MCP HTTP server with Supabase OAuth",
   "scripts": {
     "start": "node http-server-oauth.mjs",
+    "mcp:sessions": "node scripts/mcp-sessions.mjs",
+    "mcp:sessions:json": "node scripts/mcp-sessions.mjs --json",
     "test:pumpstream": "node scripts/run-pumpstream-harness.js",
     "build:apps-sdk": "vite build --config apps-sdk/vite.config.ts"
   },

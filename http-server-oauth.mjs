@@ -190,6 +190,9 @@ const pendingToolsListRequests = new Map(); // requestId -> { sid, startedAt }
 // OAuth token cache (to avoid hitting IdP API on every request)
 const tokenCache = new Map(); // token -> { user, claims, expires }
 
+const SESSION_METRICS_INTERVAL_MS = Math.max(0, Number(process.env.MCP_SESSION_METRICS_INTERVAL_MS || 300_000) || 0);
+const SESSION_METRICS_TOP_N = Math.max(1, Math.min(100, Number(process.env.MCP_SESSION_METRICS_TOP_N || 10) || 10));
+
 function writeCors(res){
   try {
     res.setHeader('Access-Control-Allow-Origin', CORS_ORIGIN);
@@ -261,6 +264,49 @@ function logSession(event, payload = {}) {
   } catch (error) {
     console.log('[mcp-session]', event, payload?.sid || 'unknown');
   }
+}
+
+function logSessionMetricsSnapshot(reason = 'interval') {
+  try {
+    const byClient = new Map();
+    const byUser = new Map();
+
+    for (const sid of transports.keys()) {
+      const client = sessionClientHints.get(sid) || 'unknown';
+      byClient.set(client, (byClient.get(client) || 0) + 1);
+
+      const ident = sessionIdentity.get(sid) || {};
+      const user = ident.email || ident.sub || sessionUsers.get(sid) || 'unknown';
+      byUser.set(user, (byUser.get(user) || 0) + 1);
+    }
+
+    const topN = SESSION_METRICS_TOP_N;
+    const topClients = [...byClient.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, topN)
+      .map(([client, count]) => ({ client, count }));
+    const topUsers = [...byUser.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, topN)
+      .map(([user, count]) => ({ user, count }));
+
+    const mem = process.memoryUsage();
+    console.log('[mcp-metrics]', JSON.stringify({
+      ts: new Date().toISOString(),
+      reason,
+      sessions: {
+        transports: transports.size,
+        servers: servers.size,
+        identity_cache: sessionIdentity.size,
+        user_cache: sessionUsers.size,
+        labels: sessionLabels.size,
+        pending_tools_list: pendingToolsListRequests.size,
+      },
+      caches: { token_cache: tokenCache.size },
+      memory: { rss: mem.rss, heapUsed: mem.heapUsed, heapTotal: mem.heapTotal, external: mem.external },
+      top: { clients: topClients, users: topUsers },
+    }));
+  } catch {}
 }
 
 function summarizeParamType(value) {
@@ -1643,6 +1689,21 @@ server.listen(PORT, () => {
       console.warn(`${color.magentaBright('[diag]')} tools listing failed: ${color.red(err?.message || err)}`);
     }
   }, 1000);
+
+  // Periodic session/memory snapshot (helps diagnose session leaks)
+  if (SESSION_METRICS_INTERVAL_MS > 0) {
+    try {
+      console.log(`[mcp-metrics] enabled intervalMs=${SESSION_METRICS_INTERVAL_MS} topN=${SESSION_METRICS_TOP_N}`);
+    } catch {}
+    try {
+      const t = setTimeout(() => logSessionMetricsSnapshot('startup'), 2000);
+      t.unref?.();
+    } catch {}
+    try {
+      const timer = setInterval(() => logSessionMetricsSnapshot('interval'), SESSION_METRICS_INTERVAL_MS);
+      timer.unref?.();
+    } catch {}
+  }
 });
 
 let shutdownNoted = false;
