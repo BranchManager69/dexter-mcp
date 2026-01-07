@@ -1,39 +1,40 @@
 import '../styles/global.css';
 
-import { AppShell, Card, Field, Grid, EmptyState } from '../components/AppShell';
-import { abbreviateAddress, formatValue } from '../components/utils';
-import { registerReactComponent } from '../register';
-import type { PortfolioPayload, PortfolioWallet } from '../types';
-import { useDisplayMode, useMaxHeight, useRequestDisplayMode, useWidgetProps } from '../sdk';
+import { createRoot } from 'react-dom/client';
+import { useState, useEffect } from 'react';
+import { AppShell, Card, EmptyState, Field, Grid, Status, Warning } from '../components/AppShell';
+import { abbreviateAddress, formatTimestamp, formatValue } from '../components/utils';
+import type { PortfolioPayload, WalletBalance } from '../types';
+import { useDisplayMode, useMaxHeight, useOpenAIGlobal, useRequestDisplayMode } from '../sdk';
 
-function WalletCard({ wallet, index }: { wallet: PortfolioWallet; index: number }) {
-  const address = wallet.address ?? wallet.public_key ?? wallet.publicKey ?? '';
-  const label = wallet.label || `Wallet ${index + 1}`;
-  return (
-    <Card
-      title={label}
-      badge={
-        wallet.is_default
-          ? {
-              label: 'Default',
-            }
-          : undefined
-      }
-    >
-      <Grid columns={2}>
-        <Field label="Address" value={abbreviateAddress(address)} code />
-        <Field label="Status" value={formatValue(wallet.status || (wallet.is_default ? 'Active' : 'Registered'))} />
-        <Field label="Full Address" value={address || '—'} code />
-        <Field label="Label" value={formatValue(wallet.label)} />
-      </Grid>
-    </Card>
-  );
+interface PortfolioView {
+  wallets: WalletBalance[];
+  totalUsd: string;
+  updatedAt: number;
 }
 
-registerReactComponent<PortfolioPayload>('dexter/portfolio-status', (initialProps) => {
-  const props = useWidgetProps<PortfolioPayload>(() => initialProps);
-  const wallets = Array.isArray(props.wallets) ? props.wallets : [];
-  const userId = props.user?.id ? String(props.user.id) : null;
+function normalizePortfolio(payload: PortfolioPayload | null): PortfolioView | null {
+  if (!payload) return null;
+  const wallets = Array.isArray(payload.wallets) ? payload.wallets : [];
+  return {
+    wallets,
+    totalUsd: payload.totalUsd ?? '0.00',
+    updatedAt: payload.updatedAt ?? Date.now(),
+  };
+}
+
+function PortfolioStatus() {
+  const [debug, setDebug] = useState<string>('initializing...');
+  
+  useEffect(() => {
+    // Debug: Log what window.openai looks like
+    const openaiKeys = window.openai ? Object.keys(window.openai) : [];
+    const toolOutput = (window as any).openai?.toolOutput;
+    setDebug(`window.openai keys: [${openaiKeys.join(', ')}], toolOutput: ${JSON.stringify(toolOutput)?.slice(0, 100)}`);
+  }, []);
+
+  const props = useOpenAIGlobal('toolOutput') as PortfolioPayload | null;
+  const portfolio = normalizePortfolio(props);
   const maxHeight = useMaxHeight() ?? null;
   const displayMode = useDisplayMode();
   const requestDisplayMode = useRequestDisplayMode();
@@ -41,33 +42,53 @@ registerReactComponent<PortfolioPayload>('dexter/portfolio-status', (initialProp
   const style = maxHeight ? { maxHeight, overflow: 'auto' } : undefined;
   const canExpand = displayMode !== 'fullscreen' && typeof requestDisplayMode === 'function';
 
+  // Always show something, even if just debug info
   return (
     <AppShell style={style}>
-      <Card
-        title="Dexter Wallets"
-        badge={wallets.length ? { label: `${wallets.length} Wallet${wallets.length === 1 ? '' : 's'}` } : undefined}
-        actions={
-          canExpand ? (
-            <button className="dexter-link" onClick={() => requestDisplayMode?.({ mode: 'fullscreen' })}>
-              Expand
-            </button>
-          ) : null
-        }
-      >
-        <Grid columns={2}>
-          <Field label="User ID" value={formatValue(userId)} />
-          <Field label="Default Wallet" value={wallets.find((wallet) => wallet.is_default)?.address ?? '—'} code />
-        </Grid>
-      </Card>
-      {wallets.length ? (
-        <div className="dexter-token-list">
-          {wallets.map((wallet, index) => (
-            <WalletCard key={`${wallet.address ?? wallet.public_key ?? index}`} wallet={wallet} index={index} />
-          ))}
+      <Card title="Portfolio Overview" badge={{ label: portfolio ? `$${portfolio.totalUsd} USD` : 'Loading' }}>
+        {/* Debug info - remove after testing */}
+        <div style={{ background: '#222', color: '#0f0', padding: '8px', fontSize: '10px', fontFamily: 'monospace', marginBottom: '12px', borderRadius: '4px' }}>
+          <strong>DEBUG:</strong> {debug}
         </div>
-      ) : (
-        <EmptyState message="No wallets linked to this session yet." />
-      )}
+        
+        {!portfolio ? (
+          <EmptyState message="Fetching wallet data..." />
+        ) : portfolio.wallets.length === 0 ? (
+          <EmptyState message="No wallets linked." />
+        ) : (
+          portfolio.wallets.map((wallet, idx) => (
+            <div key={wallet.address || idx} style={{ marginBottom: 12 }}>
+              <Grid columns={3}>
+                <Field label="Address" value={abbreviateAddress(wallet.address)} code />
+                <Field label="Chain" value={formatValue(wallet.chain)} />
+                <Field label="SOL" value={formatValue(wallet.sol)} />
+                <Field label="USDC" value={formatValue(wallet.usdc)} />
+                <Field label="USDT" value={formatValue(wallet.usdt)} />
+                <Field label="Total (USD)" value={`$${formatValue(wallet.totalUsd)}`} />
+              </Grid>
+            </div>
+          ))
+        )}
+        {portfolio && portfolio.wallets.length > 0 && !portfolio.wallets.every((w) => w.verified) && (
+          <Warning>Some wallets are not verified. Deposits may fail until verified.</Warning>
+        )}
+        <Status>
+          <span>Updated {formatTimestamp(portfolio?.updatedAt ?? Date.now())}</span>
+        </Status>
+      </Card>
     </AppShell>
   );
-});
+}
+
+const root = document.getElementById('portfolio-status-root');
+if (root) {
+  createRoot(root).render(<PortfolioStatus />);
+} else {
+  // Fallback: create root ourselves
+  const fallbackRoot = document.createElement('div');
+  fallbackRoot.id = 'portfolio-status-root';
+  document.body.appendChild(fallbackRoot);
+  createRoot(fallbackRoot).render(<PortfolioStatus />);
+}
+
+export default PortfolioStatus;

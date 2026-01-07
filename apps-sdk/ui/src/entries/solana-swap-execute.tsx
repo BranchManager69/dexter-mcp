@@ -1,13 +1,14 @@
 import '../styles/global.css';
 
-import { AppShell, Card, Field, Grid, Status } from '../components/AppShell';
+import { createRoot } from 'react-dom/client';
+import { AppShell, Card, EmptyState, Field, Grid, Status } from '../components/AppShell';
 import { formatValue } from '../components/utils';
-import { registerReactComponent } from '../register';
 import type { SwapExecution, SwapPayload } from '../types';
-import { useDisplayMode, useMaxHeight, useRequestDisplayMode, useWidgetProps } from '../sdk';
+import { useDisplayMode, useMaxHeight, useOpenAIGlobal, useRequestDisplayMode } from '../sdk';
 
-function getExecution(props: SwapPayload): SwapExecution {
-  if (!props.result) return {};
+function getExecution(props: SwapPayload | null): SwapExecution | null {
+  if (!props) return null;
+  if (!props.result) return props as unknown as SwapExecution;
   return props.result as SwapExecution;
 }
 
@@ -21,16 +22,27 @@ function buildExplorerLink(signature: string | null | undefined) {
   );
 }
 
-registerReactComponent<SwapPayload>('dexter/solana-swap-execute', (initialProps) => {
-  const props = useWidgetProps<SwapPayload>(() => initialProps);
+function SolanaSwapExecute() {
+  const props = useOpenAIGlobal('toolOutput') as SwapPayload | null;
   const execution = getExecution(props);
-  const signature = execution.txSignature ?? execution.transactionSignature ?? execution.signature ?? null;
   const maxHeight = useMaxHeight() ?? null;
   const displayMode = useDisplayMode();
   const requestDisplayMode = useRequestDisplayMode();
 
   const style = maxHeight ? { maxHeight, overflow: 'auto' } : undefined;
   const canExpand = displayMode !== 'fullscreen' && typeof requestDisplayMode === 'function';
+
+  if (!execution) {
+    return (
+      <AppShell style={style}>
+        <Card title="Swap Execution" badge={{ label: 'Loading' }}>
+          <EmptyState message="Processing swap..." />
+        </Card>
+      </AppShell>
+    );
+  }
+
+  const signature = execution.txSignature ?? execution.transactionSignature ?? execution.signature ?? null;
 
   return (
     <AppShell style={style}>
@@ -46,14 +58,14 @@ registerReactComponent<SwapPayload>('dexter/solana-swap-execute', (initialProps)
         }
       >
         <Grid columns={3}>
-          <Field label="Input Mint" value={formatValue(execution.inputMint ?? props.request?.inputMint)} />
-          <Field label="Output Mint" value={formatValue(execution.outputMint ?? props.request?.outputMint)} />
-          <Field label="Wallet" value={formatValue(execution.walletAddress ?? props.request?.walletAddress)} />
-          <Field label="Amount In (UI)" value={formatValue(execution.amountUi ?? props.request?.amountUi)} />
+          <Field label="Input Mint" value={formatValue(execution.inputMint)} />
+          <Field label="Output Mint" value={formatValue(execution.outputMint)} />
+          <Field label="Wallet" value={formatValue(execution.walletAddress)} />
+          <Field label="Amount In (UI)" value={formatValue(execution.amountUi)} />
           <Field label="Output (UI)" value={formatValue(execution.outputAmountUi ?? execution.expectedOutputUi)} />
           <Field label="Price Impact (%)" value={execution.priceImpactPct ? `${formatValue(execution.priceImpactPct)}%` : '—'} />
           <Field label="Network Fee (SOL)" value={formatValue(execution.networkFeeSol)} />
-          <Field label="Slippage (bps)" value={formatValue(execution.slippageBps ?? props.request?.slippageBps)} />
+          <Field label="Slippage (bps)" value={formatValue(execution.slippageBps)} />
           <Field label="Route" value={formatValue(execution.route)} />
         </Grid>
         <Status>
@@ -64,4 +76,11 @@ registerReactComponent<SwapPayload>('dexter/solana-swap-execute', (initialProps)
       </Card>
     </AppShell>
   );
-});
+}
+
+const root = document.getElementById('solana-swap-execute-root');
+if (root) {
+  createRoot(root).render(<SolanaSwapExecute />);
+}
+
+export default SolanaSwapExecute;

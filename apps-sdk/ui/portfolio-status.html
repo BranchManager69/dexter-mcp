@@ -3,9 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <title>Dexter Portfolio</title>
+    <style>
+      body { margin: 0; padding: 16px; font-family: system-ui, sans-serif; }
+      #html-loaded { background: #10b981; color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; margin-bottom: 8px; }
+      noscript { display: block; background: #ef4444; color: white; padding: 16px; border-radius: 8px; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="html-loaded">✅ HTML loaded - waiting for React...</div>
+    <noscript>❌ JavaScript is disabled or blocked</noscript>
+    <div id="portfolio-status-root"></div>
     <script type="module" src="./src/entries/portfolio-status.tsx"></script>
+    <script>
+      // Inline script to test if ANY JS runs
+      document.getElementById('html-loaded').textContent = '✅ HTML loaded + inline JS runs - waiting for React module...';
+    </script>
   </body>
 </html>

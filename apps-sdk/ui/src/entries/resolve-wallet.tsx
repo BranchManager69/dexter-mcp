@@ -1,35 +1,48 @@
 import '../styles/global.css';
 
-import { AppShell, Card, Field, Grid, Status, Warning } from '../components/AppShell';
+import { createRoot } from 'react-dom/client';
+import { AppShell, Card, EmptyState, Field, Grid, Status, Warning } from '../components/AppShell';
 import { abbreviateAddress, formatTimestamp, formatValue } from '../components/utils';
-import { registerReactComponent } from '../register';
-import type { ResolveWalletPayload } from '../types';
-import { useDisplayMode, useMaxHeight, useRequestDisplayMode, useWidgetProps } from '../sdk';
+import type { ResolveWalletPayload, ResolvedWallet } from '../types';
+import { useDisplayMode, useMaxHeight, useOpenAIGlobal, useRequestDisplayMode } from '../sdk';
 
-registerReactComponent<ResolveWalletPayload>('dexter/resolve-wallet', (initialProps) => {
-  const props = useWidgetProps<ResolveWalletPayload>(() => initialProps);
+function normalizeResolved(payload: ResolveWalletPayload | null): ResolvedWallet | null {
+  if (!payload) return null;
+  const { result, ...rest } = payload;
+  return (result ?? rest) as ResolvedWallet | null;
+}
+
+function ResolveWallet() {
+  const props = useOpenAIGlobal('toolOutput') as ResolveWalletPayload | null;
+  const resolved = normalizeResolved(props);
   const maxHeight = useMaxHeight() ?? null;
   const displayMode = useDisplayMode();
   const requestDisplayMode = useRequestDisplayMode();
 
-  const resolvedAddress = props.wallet_address ?? '';
-  const statusDetail = props.detail ? formatValue(props.detail) : null;
-  const badges = [formatValue(props.source || 'unknown').toUpperCase()];
-  if (props.bearer_source) {
-    badges.push(`Bearer: ${formatValue(props.bearer_source)}`);
-  }
-  if (props.override_session) {
-    badges.push(`Override: ${formatValue(props.override_session)}`);
-  }
-
   const style = maxHeight ? { maxHeight, overflow: 'auto' } : undefined;
   const canExpand = displayMode !== 'fullscreen' && typeof requestDisplayMode === 'function';
+
+  if (!resolved) {
+    return (
+      <AppShell style={style}>
+        <Card title="Wallet Resolution" badge={{ label: 'Loading' }}>
+          <EmptyState message="Resolving wallet..." />
+        </Card>
+      </AppShell>
+    );
+  }
+
+  const address = resolved.address ?? resolved.walletAddress ?? null;
+  const chain = resolved.chain ?? 'solana';
+  const source = resolved.source ?? resolved.resolvedVia ?? 'unknown';
+  const verified = resolved.verified ?? false;
+  const linkedAt = resolved.linkedAt ?? null;
 
   return (
     <AppShell style={style}>
       <Card
-        title="Active Dexter Wallet"
-        badge={{ label: badges.join(' • ') }}
+        title="Wallet Resolution"
+        badge={{ label: verified ? 'Verified' : 'Unverified' }}
         actions={
           canExpand ? (
             <button className="dexter-link" onClick={() => requestDisplayMode?.({ mode: 'fullscreen' })}>
@@ -39,17 +52,24 @@ registerReactComponent<ResolveWalletPayload>('dexter/resolve-wallet', (initialPr
         }
       >
         <Grid columns={2}>
-          <Field label="Wallet Address" value={abbreviateAddress(resolvedAddress)} code />
-          <Field label="User ID" value={formatValue(props.user_id)} />
-          <Field label="Full Address" value={formatValue(resolvedAddress)} code />
-          <Field label="Resolved Source" value={formatValue(props.source)} />
+          <Field label="Address" value={abbreviateAddress(address ?? '')} code />
+          <Field label="Chain" value={formatValue(chain)} />
+          <Field label="Source" value={formatValue(source)} />
+          <Field label="Verified" value={verified ? 'Yes' : 'No'} />
+          {linkedAt && <Field label="Linked At" value={formatTimestamp(linkedAt)} />}
         </Grid>
+        {!verified && <Warning>This wallet is not verified. Resolve again to confirm.</Warning>}
         <Status>
-          <span>Updated {formatTimestamp(Date.now())}</span>
-          {statusDetail ? <span>{statusDetail}</span> : <span>Resolved via Dexter resolver.</span>}
-          {props.override_session ? <Warning>Session override is active. Clear it with the `set_session_wallet_override` tool if needed.</Warning> : null}
+          <span>Resolved via {source}</span>
         </Status>
       </Card>
     </AppShell>
   );
-});
+}
+
+const root = document.getElementById('resolve-wallet-root');
+if (root) {
+  createRoot(root).render(<ResolveWallet />);
+}
+
+export default ResolveWallet;

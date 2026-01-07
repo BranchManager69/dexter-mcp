@@ -1,12 +1,13 @@
 import '../styles/global.css';
 
+import { createRoot } from 'react-dom/client';
 import { AppShell, Card, EmptyState, Field, Grid, Status, Warning } from '../components/AppShell';
 import { abbreviateAddress, formatTimestamp, formatValue } from '../components/utils';
-import { registerReactComponent } from '../register';
 import type { SolanaSendPayload, SolanaSendTransfer } from '../types';
-import { useDisplayMode, useMaxHeight, useRequestDisplayMode, useWidgetProps } from '../sdk';
+import { useDisplayMode, useMaxHeight, useOpenAIGlobal, useRequestDisplayMode } from '../sdk';
 
-function normalizeTransfer(payload: SolanaSendPayload): SolanaSendTransfer | null {
+function normalizeTransfer(payload: SolanaSendPayload | null): SolanaSendTransfer | null {
+  if (!payload) return null;
   if (payload.result) {
     return payload.result;
   }
@@ -35,12 +36,25 @@ function formatHandle(handle: string | null | undefined): string {
   return `@${clean}`;
 }
 
-registerReactComponent<SolanaSendPayload>('dexter/solana-send', (initialProps) => {
-  const props = useWidgetProps<SolanaSendPayload>(() => initialProps);
+function SolanaSend() {
+  const props = useOpenAIGlobal('toolOutput') as SolanaSendPayload | null;
   const transfer = normalizeTransfer(props);
   const maxHeight = useMaxHeight() ?? null;
   const displayMode = useDisplayMode();
   const requestDisplayMode = useRequestDisplayMode();
+
+  const style = maxHeight ? { maxHeight, overflow: 'auto' } : undefined;
+  const canExpand = displayMode !== 'fullscreen' && typeof requestDisplayMode === 'function';
+
+  if (!props) {
+    return (
+      <AppShell style={style}>
+        <Card title="Solana Transfer" badge={{ label: 'Loading' }}>
+          <EmptyState message="Processing transfer..." />
+        </Card>
+      </AppShell>
+    );
+  }
 
   const status = props.ok ? 'sent' : props.error === 'confirmation_required' ? 'confirm' : 'error';
   const badgeLabel = status === 'sent' ? 'Sent' : status === 'confirm' ? 'Confirm' : 'Failed';
@@ -54,9 +68,6 @@ registerReactComponent<SolanaSendPayload>('dexter/solana-send', (initialProps) =
     : '—';
   const valueUsd = formatUsd(transfer?.valueUsd ?? null);
   const priceUsd = formatUsd(transfer?.priceUsd ?? null);
-
-  const style = maxHeight ? { maxHeight, overflow: 'auto' } : undefined;
-  const canExpand = displayMode !== 'fullscreen' && typeof requestDisplayMode === 'function';
 
   return (
     <AppShell style={style}>
@@ -117,4 +128,11 @@ registerReactComponent<SolanaSendPayload>('dexter/solana-send', (initialProps) =
       </Card>
     </AppShell>
   );
-});
+}
+
+const root = document.getElementById('solana-send-root');
+if (root) {
+  createRoot(root).render(<SolanaSend />);
+}
+
+export default SolanaSend;
