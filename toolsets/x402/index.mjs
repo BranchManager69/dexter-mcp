@@ -93,6 +93,7 @@ const PATH_OVERRIDES = new Map([
     {
       name: 'sora_video_job',
       title: 'Submit Sora Video Job',
+      description: 'Generate a video clip using OpenAI Sora. Use this only when the user explicitly requests video, animation, or motion. This tool cannot edit existing images - use meme_generator_job for any image work.',
       category: 'creative.jobs',
       access: 'member',
       tags: ['sora', 'video', 'job'],
@@ -103,9 +104,10 @@ const PATH_OVERRIDES = new Map([
     {
       name: 'meme_generator_job',
       title: 'Submit Meme Generator Job',
+      description: 'Generate or edit static images including memes, posters, and graphics. Can create from scratch or modify reference images. Use this for any image request - creating, editing, modifying, or remixing. Accepts reference images to edit or use as inspiration.',
       category: 'creative.jobs',
       access: 'member',
-      tags: ['memes', 'job'],
+      tags: ['memes', 'image', 'edit', 'job'],
     },
   ],
   [
