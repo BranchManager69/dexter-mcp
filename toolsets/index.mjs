@@ -9,6 +9,7 @@ import { registerMarketsToolset } from './markets/index.mjs';
 import { registerOnchainToolset } from './onchain/index.mjs';
 import { registerX402Toolset } from './x402/index.mjs';
 import { registerHyperliquidToolset } from './hyperliquid/index.mjs';
+import { registerStudioToolset } from './studio/index.mjs';
 
 const passthrough = (value) => String(value);
 
@@ -105,6 +106,10 @@ const TOOLSET_REGISTRY = {
   hyperliquid: {
     register: registerHyperliquidToolset,
     description: 'Hyperliquid perps execution (copytrade, stop-loss, take-profit).',
+  },
+  studio: {
+    register: registerStudioToolset,
+    description: 'Dexter Studio - invoke Claude agents programmatically (superadmin only).',
   },
 };
 
@@ -258,6 +263,29 @@ export async function registerSelectedToolsets(server, selection) {
             const name = color.bgBlue ? color.bgBlue.black(` ${tool.name} `) : tool.name;
             const badge = color.green ? color.green(String(i + 1).padStart(2, '0')) : String(i + 1).padStart(2, '0');
             console.log(`   ${arrow} ${badge} ${name} ${color.dim(`(${tool._meta?.category || 'unknown'})`)}`);
+        }
+    }
+
+    // Log Local Native tools (by toolset group, excluding x402)
+    const localGroups = groups.filter(g => g.key !== 'x402' && g.tools?.length > 0);
+    const localToolCount = localGroups.reduce((sum, g) => sum + (g.tools?.length || 0), 0);
+    
+    if (localToolCount > 0) {
+        const divider = color.dim ? color.dim('─'.repeat(48)) : '────────────────────────────────────────────────';
+        console.log(`${label} ${color.cyanBright('Local Native Tools')} ${color.green(`[${localToolCount}]`)}`);
+        console.log(`   ${divider}`);
+        const arrow = color.dim ? color.dim('↳') : '↳';
+        
+        for (const group of localGroups) {
+            const catBadge = color.magentaBright ? color.magentaBright(`[${group.tools.length}]`) : `[${group.tools.length}]`;
+            const catName = color.blueBright ? color.blueBright(group.key) : group.key;
+            console.log(`   ${color.bold ? color.bold(`• ${catBadge} ${catName}`) : `• ${catBadge} ${group.key}`}`);
+            for (let i = 0; i < group.tools.length; i++) {
+                const toolName = group.tools[i];
+                const badge = color.green ? color.green(String(i + 1).padStart(2, '0')) : String(i + 1).padStart(2, '0');
+                const displayName = color.yellow ? color.yellow(toolName) : toolName;
+                console.log(`      ${arrow} ${badge} ${displayName}`);
+            }
         }
     }
   } catch (err) {

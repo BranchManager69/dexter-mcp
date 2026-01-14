@@ -43,3 +43,6 @@ docs/docs-dev
 /~
 
 env-change-notes.md
+
+# Studio prompts (contain sensitive info)
+toolsets/studio/prompts/
