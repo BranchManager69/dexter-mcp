@@ -81,6 +81,30 @@ function decodeMcpJwt(token) {
   }
 }
 
+// Fetch user from Supabase by bearer token (validates token and returns user)
+async function fetchSupabaseUserByToken(token) {
+  if (!token || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return null;
+  }
+  try {
+    const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/auth/v1/user`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': SUPABASE_ANON_KEY,
+      },
+    });
+    if (!response.ok) {
+      console.warn('[studio] Supabase user lookup by token failed:', response.status);
+      return null;
+    }
+    return await response.json();
+  } catch (e) {
+    console.warn('[studio] Supabase user lookup by token error:', e.message);
+    return null;
+  }
+}
+
 // Fetch user from Supabase by ID (using service role key)
 async function fetchSupabaseUserById(userId) {
   if (!userId || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -108,15 +132,18 @@ async function ensureSuperAdmin(extra) {
     throw new Error('superadmin_required');
   }
   
-  // Step 1: Decode the MCP JWT
+  // Step 1: Try to decode the MCP JWT
   const jwtClaims = decodeMcpJwt(token);
-  if (!jwtClaims) {
-    console.warn('[studio] Failed to decode MCP JWT');
-    throw new Error('superadmin_required');
-  }
+  let supabaseUserId = null;
+  let roles = [];
   
-  const supabaseUserId = jwtClaims.supabase_user_id || jwtClaims.sub || null;
-  console.log('[studio] JWT decoded', { sub: jwtClaims.sub, supabaseUserId });
+  if (jwtClaims) {
+    supabaseUserId = jwtClaims.supabase_user_id || jwtClaims.sub || null;
+    roles = extractRoles(jwtClaims.roles);
+    console.log('[studio] JWT decoded', { sub: jwtClaims.sub, supabaseUserId });
+  } else {
+    console.warn('[studio] Failed to decode MCP JWT; falling back to Supabase lookup');
+  }
   
   // Step 2: Check if this is Branch (hardcoded superadmin)
   if (supabaseUserId === BRANCH_USER_ID) {
@@ -129,7 +156,6 @@ async function ensureSuperAdmin(extra) {
   }
   
   // Step 3: Check roles in JWT claims
-  let roles = extractRoles(jwtClaims.roles);
   if (roles.includes('superadmin')) {
     return {
       userId: supabaseUserId,
@@ -138,11 +164,38 @@ async function ensureSuperAdmin(extra) {
     };
   }
   
-  // Step 4: Fallback - look up user from Supabase to check app_metadata.roles
-  if (supabaseUserId) {
-    const user = await fetchSupabaseUserById(supabaseUserId);
-    if (user?.app_metadata?.roles) {
-      const userRoles = extractRoles(user.app_metadata.roles);
+  // Step 4: Fallback - look up user directly from Supabase using bearer token
+  const user = await fetchSupabaseUserByToken(token);
+  if (user) {
+    supabaseUserId = supabaseUserId || user.id;
+    
+    // Check if this is Branch
+    if (user.id === BRANCH_USER_ID) {
+      console.log('[studio] Branch detected via Supabase lookup, granting superadmin');
+      return {
+        userId: user.id,
+        roles: ['superadmin'],
+        isSuperAdmin: true,
+      };
+    }
+    
+    // Check roles in app_metadata
+    const userRoles = extractRoles(user.app_metadata?.roles);
+    if (userRoles.includes('superadmin')) {
+      return {
+        userId: user.id,
+        roles: userRoles,
+        isSuperAdmin: true,
+      };
+    }
+    roles = Array.from(new Set([...roles, ...userRoles]));
+  }
+  
+  // Step 5: Last resort - look up by ID if we have one
+  if (supabaseUserId && !user) {
+    const adminUser = await fetchSupabaseUserById(supabaseUserId);
+    if (adminUser?.app_metadata?.roles) {
+      const userRoles = extractRoles(adminUser.app_metadata.roles);
       if (userRoles.includes('superadmin')) {
         return {
           userId: supabaseUserId,

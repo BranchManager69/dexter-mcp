@@ -10,15 +10,20 @@
  *   node scripts/studio.mjs --model opus "Complex task"
  */
 
+// Load env BEFORE any other imports
+import dotenv from 'dotenv';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const __dirname_early = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: join(__dirname_early, '..', '.env') });
+
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFile } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { summarizeJob } from '../toolsets/studio/lib/summarizer.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __dirname = __dirname_early;
 
 // Colors
 const c = {
@@ -35,16 +40,17 @@ const c = {
   gray: '\x1b[90m',
 };
 
-// Supabase client
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+// Supabase client - initialized lazily (after dotenv loads)
 let supabase = null;
-
 function getSupabase() {
-  if (!supabase && SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-      auth: { persistSession: false },
-    });
+  if (!supabase) {
+    const url = process.env.SUPABASE_URL || '';
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    if (url && key) {
+      supabase = createClient(url, key, {
+        auth: { persistSession: false },
+      });
+    }
   }
   return supabase;
 }

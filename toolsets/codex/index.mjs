@@ -79,10 +79,12 @@ const execShape = {
 };
 const execSchema = z.object(execShape).passthrough();
 
-function buildTextResponse({ conversationId, message }) {
+function buildTextResponse({ conversationId, message, response }) {
   const lines = [];
-  if (message) {
-    lines.push(String(message));
+  // message may be at top level OR nested in response.text
+  const text = message || response?.text;
+  if (text) {
+    lines.push(String(text));
   }
   lines.push(`conversation_id: ${conversationId}`);
   return lines.join('\n\n');

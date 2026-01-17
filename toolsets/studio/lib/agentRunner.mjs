@@ -14,6 +14,74 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { summarizeJob } from './summarizer.mjs';
+import { spawn } from 'node:child_process';
+
+// Check if Claude CLI is available and not rate-limited
+// Returns { ok: true } or { ok: false, message: "friendly error message" }
+async function checkClaudeHealth() {
+  return new Promise((resolve) => {
+    const proc = spawn('claude', ['--print'], {
+      cwd: '/home/branchmanager/websites',
+      timeout: 30000, // 30s - Claude can take 20+ seconds to return spending cap message
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    proc.stdout.on('data', (d) => { stdout += d.toString(); });
+    proc.stderr.on('data', (d) => { stderr += d.toString(); });
+    
+    // Send a simple ping and close stdin
+    proc.stdin.write('ping\n');
+    proc.stdin.end();
+    
+    proc.on('close', (code) => {
+      const output = (stdout + stderr).trim().toLowerCase();
+      
+      // Check for known rate limit / spending cap messages - preserve the original for reset time
+      if (output.includes('spending cap')) {
+        // Try to extract reset time (e.g., "resets 9am")
+        const resetMatch = output.match(/resets?\s+(\d+\s*(?:am|pm)?)/i);
+        const resetTime = resetMatch ? ` Try again after ${resetMatch[1]}.` : ' Try again later.';
+        resolve({ ok: false, message: `Claude spending cap reached.${resetTime}` });
+        return;
+      }
+      
+      if (output.includes('rate limit') || output.includes('quota')) {
+        resolve({ ok: false, message: 'Claude is rate-limited. Try again in a few minutes.' });
+        return;
+      }
+      
+      if (output.includes('unauthorized') || output.includes('authentication')) {
+        resolve({ ok: false, message: 'Claude authentication issue. Please contact support.' });
+        return;
+      }
+      
+      if (code !== 0) {
+        // Translate exit codes to human-friendly messages
+        if (code === 143 || code === 137) {
+          // SIGTERM (143) or SIGKILL (137) - process was killed/timed out
+          resolve({ ok: false, message: 'Claude is not responding. It may be overloaded or at capacity. Try again shortly.' });
+        } else if (code === 1) {
+          resolve({ ok: false, message: 'Claude is temporarily unavailable. Try again in a few minutes.' });
+        } else {
+          resolve({ ok: false, message: 'Claude is having issues right now. Try again later.' });
+        }
+        return;
+      }
+      
+      resolve({ ok: true });
+    });
+    
+    proc.on('error', (err) => {
+      if (err.message.includes('ENOENT')) {
+        resolve({ ok: false, message: 'Claude is not installed on this system.' });
+      } else {
+        resolve({ ok: false, message: 'Could not reach Claude. Try again later.' });
+      }
+    });
+  });
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -305,11 +373,23 @@ export async function runJob(jobId) {
   }
   
   // Update status
-  await updateJob(jobId, { status: 'running', current_step: 'Starting agent...' });
+  await updateJob(jobId, { status: 'running', current_step: 'Checking Claude availability...' });
   addEvent(jobId, 'start', `Task received: ${job.task}`);
   
-  // Load system prompt
-  const systemPrompt = await loadPrompt('superadmin');
+  // Everything from here on is wrapped in try/catch to ensure errors are saved to DB
+  try {
+    // Pre-flight check: ensure Claude CLI is available and not rate-limited
+    const health = await checkClaudeHealth();
+    if (!health.ok) {
+      const errorMsg = health.message || 'Claude CLI is not available';
+      console.error(`[studio] Claude health check failed: ${errorMsg}`);
+      throw new Error(`Claude unavailable: ${errorMsg}`);
+    }
+    
+    await updateJob(jobId, { current_step: 'Starting agent...' });
+    
+    // Load system prompt
+    const systemPrompt = await loadPrompt('superadmin');
   
   // Build dynamic context to prepend to task
   const now = new Date();
@@ -369,7 +449,6 @@ export async function runJob(jobId) {
     }
   }
   
-  try {
     const q = query({
       prompt: enrichedTask,
       options,
