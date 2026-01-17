@@ -18,16 +18,20 @@ import { summarizeJob } from './summarizer.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Supabase client
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
+// Supabase client - read env vars LAZILY (after dotenv has loaded)
 let supabase = null;
 function getSupabase() {
-  if (!supabase && SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-      auth: { persistSession: false },
-    });
+  if (!supabase) {
+    const url = process.env.SUPABASE_URL || '';
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    if (url && key) {
+      supabase = createClient(url, key, {
+        auth: { persistSession: false },
+      });
+      console.log('[studio] Supabase client initialized');
+    } else {
+      console.warn('[studio] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY - jobs will be memory-only');
+    }
   }
   return supabase;
 }
@@ -307,16 +311,47 @@ export async function runJob(jobId) {
   // Load system prompt
   const systemPrompt = await loadPrompt('superadmin');
   
+  // Build dynamic context to prepend to task
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric',
+    timeZone: 'America/New_York'
+  });
+  const timeStr = now.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    timeZone: 'America/New_York'
+  });
+  
+  let contextPrefix = `[CONTEXT]\n`;
+  contextPrefix += `Current date: ${dateStr}\n`;
+  contextPrefix += `Current time: ${timeStr} ET\n`;
+  contextPrefix += `Year: ${now.getFullYear()}\n`;
+  if (job.user_id) {
+    contextPrefix += `Requested by user: ${job.user_id}\n`;
+  }
+  contextPrefix += `[/CONTEXT]\n\n`;
+  
+  // Prepend context to task
+  const enrichedTask = contextPrefix + job.task;
+  
   // Build options
   const options = {
     maxTurns: 100,
-    cwd: '/home/branchmanager',
+    cwd: '/home/branchmanager/websites', // Start in websites so repos are easily accessible
     model: job.model,
     systemPrompt,
     permissionMode: 'bypassPermissions', // Superadmin - no prompts
   };
   
-  console.log(`[studio] Starting job ${jobId}: "${job.task.slice(0, 50)}..."`);
+  // Timeout configuration (30 minutes default, can override)
+  const JOB_TIMEOUT_MS = job.timeout_ms || 30 * 60 * 1000; // 30 minutes
+  const startTime = Date.now();
+  
+  console.log(`[studio] Starting job ${jobId}: "${job.task.slice(0, 50)}..." (timeout: ${JOB_TIMEOUT_MS/1000}s)`);
   
   // Batch DB updates periodically
   let lastDbSync = Date.now();
@@ -336,7 +371,7 @@ export async function runJob(jobId) {
   
   try {
     const q = query({
-      prompt: job.task,
+      prompt: enrichedTask,
       options,
     });
     
@@ -344,6 +379,11 @@ export async function runJob(jobId) {
     
     for await (const message of q) {
       job.turns++;
+      
+      // Check timeout
+      if (Date.now() - startTime > JOB_TIMEOUT_MS) {
+        throw new Error(`Job timed out after ${JOB_TIMEOUT_MS / 1000} seconds`);
+      }
       
       // Handle different message types
       if (message.type === 'assistant' && message.message) {
