@@ -16,13 +16,15 @@ import { createClient } from '@supabase/supabase-js';
 import { summarizeJob } from './summarizer.mjs';
 import { spawn } from 'node:child_process';
 
-// Check if Claude CLI is available and not rate-limited
+// Quick check if Claude CLI is available (not a full health check - that's too slow)
 // Returns { ok: true } or { ok: false, message: "friendly error message" }
 async function checkClaudeHealth() {
   return new Promise((resolve) => {
-    const proc = spawn('claude', ['--print'], {
+    // Just check that Claude binary exists and can show version - don't actually run a prompt
+    // Running a real prompt takes 20-30+ seconds which causes false "not responding" errors
+    const proc = spawn('claude', ['--version'], {
       cwd: '/home/branchmanager/websites',
-      timeout: 30000, // 30s - Claude can take 20+ seconds to return spending cap message
+      timeout: 10000, // 10s is plenty for --version
     });
     
     let stdout = '';
@@ -31,16 +33,11 @@ async function checkClaudeHealth() {
     proc.stdout.on('data', (d) => { stdout += d.toString(); });
     proc.stderr.on('data', (d) => { stderr += d.toString(); });
     
-    // Send a simple ping and close stdin
-    proc.stdin.write('ping\n');
-    proc.stdin.end();
-    
     proc.on('close', (code) => {
       const output = (stdout + stderr).trim().toLowerCase();
       
-      // Check for known rate limit / spending cap messages - preserve the original for reset time
+      // Check for known issues in output
       if (output.includes('spending cap')) {
-        // Try to extract reset time (e.g., "resets 9am")
         const resetMatch = output.match(/resets?\s+(\d+\s*(?:am|pm)?)/i);
         const resetTime = resetMatch ? ` Try again after ${resetMatch[1]}.` : ' Try again later.';
         resolve({ ok: false, message: `Claude spending cap reached.${resetTime}` });
@@ -57,16 +54,15 @@ async function checkClaudeHealth() {
         return;
       }
       
+      // Version check succeeded
+      if (code === 0 && stdout.includes('Claude')) {
+        resolve({ ok: true });
+        return;
+      }
+      
+      // Something went wrong
       if (code !== 0) {
-        // Translate exit codes to human-friendly messages
-        if (code === 143 || code === 137) {
-          // SIGTERM (143) or SIGKILL (137) - process was killed/timed out
-          resolve({ ok: false, message: 'Claude is not responding. It may be overloaded or at capacity. Try again shortly.' });
-        } else if (code === 1) {
-          resolve({ ok: false, message: 'Claude is temporarily unavailable. Try again in a few minutes.' });
-        } else {
-          resolve({ ok: false, message: 'Claude is having issues right now. Try again later.' });
-        }
+        resolve({ ok: false, message: 'Claude CLI is not working properly. Try again later.' });
         return;
       }
       
