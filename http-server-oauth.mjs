@@ -179,6 +179,7 @@ const sessionIdentity = new Map(); // sessionId -> { issuer, sub, email }
 const sessionLabels = new Map(); // sessionId -> descriptive label (client-supplied)
 const sessionStartTimes = new Map(); // sessionId -> timestamp (ms)
 const sessionClientHints = new Map(); // sessionId -> inferred client label
+const sessionLastActivity = new Map(); // sessionId -> timestamp (ms) for idle detection
 
 const SESSION_LABEL_HEADERS = (() => {
   const raw = String(process.env.MCP_SESSION_LABEL_HEADER || '').trim().toLowerCase();
@@ -192,6 +193,11 @@ const tokenCache = new Map(); // token -> { user, claims, expires }
 
 const SESSION_METRICS_INTERVAL_MS = Math.max(0, Number(process.env.MCP_SESSION_METRICS_INTERVAL_MS || 300_000) || 0);
 const SESSION_METRICS_TOP_N = Math.max(1, Math.min(100, Number(process.env.MCP_SESSION_METRICS_TOP_N || 10) || 10));
+
+// Session idle reaper configuration
+// Default: 4 hours idle timeout, reaper runs every 10 minutes
+const SESSION_IDLE_TIMEOUT_MS = Math.max(0, Number(process.env.MCP_SESSION_IDLE_TIMEOUT_MS || 4 * 60 * 60 * 1000) || 0);
+const SESSION_REAPER_INTERVAL_MS = Math.max(0, Number(process.env.MCP_SESSION_REAPER_INTERVAL_MS || 10 * 60 * 1000) || 0);
 
 function writeCors(res){
   try {
@@ -300,6 +306,7 @@ function logSessionMetricsSnapshot(reason = 'interval') {
         identity_cache: sessionIdentity.size,
         user_cache: sessionUsers.size,
         labels: sessionLabels.size,
+        last_activity: sessionLastActivity.size,
         pending_tools_list: pendingToolsListRequests.size,
       },
       caches: { token_cache: tokenCache.size },
@@ -307,6 +314,56 @@ function logSessionMetricsSnapshot(reason = 'interval') {
       top: { clients: topClients, users: topUsers },
     }));
   } catch {}
+}
+
+// Update session activity timestamp (call on every request)
+function touchSession(sid) {
+  if (sid) sessionLastActivity.set(sid, Date.now());
+}
+
+// Reap idle sessions that haven't had activity in SESSION_IDLE_TIMEOUT_MS
+function reapIdleSessions() {
+  if (SESSION_IDLE_TIMEOUT_MS <= 0) return; // Disabled
+  
+  const now = Date.now();
+  let reaped = 0;
+  
+  for (const [sid, lastActivity] of sessionLastActivity) {
+    const idleMs = now - lastActivity;
+    if (idleMs > SESSION_IDLE_TIMEOUT_MS) {
+      try {
+        const ident = sessionIdentity.get(sid) || {};
+        const user = ident.email || ident.sub || sessionUsers.get(sid) || 'unknown';
+        const client = sessionClientHints.get(sid) || 'unknown';
+        const startTime = sessionStartTimes.get(sid);
+        const sessionDurationMs = startTime ? now - startTime : undefined;
+        
+        // Clean up all session data
+        transports.delete(sid);
+        const server = servers.get(sid);
+        if (server) {
+          try { server.close(); } catch {}
+          servers.delete(sid);
+        }
+        sessionUsers.delete(sid);
+        sessionIdentity.delete(sid);
+        sessionLabels.delete(sid);
+        sessionStartTimes.delete(sid);
+        sessionClientHints.delete(sid);
+        sessionLastActivity.delete(sid);
+        
+        reaped++;
+        console.log(`${color.cyan('[mcp-session]')} ${color.red('reaped')} user=${color.white(user)} client=${color.blue(client)} sid=${color.dim(sid)} idleMs=${idleMs} sessionDurationMs=${sessionDurationMs || 'unknown'}`);
+      } catch (err) {
+        console.warn(`[mcp-session] reap error sid=${sid}`, err?.message || err);
+      }
+    }
+  }
+  
+  if (reaped > 0) {
+    console.log(`${color.cyan('[mcp-reaper]')} reaped ${color.yellow(reaped)} idle session(s), remaining: ${color.green(transports.size)}`);
+    logSessionMetricsSnapshot('reaper');
+  }
 }
 
 function summarizeParamType(value) {
@@ -1420,6 +1477,7 @@ const server = http.createServer(async (req, res) => {
       const transport = transports.get(sessionId);
       const existingLabel = getIncomingSessionLabel(req);
       if (existingLabel) sessionLabels.set(sessionId, existingLabel);
+      touchSession(sessionId); // Update activity timestamp
       await transport.handleRequest(req, res);
       return;
     }
@@ -1475,6 +1533,7 @@ const server = http.createServer(async (req, res) => {
             }
           }
         } catch {}
+        touchSession(sessionId); // Update activity timestamp
         const patched = injectIdentityIntoBody(normalizedBody, ident);
         await transport.handleRequest(req, res, patched);
         if (restoreToolsLogger) restoreToolsLogger();
@@ -1508,6 +1567,7 @@ const server = http.createServer(async (req, res) => {
       sessionLabels.delete(sid);
       sessionStartTimes.delete(sid);
       sessionClientHints.delete(sid);
+      sessionLastActivity.delete(sid);
       const s = servers.get(sid);
       if (s) {
         try { s.close(); } catch {}
@@ -1610,6 +1670,7 @@ const server = http.createServer(async (req, res) => {
         const labelForSession = requestedSessionLabel || sessionLabels.get(sid) || null;
         if (labelForSession) sessionLabels.set(sid, labelForSession);
         if (!sessionStartTimes.has(sid)) sessionStartTimes.set(sid, Date.now());
+        touchSession(sid); // Initialize activity timestamp for new session
         const ident = sessionIdentity.get(sid) || {};
         const inferredClient = identifyClient(req.headers['user-agent'] || '') || null;
         if (inferredClient) sessionClientHints.set(sid, inferredClient);
@@ -1702,6 +1763,19 @@ server.listen(PORT, () => {
     try {
       const timer = setInterval(() => logSessionMetricsSnapshot('interval'), SESSION_METRICS_INTERVAL_MS);
       timer.unref?.();
+    } catch {}
+  }
+
+  // Session idle reaper - cleans up sessions that haven't had activity
+  if (SESSION_IDLE_TIMEOUT_MS > 0 && SESSION_REAPER_INTERVAL_MS > 0) {
+    try {
+      const idleHours = (SESSION_IDLE_TIMEOUT_MS / (60 * 60 * 1000)).toFixed(1);
+      const reaperMinutes = (SESSION_REAPER_INTERVAL_MS / (60 * 1000)).toFixed(0);
+      console.log(`[mcp-reaper] enabled idleTimeout=${idleHours}h reaperInterval=${reaperMinutes}m`);
+    } catch {}
+    try {
+      const reaperTimer = setInterval(() => reapIdleSessions(), SESSION_REAPER_INTERVAL_MS);
+      reaperTimer.unref?.();
     } catch {}
   }
 });
