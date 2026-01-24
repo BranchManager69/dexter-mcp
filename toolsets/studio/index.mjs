@@ -11,10 +11,12 @@ import { startJob, getJob, cancelJob, listJobs } from './lib/agentRunner.mjs';
 import { generateNewsVideo, generateNewsInfographic, checkJobStatus } from './lib/breakingNews.mjs';
 
 // Auth helpers - pattern from codex toolset
-const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
-const SUPABASE_ANON_KEY = (process.env.SUPABASE_ANON_KEY || '').trim();
-const SUPABASE_SERVICE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-const MCP_JWT_SECRET = (process.env.MCP_JWT_SECRET || '').trim();
+// NOTE: Read env vars lazily via getters to ensure dotenv has loaded first
+// (ESM imports are hoisted and run before dotenv.config() in http-server-oauth.mjs)
+const getSupabaseUrl = () => (process.env.SUPABASE_URL || '').trim();
+const getSupabaseAnonKey = () => (process.env.SUPABASE_ANON_KEY || '').trim();
+const getSupabaseServiceKey = () => (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+const getMcpJwtSecret = () => (process.env.MCP_JWT_SECRET || '').trim();
 
 // Branch's user ID - the one superadmin
 const BRANCH_USER_ID = '870d18de-f8ff-4ecb-bf69-82e3a89eb40f';
@@ -57,13 +59,14 @@ function extractRoles(value) {
 
 // Decode MCP JWT without verification library
 function decodeMcpJwt(token) {
-  if (!token || !MCP_JWT_SECRET) return null;
+  const secret = getMcpJwtSecret();
+  if (!token || !secret) return null;
   try {
     const segments = token.split('.');
     if (segments.length !== 3) return null;
     const [header, payload, signature] = segments;
     const data = `${header}.${payload}`;
-    const expected = createHmac('sha256', MCP_JWT_SECRET).update(data).digest();
+    const expected = createHmac('sha256', secret).update(data).digest();
     const actual = Buffer.from(signature, 'base64url');
     if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
       return null;
@@ -76,22 +79,24 @@ function decodeMcpJwt(token) {
     }
     return decoded;
   } catch (e) {
-    console.warn('[studio] JWT decode failed:', e.message);
+    console.warn('[studio] JWT decode error:', e.message);
     return null;
   }
 }
 
 // Fetch user from Supabase by bearer token (validates token and returns user)
 async function fetchSupabaseUserByToken(token) {
-  if (!token || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  const supabaseUrl = getSupabaseUrl();
+  const anonKey = getSupabaseAnonKey();
+  if (!token || !supabaseUrl || !anonKey) {
     return null;
   }
   try {
-    const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/auth/v1/user`, {
+    const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/user`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
-        'apikey': SUPABASE_ANON_KEY,
+        'apikey': anonKey,
       },
     });
     if (!response.ok) {
@@ -107,15 +112,17 @@ async function fetchSupabaseUserByToken(token) {
 
 // Fetch user from Supabase by ID (using service role key)
 async function fetchSupabaseUserById(userId) {
-  if (!userId || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  const supabaseUrl = getSupabaseUrl();
+  const serviceKey = getSupabaseServiceKey();
+  if (!userId || !supabaseUrl || !serviceKey) {
     return null;
   }
   try {
-    const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/auth/v1/admin/users/${userId}`, {
+    const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/admin/users/${userId}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${serviceKey}`,
+        'apikey': serviceKey,
       },
     });
     if (!response.ok) return null;
