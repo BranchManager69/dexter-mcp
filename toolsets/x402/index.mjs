@@ -132,6 +132,106 @@ const PATH_OVERRIDES = new Map([
       tags: ['gmgn', 'access'],
     },
   ],
+  // === POKEDEXTER GAME ===
+  [
+    '/api/pokedexter/challenges',
+    {
+      name: 'pokedexter_list_challenges',
+      title: 'Pokedexter: List Open Challenges',
+      description: 'List all open wagered Pokémon battle challenges you can accept. Shows challenger, wager amount, format, and expiration time.',
+      category: 'games.pokedexter',
+      access: 'member',
+      tags: ['pokedexter', 'matchmaking', 'challenges', 'x402'],
+    },
+  ],
+  [
+    '/api/pokedexter/challenges',  // POST version
+    {
+      name: 'pokedexter_create_challenge',
+      title: 'Pokedexter: Create Challenge',
+      description: 'Create an open wagered Pokémon battle challenge. Set your wager ($1-$25) and format. Other players can accept your challenge. Winner takes 100% of the pot.',
+      category: 'games.pokedexter',
+      access: 'member',
+      tags: ['pokedexter', 'matchmaking', 'challenge', 'x402'],
+    },
+  ],
+  [
+    '/api/pokedexter/challenges/:challengeId/accept',
+    {
+      name: 'pokedexter_accept_challenge',
+      title: 'Pokedexter: Accept Challenge',
+      description: 'Accept an open wagered battle challenge. Returns escrow deposit instructions and battle room ID.',
+      category: 'games.pokedexter',
+      access: 'member',
+      tags: ['pokedexter', 'matchmaking', 'accept', 'x402'],
+    },
+  ],
+  [
+    '/api/pokedexter/queue',
+    {
+      name: 'pokedexter_join_queue',
+      title: 'Pokedexter: Join Quick Match',
+      description: 'Join the quick match queue for instant wagered battles. Set your wager ($1-$25) and format. You\'ll be matched with another player at the same stake.',
+      category: 'games.pokedexter',
+      access: 'member',
+      tags: ['pokedexter', 'matchmaking', 'queue', 'x402'],
+    },
+  ],
+  [
+    '/api/pokedexter/queue/status',
+    {
+      name: 'pokedexter_queue_status',
+      title: 'Pokedexter: Queue Status',
+      description: 'Check your position in the quick match queue and see if you\'ve been matched.',
+      category: 'games.pokedexter',
+      access: 'member',
+      tags: ['pokedexter', 'matchmaking', 'status', 'x402'],
+    },
+  ],
+  [
+    '/api/pokedexter/battles/:battleId/state',
+    {
+      name: 'pokedexter_get_battle_state',
+      title: 'Pokedexter: Get Battle State',
+      description: 'Get the current state of your active battle. Shows your team, opponent info, field conditions, and available moves.',
+      category: 'games.pokedexter',
+      access: 'member',
+      tags: ['pokedexter', 'battle', 'state', 'x402'],
+    },
+  ],
+  [
+    '/api/pokedexter/battles/:battleId/move',
+    {
+      name: 'pokedexter_make_move',
+      title: 'Pokedexter: Make Move',
+      description: 'Submit your battle action. Format: "move 1", "move 2", "switch 3", "move 1 terastallize", etc.',
+      category: 'games.pokedexter',
+      access: 'member',
+      tags: ['pokedexter', 'battle', 'move', 'x402'],
+    },
+  ],
+  [
+    '/api/pokedexter/wager/active',
+    {
+      name: 'pokedexter_get_active_wager',
+      title: 'Pokedexter: Get Active Wager',
+      description: 'Get details about your currently active wagered battle including escrow status and battle room ID.',
+      category: 'games.pokedexter',
+      access: 'member',
+      tags: ['pokedexter', 'wager', 'status', 'x402'],
+    },
+  ],
+  [
+    '/api/pokedexter/wager/:wagerId',
+    {
+      name: 'pokedexter_get_wager_status',
+      title: 'Pokedexter: Get Wager Status',
+      description: 'Check the status of a specific wager. Shows escrow deposits, settlement status, and winner.',
+      category: 'games.pokedexter',
+      access: 'member',
+      tags: ['pokedexter', 'wager', 'status', 'x402'],
+    },
+  ],
 ]);
 
 function isToolRegistered(server, name) {

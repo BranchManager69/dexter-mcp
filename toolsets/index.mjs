@@ -7,6 +7,7 @@ import { registerCodexToolset } from './codex/index.mjs';
 import { registerStreamToolset } from './stream/index.mjs';
 import { registerMarketsToolset } from './markets/index.mjs';
 import { registerOnchainToolset } from './onchain/index.mjs';
+import { registerPokedexterToolset } from './pokedexter/index.mjs';
 import { registerX402Toolset } from './x402/index.mjs';
 import { registerHyperliquidToolset } from './hyperliquid/index.mjs';
 import { registerStudioToolset } from './studio/index.mjs';
@@ -98,6 +99,10 @@ const TOOLSET_REGISTRY = {
   onchain: {
     register: registerOnchainToolset,
     description: 'Dexter on-chain analytics (token flows, wallet summaries, transaction deltas).',
+  },
+  pokedexter: {
+    register: registerPokedexterToolset,
+    description: 'Pokedexter wagered Pokémon battles - local bridge tools for free battle actions.',
   },
   x402: {
     register: registerX402Toolset,
