@@ -8,6 +8,8 @@
  * and the x402 duplicates are skipped.
  */
 
+import { z } from 'zod';
+
 const DEXTER_API_URL = process.env.DEXTER_API_URL || 'https://api.dexter.cash';
 const POKEDEXTER_API_URL = process.env.POKEDEXTER_API_URL || 'https://poke.dexter.cash';
 
@@ -117,10 +119,7 @@ export async function registerPokedexterToolset(server) {
       access: 'member',
       tags: ['pokedexter', 'matchmaking', 'challenges', 'free'],
     },
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
+    inputSchema: {},
   }, async (args, extra) => {
     const result = await callPokedexterDirect('/api/v1/matchmaking/challenges');
 
@@ -147,14 +146,7 @@ export async function registerPokedexterToolset(server) {
       tags: ['pokedexter', 'battle', 'state', 'free'],
     },
     inputSchema: {
-      type: 'object',
-      properties: {
-        battleId: {
-          type: 'string',
-          description: 'The battle room ID from your wager/challenge response',
-        },
-      },
-      required: ['battleId'],
+      battleId: z.string().min(1).describe('The battle room ID from your wager/challenge response'),
     },
   }, async (args, extra) => {
     const { battleId } = args;
@@ -190,18 +182,8 @@ export async function registerPokedexterToolset(server) {
       tags: ['pokedexter', 'battle', 'move', 'free'],
     },
     inputSchema: {
-      type: 'object',
-      properties: {
-        battleId: {
-          type: 'string',
-          description: 'The battle room ID from your wager/challenge response',
-        },
-        choice: {
-          type: 'string',
-          description: 'Your action: "move 1", "move 2", "switch 3", "move 1 terastallize", "pass", etc.',
-        },
-      },
-      required: ['battleId', 'choice'],
+      battleId: z.string().min(1).describe('The battle room ID from your wager/challenge response'),
+      choice: z.string().min(1).describe('Your action: "move 1", "move 2", "switch 3", "move 1 terastallize", "pass", etc.'),
     },
   }, async (args, extra) => {
     const { battleId, choice } = args;
@@ -242,13 +224,7 @@ export async function registerPokedexterToolset(server) {
       tags: ['pokedexter', 'wager', 'status', 'free'],
     },
     inputSchema: {
-      type: 'object',
-      properties: {
-        userId: {
-          type: 'string',
-          description: 'Optional: Your Pokedexter user ID. If not provided, derived from wallet address.',
-        },
-      },
+      userId: z.string().optional().describe('Optional: Your Pokedexter user ID. If not provided, derived from wallet address.'),
     },
   }, async (args, extra) => {
     const walletAddress = resolveWalletAddress(extra);
@@ -279,14 +255,7 @@ export async function registerPokedexterToolset(server) {
       tags: ['pokedexter', 'wager', 'status', 'free'],
     },
     inputSchema: {
-      type: 'object',
-      properties: {
-        wagerId: {
-          type: 'string',
-          description: 'The wager ID to look up',
-        },
-      },
-      required: ['wagerId'],
+      wagerId: z.string().min(1).describe('The wager ID to look up'),
     },
   }, async (args, extra) => {
     const { wagerId } = args;
@@ -323,18 +292,8 @@ export async function registerPokedexterToolset(server) {
       tags: ['pokedexter', 'matchmaking', 'challenge', 'free'],
     },
     inputSchema: {
-      type: 'object',
-      properties: {
-        amount: {
-          type: 'number',
-          description: 'Wager amount in USD ($1-$25)',
-        },
-        format: {
-          type: 'string',
-          description: 'Battle format (default: gen9randombattle)',
-        },
-      },
-      required: ['amount'],
+      amount: z.number().min(1).max(25).describe('Wager amount in USD ($1-$25)'),
+      format: z.string().optional().describe('Battle format (default: gen9randombattle)'),
     },
   }, async (args, extra) => {
     const { amount, format = 'gen9randombattle' } = args;
@@ -378,14 +337,7 @@ export async function registerPokedexterToolset(server) {
       tags: ['pokedexter', 'matchmaking', 'accept', 'free'],
     },
     inputSchema: {
-      type: 'object',
-      properties: {
-        challengeId: {
-          type: 'string',
-          description: 'The challenge ID to accept (from list_challenges)',
-        },
-      },
-      required: ['challengeId'],
+      challengeId: z.string().min(1).describe('The challenge ID to accept (from list_challenges)'),
     },
   }, async (args, extra) => {
     const { challengeId } = args;
@@ -427,18 +379,8 @@ export async function registerPokedexterToolset(server) {
       tags: ['pokedexter', 'matchmaking', 'queue', 'free'],
     },
     inputSchema: {
-      type: 'object',
-      properties: {
-        amount: {
-          type: 'number',
-          description: 'Wager amount in USD ($1-$25)',
-        },
-        format: {
-          type: 'string',
-          description: 'Battle format (default: gen9randombattle)',
-        },
-      },
-      required: ['amount'],
+      amount: z.number().min(1).max(25).describe('Wager amount in USD ($1-$25)'),
+      format: z.string().optional().describe('Battle format (default: gen9randombattle)'),
     },
   }, async (args, extra) => {
     const { amount, format = 'gen9randombattle' } = args;
@@ -482,13 +424,7 @@ export async function registerPokedexterToolset(server) {
       tags: ['pokedexter', 'matchmaking', 'status', 'free'],
     },
     inputSchema: {
-      type: 'object',
-      properties: {
-        userId: {
-          type: 'string',
-          description: 'Optional: Your Pokedexter user ID. If not provided, derived from wallet address.',
-        },
-      },
+      userId: z.string().optional().describe('Optional: Your Pokedexter user ID. If not provided, derived from wallet address.'),
     },
   }, async (args, extra) => {
     const walletAddress = resolveWalletAddress(extra);
