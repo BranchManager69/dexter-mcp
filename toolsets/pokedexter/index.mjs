@@ -1,11 +1,11 @@
 /**
  * Pokedexter Local Bridge Toolset
  * 
- * These are FREE tools for Dexter MCP users that bypass the x402 payment layer
- * for battle actions. Entry-point tools (create/accept challenge, join queue)
- * remain x402-protected, but battle actions (get state, make move) are free.
+ * ALL Pokedexter tools are FREE for Dexter MCP users.
+ * External agents (not using Dexter MCP) pay 1 cent via x402 versions.
  * 
- * External agents (not using Dexter MCP) will use the x402 versions instead.
+ * This toolset loads BEFORE x402, so MCP users get these free versions
+ * and the x402 duplicates are skipped.
  */
 
 const DEXTER_API_URL = process.env.DEXTER_API_URL || 'https://api.dexter.cash';
@@ -307,5 +307,204 @@ export async function registerPokedexterToolset(server) {
     };
   });
 
-  console.log('[pokedexter] Local bridge toolset registered (5 free tools)');
+  // ============================================================================
+  // ENTRY POINT TOOLS (also free for MCP users)
+  // ============================================================================
+
+  /**
+   * Create a wagered battle challenge
+   */
+  server.registerTool('pokedexter_create_challenge', {
+    title: 'Pokedexter: Create Challenge',
+    description: 'Create an open wagered Pokémon battle challenge. Set your wager ($1-$25) and format. Other players can accept. Winner takes 100% of the pot (0% house cut).',
+    _meta: {
+      category: 'games.pokedexter',
+      access: 'member',
+      tags: ['pokedexter', 'matchmaking', 'challenge', 'free'],
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        amount: {
+          type: 'number',
+          description: 'Wager amount in USD ($1-$25)',
+        },
+        format: {
+          type: 'string',
+          description: 'Battle format (default: gen9randombattle)',
+        },
+      },
+      required: ['amount'],
+    },
+  }, async (args, extra) => {
+    const { amount, format = 'gen9randombattle' } = args;
+    
+    if (!amount || amount < 1 || amount > 25) {
+      throw new Error('amount must be between $1 and $25');
+    }
+
+    const walletAddress = resolveWalletAddress(extra);
+    const userId = deriveUserId(walletAddress);
+
+    const result = await callPokedexterDirect('/api/v1/matchmaking/challenges', {
+      method: 'POST',
+      body: {
+        userId,
+        amount,
+        format,
+        wallet: walletAddress,
+      },
+    });
+
+    if (!result.ok) {
+      throw new Error(result.data?.error?.message || result.data?.error || 'create_challenge_failed');
+    }
+
+    return {
+      structuredContent: { ok: true, ...result.data },
+      content: [{ type: 'text', text: JSON.stringify({ ok: true, ...result.data }) }],
+    };
+  });
+
+  /**
+   * Accept an open challenge
+   */
+  server.registerTool('pokedexter_accept_challenge', {
+    title: 'Pokedexter: Accept Challenge',
+    description: 'Accept an open wagered battle challenge. Returns escrow deposit instructions and battle room ID.',
+    _meta: {
+      category: 'games.pokedexter',
+      access: 'member',
+      tags: ['pokedexter', 'matchmaking', 'accept', 'free'],
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        challengeId: {
+          type: 'string',
+          description: 'The challenge ID to accept (from list_challenges)',
+        },
+      },
+      required: ['challengeId'],
+    },
+  }, async (args, extra) => {
+    const { challengeId } = args;
+    
+    if (!challengeId) {
+      throw new Error('challengeId is required');
+    }
+
+    const walletAddress = resolveWalletAddress(extra);
+    const userId = deriveUserId(walletAddress);
+
+    const result = await callPokedexterDirect(`/api/v1/matchmaking/challenges/${challengeId}/accept`, {
+      method: 'POST',
+      body: {
+        userId,
+        wallet: walletAddress,
+      },
+    });
+
+    if (!result.ok) {
+      throw new Error(result.data?.error?.message || result.data?.error || 'accept_challenge_failed');
+    }
+
+    return {
+      structuredContent: { ok: true, ...result.data },
+      content: [{ type: 'text', text: JSON.stringify({ ok: true, ...result.data }) }],
+    };
+  });
+
+  /**
+   * Join quick match queue
+   */
+  server.registerTool('pokedexter_join_queue', {
+    title: 'Pokedexter: Join Quick Match',
+    description: 'Join the quick match queue for instant wagered battles. Set your wager ($1-$25) and format. You\'ll be matched with another player at the same stake.',
+    _meta: {
+      category: 'games.pokedexter',
+      access: 'member',
+      tags: ['pokedexter', 'matchmaking', 'queue', 'free'],
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        amount: {
+          type: 'number',
+          description: 'Wager amount in USD ($1-$25)',
+        },
+        format: {
+          type: 'string',
+          description: 'Battle format (default: gen9randombattle)',
+        },
+      },
+      required: ['amount'],
+    },
+  }, async (args, extra) => {
+    const { amount, format = 'gen9randombattle' } = args;
+    
+    if (!amount || amount < 1 || amount > 25) {
+      throw new Error('amount must be between $1 and $25');
+    }
+
+    const walletAddress = resolveWalletAddress(extra);
+    const userId = deriveUserId(walletAddress);
+
+    const result = await callPokedexterDirect('/api/v1/matchmaking/queue', {
+      method: 'POST',
+      body: {
+        userId,
+        amount,
+        format,
+        wallet: walletAddress,
+      },
+    });
+
+    if (!result.ok) {
+      throw new Error(result.data?.error?.message || result.data?.error || 'join_queue_failed');
+    }
+
+    return {
+      structuredContent: { ok: true, ...result.data },
+      content: [{ type: 'text', text: JSON.stringify({ ok: true, ...result.data }) }],
+    };
+  });
+
+  /**
+   * Check queue status
+   */
+  server.registerTool('pokedexter_queue_status', {
+    title: 'Pokedexter: Queue Status',
+    description: 'Check your position in the quick match queue and see if you\'ve been matched.',
+    _meta: {
+      category: 'games.pokedexter',
+      access: 'member',
+      tags: ['pokedexter', 'matchmaking', 'status', 'free'],
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId: {
+          type: 'string',
+          description: 'Optional: Your Pokedexter user ID. If not provided, derived from wallet address.',
+        },
+      },
+    },
+  }, async (args, extra) => {
+    const walletAddress = resolveWalletAddress(extra);
+    const userId = args.userId || deriveUserId(walletAddress);
+
+    const result = await callPokedexterDirect(`/api/v1/matchmaking/queue/status?userId=${encodeURIComponent(userId)}`);
+
+    if (!result.ok) {
+      throw new Error(result.data?.error || 'queue_status_failed');
+    }
+
+    return {
+      structuredContent: { ok: true, ...result.data },
+      content: [{ type: 'text', text: JSON.stringify({ ok: true, ...result.data }) }],
+    };
+  });
+
+  console.log('[pokedexter] Local bridge toolset registered (9 free tools)');
 }
