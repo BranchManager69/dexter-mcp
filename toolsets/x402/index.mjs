@@ -133,8 +133,9 @@ const PATH_OVERRIDES = new Map([
     },
   ],
   // === POKEDEXTER GAME ===
+  // Note: GET and POST to same path use "METHOD path" format as key
   [
-    '/api/pokedexter/challenges',
+    'GET /api/pokedexter/challenges',
     {
       name: 'pokedexter_list_challenges',
       title: 'Pokedexter: List Open Challenges',
@@ -145,7 +146,7 @@ const PATH_OVERRIDES = new Map([
     },
   ],
   [
-    '/api/pokedexter/challenges',  // POST version
+    'POST /api/pokedexter/challenges',
     {
       name: 'pokedexter_create_challenge',
       title: 'Pokedexter: Create Challenge',
@@ -291,7 +292,10 @@ function deriveHost(url) {
 
 function deriveToolMeta({ resourceUrl, resource, accept }) {
   const normalizedPath = normalizePath(resource?.metadata?.path || resourceUrl);
-  const override = PATH_OVERRIDES.get(normalizedPath);
+  const method = resource?.metadata?.method || accept?.outputSchema?.input?.method || 'GET';
+  // Try method-prefixed key first (for GET/POST same path), then path-only
+  const methodKey = `${method.toUpperCase()} ${normalizedPath}`;
+  const override = PATH_OVERRIDES.get(methodKey) || PATH_OVERRIDES.get(normalizedPath);
   const name = override?.name || slugFromPath(normalizedPath);
   const title = override?.title || accept?.title || accept?.description || `Invoke ${normalizedPath}`;
   const description = override?.description || accept?.description || `Invoke ${trimUrl(resourceUrl)}`;
