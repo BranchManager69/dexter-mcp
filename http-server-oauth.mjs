@@ -879,12 +879,15 @@ async function forwardAuthorize(req, res) {
 }
 
 async function forwardToken(req, res) {
+  console.log('[oauth-token] forwardToken called');
   const url = new URL(req.url || '', `http://${req.headers.host}`);
   // Force /api/ prefix for connector routes
   const targetUrl = buildConnectorApiUrl('api/connector/oauth/token', url.search);
+  console.log('[oauth-token] target:', targetUrl);
   let body;
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     body = await readRawBody(req);
+    console.log('[oauth-token] body length:', body?.length);
   }
   let apiResponse;
   try {
@@ -898,7 +901,9 @@ async function forwardToken(req, res) {
       },
       body,
     });
+    console.log('[oauth-token] api response status:', apiResponse.status);
   } catch (error) {
+    console.log('[oauth-token] fetch error:', error?.message || error);
     res.writeHead(502, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'connector_token_unreachable', message: error?.message || String(error) }));
     return;
@@ -906,12 +911,21 @@ async function forwardToken(req, res) {
 
   const headersObj = {};
   apiResponse.headers.forEach((value, key) => {
-    if (key.toLowerCase() === 'transfer-encoding') return;
+    const lowerKey = key.toLowerCase();
+    // Skip transfer-encoding and content-encoding (we'll send uncompressed)
+    if (lowerKey === 'transfer-encoding' || lowerKey === 'content-encoding' || lowerKey === 'content-length') return;
     headersObj[key] = value;
   });
-  const buffer = Buffer.from(await apiResponse.arrayBuffer());
+  // Read the response as text (automatically decompresses gzip)
+  const text = await apiResponse.text();
+  const buffer = Buffer.from(text, 'utf8');
+  // Set explicit Content-Length so client knows when body ends
+  headersObj['Content-Length'] = String(buffer.length);
+  console.log('[oauth-token] sending response, length:', buffer.length);
   res.writeHead(apiResponse.status, headersObj);
-  res.end(buffer);
+  res.end(buffer, () => {
+    console.log('[oauth-token] response sent successfully');
+  });
 }
 
 async function forwardRegister(req, res) {
