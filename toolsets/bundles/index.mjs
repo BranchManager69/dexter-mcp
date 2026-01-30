@@ -108,19 +108,25 @@ export function registerBundlesToolset(server) {
         id: z.string(),
         slug: z.string(),
         name: z.string(),
-        shortDescription: z.string().nullable().optional(),
-        priceUsdc: z.number().optional(),
-        usesPerPurchase: z.number().optional(),
-        toolCount: z.number().optional(),
-        totalPurchases: z.number().optional(),
-        avgRating: z.number().nullable().optional(),
+        shortDescription: z.string().nullable(),
+        iconUrl: z.string().nullable(),
+        category: z.string().nullable(),
+        tags: z.array(z.string()),
+        priceUsdc: z.number(),
+        usesPerPurchase: z.number(),
+        totalPurchases: z.number(),
+        avgRating: z.number().nullable(),
+        ratingCount: z.number(),
+        isFeatured: z.boolean(),
+        isVerified: z.boolean(),
+        toolCount: z.number(),
         curator: z.object({
-          wallet: z.string(),
+          userId: z.string(),
           name: z.string().nullable(),
-        }).optional(),
+        }),
       })),
       total: z.number(),
-      categories: z.array(z.string()).optional(),
+      categories: z.array(z.string()),
     },
   }, async (args, extra) => {
     try {
@@ -187,13 +193,57 @@ export function registerBundlesToolset(server) {
         id: z.string(),
         slug: z.string(),
         name: z.string(),
-        description: z.string().nullable().optional(),
-        priceUsdc: z.number().optional(),
-        usesPerPurchase: z.number().optional(),
-        status: z.string().optional(),
-        items: z.array(z.any()).optional(),
-        curator: z.any().optional(),
-      }).nullable().optional(),
+        description: z.string().nullable(),
+        shortDescription: z.string().nullable(),
+        iconUrl: z.string().nullable(),
+        bannerUrl: z.string().nullable(),
+        category: z.string().nullable(),
+        tags: z.array(z.string()),
+        priceAtomic: z.string(),
+        priceUsdc: z.number(),
+        priceAsset: z.string(),
+        priceNetwork: z.string(),
+        usesPerPurchase: z.number(),
+        curatorShareBps: z.number(),
+        dexterShareBps: z.number(),
+        status: z.string(),
+        isFeatured: z.boolean(),
+        isVerified: z.boolean(),
+        totalPurchases: z.number(),
+        totalVolumeAtomic: z.string(),
+        totalVolumeUsdc: z.number(),
+        avgRating: z.number().nullable(),
+        ratingCount: z.number(),
+        publishedAt: z.string().nullable(),
+        createdAt: z.string(),
+        updatedAt: z.string(),
+        curator: z.object({
+          userId: z.string(),
+          wallet: z.string().nullable(),
+          identity: z.object({
+            agentId: z.string(),
+            chain: z.string(),
+          }).nullable(),
+        }),
+        tools: z.array(z.object({
+          id: z.string(),
+          resourceUrl: z.string(),
+          displayName: z.string().nullable(),
+          description: z.string().nullable(),
+          priceAtomic: z.string().nullable(),
+          priceUsdc: z.number().nullable(),
+          priceNetwork: z.string().nullable(),
+          seller: z.object({
+            wallet: z.string().nullable(),
+            name: z.string().nullable(),
+          }),
+          qualityScore: z.number().nullable(),
+          curatorNotes: z.string().nullable(),
+          sortOrder: z.number(),
+          totalUses: z.number(),
+        })),
+        toolCount: z.number(),
+      }).nullable(),
       error: z.string().optional(),
     },
   }, async (args, extra) => {
@@ -210,7 +260,7 @@ export function registerBundlesToolset(server) {
 
       if (resp.status === 404) {
         return {
-          structuredContent: { bundle: null },
+          structuredContent: { ok: true, bundle: null },
           content: [{ type: 'text', text: `Bundle "${args.slug}" not found.` }],
           status: 'completed',
         };
@@ -226,11 +276,11 @@ export function registerBundlesToolset(server) {
 
       const data = await resp.json();
       const b = data.bundle;
-      const tools = b.items?.map(i => `  - ${i.displayName || i.resourceUrl}`).join('\n') || '  (no tools)';
+      const tools = b.tools?.map(i => `  - ${i.displayName || i.resourceUrl}`).join('\n') || '  (no tools)';
       const summary = `${b.name}\n` +
         `Price: $${b.priceUsdc} for ${b.usesPerPurchase} uses\n` +
         `Status: ${b.status}\n` +
-        `Tools (${b.items?.length || 0}):\n${tools}`;
+        `Tools (${b.tools?.length || 0}):\n${tools}`;
 
       return {
         structuredContent: data,
@@ -259,8 +309,33 @@ export function registerBundlesToolset(server) {
     },
     outputSchema: {
       ok: z.boolean(),
-      bundles: z.array(z.any()).optional(),
-      stats: z.any().optional(),
+      bundles: z.array(z.object({
+        id: z.string(),
+        slug: z.string(),
+        name: z.string(),
+        shortDescription: z.string().nullable(),
+        iconUrl: z.string().nullable(),
+        category: z.string().nullable(),
+        tags: z.array(z.string()),
+        priceUsdc: z.number(),
+        usesPerPurchase: z.number(),
+        totalPurchases: z.number(),
+        avgRating: z.number().nullable(),
+        ratingCount: z.number(),
+        isFeatured: z.boolean(),
+        isVerified: z.boolean(),
+        toolCount: z.number(),
+        curator: z.object({
+          userId: z.string(),
+          name: z.string().nullable(),
+        }),
+      })),
+      stats: z.object({
+        totalBundles: z.number(),
+        totalPurchases: z.number(),
+        totalVolumeUsdc: z.number(),
+        totalRevenueUsdc: z.number(),
+      }),
       error: z.string().optional(),
     },
   }, async (args, extra) => {
@@ -569,7 +644,19 @@ export function registerBundlesToolset(server) {
     },
     outputSchema: {
       ok: z.boolean(),
-      item: z.any().optional(),
+      item: z.object({
+        id: z.string(),
+        resourceUrl: z.string(),
+        displayName: z.string().nullable(),
+        description: z.string().nullable(),
+        priceUsdc: z.number().nullable(),
+        seller: z.object({
+          wallet: z.string().nullable(),
+          name: z.string().nullable(),
+        }),
+        qualityScore: z.number().nullable(),
+        sortOrder: z.number(),
+      }).optional(),
       error: z.string().optional(),
     },
   }, async (args, extra) => {
@@ -644,6 +731,7 @@ export function registerBundlesToolset(server) {
     },
     outputSchema: {
       ok: z.boolean(),
+      deleted: z.boolean().optional(),
       error: z.string().optional(),
     },
   }, async (args, extra) => {
@@ -711,7 +799,21 @@ export function registerBundlesToolset(server) {
     },
     outputSchema: {
       ok: z.boolean(),
-      access: z.any().nullable().optional(),
+      access: z.object({
+        bundleId: z.string(),
+        bundleName: z.string(),
+        usesRemaining: z.number(),
+        usesTotal: z.number(),
+        usesConsumed: z.number(),
+        status: z.string(),
+        expiresAt: z.string().nullable(),
+        lastUsedAt: z.string().nullable(),
+        tools: z.array(z.object({
+          resourceUrl: z.string(),
+          displayName: z.string().nullable(),
+          usesConsumed: z.number(),
+        })),
+      }).nullable(),
       error: z.string().optional(),
     },
   }, async (args, extra) => {
@@ -780,7 +882,23 @@ export function registerBundlesToolset(server) {
     },
     outputSchema: {
       ok: z.boolean(),
-      purchases: z.array(z.any()).optional(),
+      purchases: z.array(z.object({
+        id: z.string(),
+        bundle: z.object({
+          id: z.string(),
+          slug: z.string(),
+          name: z.string(),
+        }),
+        paymentTxHash: z.string().nullable(),
+        paymentAmountUsdc: z.number(),
+        status: z.string(),
+        purchasedAt: z.string(),
+        access: z.object({
+          usesRemaining: z.number(),
+          usesTotal: z.number(),
+          status: z.string(),
+        }).nullable(),
+      })),
       error: z.string().optional(),
     },
   }, async (args, extra) => {
