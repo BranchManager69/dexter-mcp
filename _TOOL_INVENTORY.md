@@ -6,9 +6,9 @@ This document tracks the capabilities of the Dexter MCP server, distinguishing b
 
 | Category | Count | Description |
 | :--- | :--- | :--- |
-| **Total Capabilities** | **39** | Combined total of all available tools. |
+| **Total Capabilities** | **49** | Combined total of all available tools. |
 | **Local Native** | **16** | Pure logic implemented locally (e.g., wallet management, solana swaps). |
-| **Local Bridge** | **9** | Local files that wrap x402 paid resources (Stream, Onchain, Hyperliquid). |
+| **Local Bridge** | **19** | Local files that wrap x402 paid resources (Stream, Onchain, Hyperliquid, Bundles). |
 | **Dynamic x402** | **14** | Purely dynamic tools fetched from the API (Jupiter, Games, AI Jobs). |
 
 ---
@@ -63,6 +63,18 @@ This document tracks the capabilities of the Dexter MCP server, distinguishing b
 - `hyperliquid_fund`: Bridge funds to Hyperliquid.
 - `hyperliquid_bridge_deposit`: Deposit to L1 bridge.
 - `hyperliquid_perp_trade`: Execute a perp trade.
+
+### 📦 Bundles
+- `list_bundles`: Browse and search available tool bundles.
+- `get_bundle`: Get detailed info about a specific bundle.
+- `get_my_bundles`: List bundles you've created as curator.
+- `create_bundle`: Create a new tool bundle (starts as draft).
+- `update_bundle`: Update bundle name, description, pricing.
+- `publish_bundle`: Publish a draft bundle for purchase.
+- `add_bundle_item`: Add a marketplace tool to your bundle.
+- `remove_bundle_item`: Remove a tool from your bundle.
+- `check_bundle_access`: Check access status for a purchased bundle.
+- `get_my_purchases`: List all bundles you've purchased.
 
 ---
 
