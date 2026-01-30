@@ -11,6 +11,7 @@ import { registerPokedexterToolset } from './pokedexter/index.mjs';
 import { registerX402Toolset } from './x402/index.mjs';
 import { registerHyperliquidToolset } from './hyperliquid/index.mjs';
 import { registerStudioToolset } from './studio/index.mjs';
+import { registerIdentityToolset } from './identity/index.mjs';
 
 const passthrough = (value) => String(value);
 
@@ -115,6 +116,10 @@ const TOOLSET_REGISTRY = {
   studio: {
     register: registerStudioToolset,
     description: 'Dexter Studio - invoke Claude agents programmatically (superadmin only).',
+  },
+  identity: {
+    register: registerIdentityToolset,
+    description: 'ERC-8004 identity & reputation tools for the Dexter Trust Layer.',
   },
 };
 
