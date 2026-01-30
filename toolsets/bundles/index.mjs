@@ -356,6 +356,8 @@ export function registerBundlesToolset(server) {
 
     try {
       const url = buildApiUrl(DEFAULT_API_BASE_URL, '/api/bundles');
+      // Convert priceUsdc to priceAtomic (USDC has 6 decimals)
+      const priceAtomic = String(Math.round(args.priceUsdc * 1_000_000));
       const resp = await fetch(url, {
         method: 'POST',
         headers: {
@@ -368,7 +370,7 @@ export function registerBundlesToolset(server) {
           shortDescription: args.shortDescription,
           category: args.category,
           tags: args.tags,
-          priceUsdc: args.priceUsdc,
+          priceAtomic,
           usesPerPurchase: args.usesPerPurchase ?? 10,
         }),
       });
@@ -377,20 +379,20 @@ export function registerBundlesToolset(server) {
 
       if (!resp.ok || !data.ok) {
         return {
-          structuredContent: { success: false, error: data.error },
+          structuredContent: { ok: false, error: data.error },
           content: [{ type: 'text', text: `Failed to create bundle: ${data.error || data.message}` }],
           isError: true,
         };
       }
 
       return {
-        structuredContent: { success: true, bundle: data.bundle },
+        structuredContent: { ok: true, bundle: { id: data.bundle.id, slug: data.bundle.slug } },
         content: [{ type: 'text', text: `Bundle created!\nSlug: ${data.bundle.slug}\nID: ${data.bundle.id}\n\nNext: Add tools with add_bundle_item, then publish with publish_bundle.` }],
         status: 'completed',
       };
     } catch (error) {
       return {
-        structuredContent: { success: false, error: error.message },
+        structuredContent: { ok: false, error: error.message },
         content: [{ type: 'text', text: `Error: ${error.message}` }],
         isError: true,
       };
