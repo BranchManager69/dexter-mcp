@@ -1,0 +1,7 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   MAIN ENTRY POINT
+   Import this for base + components without widget-specific styles
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import './base.css';
+@import './components.css';

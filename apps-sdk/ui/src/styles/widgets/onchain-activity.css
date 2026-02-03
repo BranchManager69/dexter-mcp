@@ -1,0 +1,625 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ONCHAIN ACTIVITY WIDGET
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.onchain-container {
+  padding: 16px;
+  max-width: 640px;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.onchain-card {
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 10, 10, 0.95);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.onchain-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.onchain-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.onchain-card__icon {
+  font-size: 14px;
+}
+
+.onchain-card__title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #737373;
+}
+
+.onchain-scope-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #a78bfa;
+}
+
+.onchain-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.onchain-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.onchain-metrics--4col {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 480px) {
+  .onchain-metrics--4col {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.onchain-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.onchain-metric__label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #525252;
+}
+
+.onchain-metric__value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e5e5e5;
+}
+
+.onchain-metric__value--positive {
+  color: #34d399;
+}
+
+.onchain-metric__value--negative {
+  color: #fb7185;
+}
+
+/* Volume Bar */
+.onchain-volume-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.onchain-volume-bar__label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #525252;
+}
+
+.onchain-volume-bar__track {
+  position: relative;
+  height: 24px;
+  border-radius: 4px;
+  background: #171717;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  display: flex;
+}
+
+.onchain-volume-bar__buy {
+  height: 100%;
+  background: linear-gradient(to right, rgba(52, 211, 153, 0.6), rgba(52, 211, 153, 0.3));
+}
+
+.onchain-volume-bar__sell {
+  height: 100%;
+  background: linear-gradient(to left, rgba(251, 113, 133, 0.6), rgba(251, 113, 133, 0.3));
+  margin-left: auto;
+}
+
+.onchain-volume-bar__values {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+}
+
+.onchain-volume-bar__value {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.onchain-volume-bar__value--buy {
+  color: #6ee7b7;
+}
+
+.onchain-volume-bar__value--sell {
+  color: #fda4af;
+}
+
+.onchain-volume-bar__legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: #525252;
+}
+
+/* Net Flow */
+.onchain-net-flow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 4px;
+  background: rgba(163, 163, 163, 0.05);
+  border: 1px solid rgba(163, 163, 163, 0.2);
+}
+
+.onchain-net-flow--positive {
+  background: rgba(52, 211, 153, 0.05);
+  border-color: rgba(52, 211, 153, 0.2);
+}
+
+.onchain-net-flow--negative {
+  background: rgba(251, 113, 133, 0.05);
+  border-color: rgba(251, 113, 133, 0.2);
+}
+
+.onchain-net-flow__arrow {
+  font-size: 16px;
+}
+
+.onchain-net-flow--positive .onchain-net-flow__arrow {
+  color: #34d399;
+}
+
+.onchain-net-flow--negative .onchain-net-flow__arrow {
+  color: #fb7185;
+}
+
+.onchain-net-flow__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.onchain-net-flow__label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #525252;
+}
+
+.onchain-net-flow__value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #a3a3a3;
+  font-variant-numeric: tabular-nums;
+}
+
+.onchain-net-flow--positive .onchain-net-flow__value {
+  color: #34d399;
+}
+
+.onchain-net-flow--negative .onchain-net-flow__value {
+  color: #fb7185;
+}
+
+/* Top Traders */
+.onchain-traders {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.onchain-traders__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.onchain-traders__title {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #525252;
+}
+
+.onchain-traders__toggle {
+  font-size: 9px;
+  color: #525252;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.onchain-traders__toggle:hover {
+  color: #fff;
+}
+
+.onchain-traders__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.onchain-traders__column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.onchain-traders__column-title {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.onchain-traders__column-title--buy {
+  color: #34d399;
+}
+
+.onchain-traders__column-title--sell {
+  color: #fb7185;
+}
+
+.onchain-traders__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.onchain-traders__item:hover {
+  opacity: 0.8;
+}
+
+.onchain-traders__item--buy {
+  background: rgba(52, 211, 153, 0.05);
+  border: 1px solid rgba(52, 211, 153, 0.1);
+}
+
+.onchain-traders__item--sell {
+  background: rgba(251, 113, 133, 0.05);
+  border: 1px solid rgba(251, 113, 133, 0.1);
+}
+
+.onchain-traders__wallet {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  color: #a3a3a3;
+}
+
+.onchain-traders__item--buy:hover .onchain-traders__wallet {
+  color: #34d399;
+}
+
+.onchain-traders__item--sell:hover .onchain-traders__wallet {
+  color: #fb7185;
+}
+
+.onchain-traders__amount {
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.onchain-traders__item--buy .onchain-traders__amount {
+  color: #34d399;
+}
+
+.onchain-traders__item--sell .onchain-traders__amount {
+  color: #fb7185;
+}
+
+/* Recent Trades */
+.onchain-trades {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.onchain-trades__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.onchain-trades__title {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #525252;
+}
+
+.onchain-trades__toggle {
+  font-size: 9px;
+  color: #525252;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.onchain-trades__toggle:hover {
+  color: #fff;
+}
+
+.onchain-trades__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.onchain-trades__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.onchain-trades__item:hover {
+  opacity: 0.8;
+}
+
+.onchain-trades__item--buy {
+  background: rgba(52, 211, 153, 0.05);
+  border: 1px solid rgba(52, 211, 153, 0.1);
+}
+
+.onchain-trades__item--sell {
+  background: rgba(251, 113, 133, 0.05);
+  border: 1px solid rgba(251, 113, 133, 0.1);
+}
+
+.onchain-trades__item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.onchain-trades__arrow {
+  font-size: 12px;
+}
+
+.onchain-trades__item--buy .onchain-trades__arrow {
+  color: #34d399;
+}
+
+.onchain-trades__item--sell .onchain-trades__arrow {
+  color: #fb7185;
+}
+
+.onchain-trades__sig {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  color: #737373;
+}
+
+.onchain-trades__item:hover .onchain-trades__sig {
+  color: #fff;
+}
+
+.onchain-trades__item-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.onchain-trades__amount {
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.onchain-trades__item--buy .onchain-trades__amount {
+  color: #34d399;
+}
+
+.onchain-trades__item--sell .onchain-trades__amount {
+  color: #fb7185;
+}
+
+.onchain-trades__time {
+  font-size: 9px;
+  color: #404040;
+}
+
+/* Wallet Header */
+.onchain-wallet-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.onchain-wallet-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(217, 70, 239, 0.2));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.onchain-wallet-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.onchain-wallet-address {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.onchain-wallet-address:hover {
+  color: #a78bfa;
+}
+
+.onchain-wallet-timeframe {
+  font-size: 10px;
+  color: #525252;
+}
+
+/* P&L */
+.onchain-pnl {
+  padding: 12px 16px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.onchain-pnl--positive {
+  background: rgba(52, 211, 153, 0.05);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+
+.onchain-pnl--negative {
+  background: rgba(251, 113, 133, 0.05);
+  border: 1px solid rgba(251, 113, 133, 0.2);
+}
+
+.onchain-pnl__label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #525252;
+}
+
+.onchain-pnl__value {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.onchain-pnl--positive .onchain-pnl__value {
+  color: #34d399;
+}
+
+.onchain-pnl--negative .onchain-pnl__value {
+  color: #fb7185;
+}
+
+/* Footer */
+.onchain-footer {
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.onchain-hash {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.onchain-hash:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.onchain-hash__label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #525252;
+}
+
+.onchain-hash__value {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: #a3a3a3;
+}
+
+.onchain-loading,
+.onchain-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 10, 10, 0.9);
+  color: #a3a3a3;
+  font-size: 14px;
+}
+
+.onchain-error {
+  color: #fb7185;
+  border-color: rgba(251, 113, 133, 0.2);
+  background: rgba(251, 113, 133, 0.05);
+}
+
+.onchain-loading__spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #a3a3a3;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+

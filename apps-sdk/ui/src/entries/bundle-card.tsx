@@ -1,4 +1,5 @@
-import '../styles/global.css';
+import '../styles/base.css';
+import '../styles/components.css';
 
 import { createRoot } from 'react-dom/client';
 import { AppShell, Card, EmptyState, Field, Grid, Status, Warning } from '../components/AppShell';

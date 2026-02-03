@@ -1,4 +1,6 @@
-import '../styles/global.css';
+import '../styles/base.css';
+import '../styles/components.css';
+import '../styles/widgets/media-jobs.css';
 
 import { createRoot } from 'react-dom/client';
 import { useOpenAIGlobal } from '../sdk';
