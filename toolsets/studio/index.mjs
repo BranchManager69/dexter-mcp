@@ -9,6 +9,14 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { startJob, getJob, cancelJob, listJobs } from './lib/agentRunner.mjs';
 import { generateNewsVideo, generateNewsInfographic, checkJobStatus } from './lib/breakingNews.mjs';
+import { createWidgetMeta } from '../widgetMeta.mjs';
+
+const STUDIO_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/studio',
+  widgetDescription: 'Shows agent job status, turns, progress, media jobs, and results.',
+  invoking: 'Loading Studio…',
+  invoked: 'Studio ready',
+});
 
 // Auth helpers - pattern from codex toolset
 // NOTE: Read env vars lazily via getters to ensure dotenv has loaded first
@@ -243,6 +251,7 @@ export function registerStudioToolset(server) {
         category: 'studio.core',
         access: 'superadmin',
         tags: ['studio', 'agent', 'create'],
+        ...STUDIO_WIDGET_META,
       },
       inputSchema: createSchema,
     },
@@ -280,6 +289,7 @@ export function registerStudioToolset(server) {
         category: 'studio.core',
         access: 'superadmin',
         tags: ['studio', 'status', 'progress'],
+        ...STUDIO_WIDGET_META,
       },
       inputSchema: statusSchema,
     },
@@ -346,6 +356,7 @@ export function registerStudioToolset(server) {
         category: 'studio.core',
         access: 'superadmin',
         tags: ['studio', 'cancel', 'stop'],
+        ...STUDIO_WIDGET_META,
       },
       inputSchema: cancelSchema,
     },
@@ -380,6 +391,7 @@ export function registerStudioToolset(server) {
         category: 'studio.debug',
         access: 'superadmin',
         tags: ['studio', 'inspect', 'debug'],
+        ...STUDIO_WIDGET_META,
       },
       inputSchema: statusSchema,
     },
@@ -423,6 +435,7 @@ export function registerStudioToolset(server) {
         category: 'studio.debug',
         access: 'superadmin',
         tags: ['studio', 'list', 'debug'],
+        ...STUDIO_WIDGET_META,
       },
       inputSchema: {},
     },
@@ -470,6 +483,7 @@ export function registerStudioToolset(server) {
         category: 'studio.media',
         access: 'superadmin',
         tags: ['studio', 'news', 'video', 'marketing', 'sora', 'meme'],
+        ...STUDIO_WIDGET_META,
       },
       inputSchema: breakingNewsSchema,
     },
@@ -545,6 +559,7 @@ export function registerStudioToolset(server) {
         category: 'studio.media',
         access: 'superadmin',
         tags: ['studio', 'news', 'status'],
+        ...STUDIO_WIDGET_META,
       },
       inputSchema: newsStatusSchema,
     },

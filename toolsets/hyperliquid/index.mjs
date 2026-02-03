@@ -1,8 +1,16 @@
 import { z } from 'zod';
 import { fetchWithX402Json } from '../../clients/x402Client.mjs';
 import { buildApiUrl } from '../wallet/index.mjs';
+import { createWidgetMeta } from '../widgetMeta.mjs';
 
 const DEFAULT_API_BASE_URL = 'http://localhost:3030';
+
+const HYPERLIQUID_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/hyperliquid',
+  widgetDescription: 'Shows Hyperliquid perp markets, trades, funding bridge status, and agent provisioning.',
+  invoking: 'Loading Hyperliquid…',
+  invoked: 'Hyperliquid ready',
+});
 
 function resolveApiBase() {
   const candidates = [
@@ -84,6 +92,7 @@ export function registerHyperliquidToolset(server) {
         category: 'hyperliquid',
         access: 'pro',
         tags: ['hyperliquid', 'markets', 'listing'],
+        ...HYPERLIQUID_WIDGET_META,
       },
       inputSchema: z.object({}).passthrough(),
     },
@@ -129,6 +138,7 @@ export function registerHyperliquidToolset(server) {
         access: 'pro',
         tags: ['hyperliquid', 'onboarding', 'x402'],
         promptSlug: 'agent.concierge.tool.hyperliquid_opt_in',
+        ...HYPERLIQUID_WIDGET_META,
       },
       inputSchema: optInSchema,
     },
@@ -182,6 +192,7 @@ export function registerHyperliquidToolset(server) {
         category: 'hyperliquid',
         access: 'pro',
         tags: ['hyperliquid', 'fund', 'bridge', 'x402'],
+        ...HYPERLIQUID_WIDGET_META,
       },
       annotations: {
         destructiveHint: true,
@@ -239,6 +250,7 @@ export function registerHyperliquidToolset(server) {
         category: 'hyperliquid',
         access: 'pro',
         tags: ['hyperliquid', 'deposit', 'L2', 'L1'],
+        ...HYPERLIQUID_WIDGET_META,
       },
       inputSchema: depositSchema,
     },
@@ -294,6 +306,7 @@ export function registerHyperliquidToolset(server) {
         access: 'pro',
         tags: ['hyperliquid', 'perps', 'trade', 'x402'],
         promptSlug: 'agent.concierge.tool.hyperliquid_perp_trade',
+        ...HYPERLIQUID_WIDGET_META,
       },
       inputSchema: perpTradeSchema,
     },

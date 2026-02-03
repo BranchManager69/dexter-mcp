@@ -2,6 +2,14 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 
 import { getCodexBridge, formatStructuredResult } from '../../codex-bridge.mjs';
+import { createWidgetMeta } from '../widgetMeta.mjs';
+
+const CODEX_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/codex',
+  widgetDescription: 'Shows Codex response text, reasoning, model info, and token usage.',
+  invoking: 'Processing…',
+  invoked: 'Response ready',
+});
 
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
 const SUPABASE_ANON_KEY = (process.env.SUPABASE_ANON_KEY || '').trim();
@@ -327,6 +335,7 @@ export function registerCodexToolset(server) {
         category: 'codex.session',
         access: 'dev',
         tags: ['codex', 'session', 'start'],
+        ...CODEX_WIDGET_META,
       },
       inputSchema: startShape,
     },
@@ -368,6 +377,7 @@ export function registerCodexToolset(server) {
         category: 'codex.session',
         access: 'dev',
         tags: ['codex', 'session', 'reply'],
+        ...CODEX_WIDGET_META,
       },
       inputSchema: replyShape,
     },
@@ -409,6 +419,7 @@ export function registerCodexToolset(server) {
         category: 'codex.session',
         access: 'dev',
         tags: ['codex', 'exec', 'structured'],
+        ...CODEX_WIDGET_META,
       },
       inputSchema: execShape,
     },

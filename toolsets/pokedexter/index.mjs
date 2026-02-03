@@ -13,6 +13,14 @@
  */
 
 import { z } from 'zod';
+import { createWidgetMeta } from '../widgetMeta.mjs';
+
+const POKEDEXTER_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/pokedexter',
+  widgetDescription: 'Shows open challenges, wager matches, queue position, and battle deposits.',
+  invoking: 'Loading battles…',
+  invoked: 'Battles ready',
+});
 
 const DEXTER_API_URL = process.env.DEXTER_API_URL || 'https://api.dexter.cash';
 const POKEDEXTER_API_URL = process.env.POKEDEXTER_API_URL || 'https://poke.dexter.cash';
@@ -166,6 +174,7 @@ export async function registerPokedexterToolset(server) {
       category: 'games.pokedexter',
       access: 'member',
       tags: ['pokedexter', 'matchmaking', 'challenges', 'free'],
+      ...POKEDEXTER_WIDGET_META,
     },
     inputSchema: {},
   }, async (args, extra) => {
@@ -192,6 +201,7 @@ export async function registerPokedexterToolset(server) {
       category: 'games.pokedexter',
       access: 'member',
       tags: ['pokedexter', 'battle', 'state', 'free'],
+      ...POKEDEXTER_WIDGET_META,
     },
     inputSchema: {
       battleId: z.string().min(1).describe('The battle room ID'),
@@ -386,6 +396,7 @@ export async function registerPokedexterToolset(server) {
       category: 'games.pokedexter',
       access: 'member',
       tags: ['pokedexter', 'battle', 'move', 'free'],
+      ...POKEDEXTER_WIDGET_META,
     },
     inputSchema: {
       battleId: z.string().min(1).describe('The battle room ID'),
@@ -450,6 +461,7 @@ export async function registerPokedexterToolset(server) {
       category: 'games.pokedexter',
       access: 'member',
       tags: ['pokedexter', 'wager', 'status', 'free'],
+      ...POKEDEXTER_WIDGET_META,
     },
     inputSchema: {
       userId: z.string().optional().describe('Optional: Your Pokedexter user ID. If not provided, derived from wallet address.'),
@@ -481,6 +493,7 @@ export async function registerPokedexterToolset(server) {
       category: 'games.pokedexter',
       access: 'member',
       tags: ['pokedexter', 'wager', 'status', 'free'],
+      ...POKEDEXTER_WIDGET_META,
     },
     inputSchema: {
       wagerId: z.string().min(1).describe('The wager ID to look up'),
@@ -518,6 +531,7 @@ export async function registerPokedexterToolset(server) {
       category: 'games.pokedexter',
       access: 'member',
       tags: ['pokedexter', 'matchmaking', 'challenge', 'free'],
+      ...POKEDEXTER_WIDGET_META,
     },
     inputSchema: {
       amount: z.number().min(1).max(25).describe('Wager amount in USD ($1-$25)'),
@@ -567,6 +581,7 @@ export async function registerPokedexterToolset(server) {
       category: 'games.pokedexter',
       access: 'member',
       tags: ['pokedexter', 'matchmaking', 'accept', 'free'],
+      ...POKEDEXTER_WIDGET_META,
     },
     inputSchema: {
       challengeId: z.string().min(1).describe('The challenge ID to accept (from list_challenges)'),
@@ -613,6 +628,7 @@ export async function registerPokedexterToolset(server) {
       category: 'games.pokedexter',
       access: 'member',
       tags: ['pokedexter', 'matchmaking', 'queue', 'free'],
+      ...POKEDEXTER_WIDGET_META,
     },
     inputSchema: {
       amount: z.number().min(1).max(25).describe('Wager amount in USD ($1-$25)'),
@@ -662,6 +678,7 @@ export async function registerPokedexterToolset(server) {
       category: 'games.pokedexter',
       access: 'member',
       tags: ['pokedexter', 'matchmaking', 'status', 'free'],
+      ...POKEDEXTER_WIDGET_META,
     },
     inputSchema: {
       userId: z.string().optional().describe('Optional: Your Pokedexter user ID. If not provided, derived from wallet address.'),
