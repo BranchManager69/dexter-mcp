@@ -182,56 +182,156 @@ export async function registerPokedexterToolset(server) {
   });
 
   /**
-   * Get current battle state via WebSocket connection
-   * Uses dexter-api's WebSocket manager for real-time battle state
+   * Get current battle state with YOUR actual moves and team data.
+   * Calls PokeDexter directly to get the agent's request data.
    */
   server.registerTool('pokedexter_get_battle_state', {
     title: 'Pokedexter: Get Battle State',
-    description: 'Get the current state of your active Pokémon battle including your team, opponent info, field conditions, and available moves. Uses WebSocket for real-time data. Use this before each turn to see what actions are available.',
+    description: 'Get YOUR battle state including your actual moves, team, and available actions. Use this before each turn to see what you can do.',
     _meta: {
       category: 'games.pokedexter',
       access: 'member',
       tags: ['pokedexter', 'battle', 'state', 'free'],
     },
     inputSchema: {
-      battleId: z.string().min(1).describe('The battle room ID from your wager/challenge response'),
-      side: z.enum(['p1', 'p2']).optional().describe('Which side you are playing as (default: p1)'),
+      battleId: z.string().min(1).describe('The battle room ID'),
     },
   }, async (args, extra) => {
-    const { battleId, side = 'p1' } = args;
+    const { battleId } = args;
     
     if (!battleId) {
       throw new Error('battleId is required');
     }
 
-    // Get real-time battle state via dexter-api WebSocket manager
-    const result = await callDexterApi(`/api/pokedexter/battles/${battleId}/state?side=${side}`);
+    const walletAddress = resolveWalletAddress(extra);
+    const agentId = deriveUserId(walletAddress);
+    
+    console.log(`[pokedexter] get_battle_state: battleId=${battleId}, agentId=${agentId}`);
 
-    if (!result.ok || !result.data?.ok) {
-      throw new Error(result.data?.error || 'get_battle_state_failed');
+    // 1. Resolve room mapping (wager ID -> actual room ID)
+    const mappingResult = await callPokedexterDirect(`/api/v1/agent/battle/${battleId}/resolve`);
+    const mapping = mappingResult.ok && mappingResult.data?.success ? mappingResult.data : null;
+    const actualRoomId = mapping?.actualRoomId || battleId;
+    const playerSlot = mapping?.player1Id === agentId ? 'p1' : (mapping?.player2Id === agentId ? 'p2' : null);
+    
+    console.log(`[pokedexter] Room: ${battleId} -> ${actualRoomId}, slot=${playerSlot}`);
+
+    // 2. Get YOUR actual request data (moves, team, etc.)
+    const requestResult = await callPokedexterDirect(`/api/v1/agent/battle/${actualRoomId}/request?agentId=${encodeURIComponent(agentId)}`);
+    const req = requestResult.ok ? requestResult.data : null;
+    
+    console.log(`[pokedexter] Request: hasRequest=${req?.hasRequest}, type=${req?.requestType}`);
+
+    // Build response
+    const response = {
+      ok: true,
+      battleId,
+      actualRoomId,
+      agentId,
+      playerSlot: req?.playerSlot || playerSlot,
+    };
+
+    if (req?.hasRequest) {
+      response.requestType = req.requestType;
+      response.rqid = req.rqid;
+      response.yourTeam = req.team || [];
+      response.yourMoves = req.moves || [];
+      response.yourSwitches = req.switches || [];
+      response.playerName = req.playerName;
+      
+      const active = req.team?.find(p => p.active);
+      if (active) response.yourActive = active;
+      
+      response.availableActions = {
+        canMove: req.requestType === 'move' && req.moves?.some(m => m.canUse),
+        moves: req.moves || [],
+        canSwitch: req.switches?.length > 0,
+        switches: req.switches || [],
+        forceSwitch: req.forceSwitch || false,
+        trapped: req.trapped || false,
+      };
+    } else {
+      response.waiting = true;
+      response.message = req?.message || 'No pending request - waiting for turn or battle to start';
     }
 
+    // Generate prompt
+    const prompt = formatBattlePrompt(response);
+
     return {
-      structuredContent: result.data,
-      content: [{ type: 'text', text: result.data.prompt || JSON.stringify(result.data) }],
+      structuredContent: response,
+      content: [{ type: 'text', text: prompt }],
     };
   });
 
+  function formatBattlePrompt(state) {
+    const lines = [];
+    lines.push(`=== POKEMON BATTLE ===`);
+    lines.push(`Agent: ${state.agentId} | Slot: ${state.playerSlot || '?'} | Room: ${state.actualRoomId}`);
+    lines.push('');
+    
+    if (state.waiting) {
+      lines.push(state.message || 'Waiting for turn...');
+      return lines.join('\n');
+    }
+    
+    if (state.yourActive) {
+      const p = state.yourActive;
+      lines.push(`YOUR ACTIVE: ${p.name} (${p.species}) - ${p.hpPercent}% HP${p.status ? ` [${p.status}]` : ''}`);
+      if (p.ability) lines.push(`  Ability: ${p.ability}`);
+      if (p.item) lines.push(`  Item: ${p.item}`);
+      lines.push('');
+    }
+    
+    if (state.yourTeam?.length) {
+      lines.push('YOUR TEAM:');
+      for (const p of state.yourTeam) {
+        const status = p.fainted ? '[FAINTED]' : (p.status ? `[${p.status}]` : '');
+        lines.push(`  ${p.slot}. ${p.name} - ${p.hpPercent}% HP ${status}${p.active ? ' (active)' : ''}`);
+      }
+      lines.push('');
+    }
+    
+    if (state.availableActions?.moves?.length) {
+      lines.push('MOVES:');
+      for (const m of state.availableActions.moves) {
+        lines.push(`  ${m.slot}. ${m.name} (PP: ${m.pp}/${m.maxpp})${m.canUse ? '' : ' [DISABLED]'}`);
+      }
+      lines.push('');
+    }
+    
+    if (state.availableActions?.switches?.length) {
+      lines.push('SWITCHES:');
+      for (const s of state.availableActions.switches) {
+        lines.push(`  ${s.slot}. ${s.name} - ${s.hpPercent}% HP`);
+      }
+      lines.push('');
+    }
+    
+    if (state.availableActions?.forceSwitch) {
+      lines.push('*** MUST SWITCH ***');
+    } else if (state.availableActions?.canMove) {
+      lines.push('Use: "move N" or "switch N"');
+    }
+    
+    return lines.join('\n');
+  }
+
   /**
-   * Submit a move in battle via WebSocket
-   * Uses dexter-api's WebSocket manager to send moves to the battle server
+   * Submit a move in battle.
+   * Calls PokeDexter directly with the correct agent ID.
    */
   server.registerTool('pokedexter_make_move', {
     title: 'Pokedexter: Make Move',
-    description: 'Submit your battle action via WebSocket. Format: "move 1", "move 2", "switch 3", "move 1 terastallize", etc. Call get_battle_state first to see available moves.',
+    description: 'Submit your battle action. Use "move 1", "move 2", "switch 3", etc. Call get_battle_state first to see available moves.',
     _meta: {
       category: 'games.pokedexter',
       access: 'member',
       tags: ['pokedexter', 'battle', 'move', 'free'],
     },
     inputSchema: {
-      battleId: z.string().min(1).describe('The battle room ID from your wager/challenge response'),
-      choice: z.string().min(1).describe('Your action: "move 1", "move 2", "switch 3", "move 1 terastallize", "pass", "default", etc.'),
+      battleId: z.string().min(1).describe('The battle room ID'),
+      choice: z.string().min(1).describe('Your action: "move 1", "switch 3", "move 2 terastallize", etc.'),
     },
   }, async (args, extra) => {
     const { battleId, choice } = args;
@@ -240,19 +340,32 @@ export async function registerPokedexterToolset(server) {
       throw new Error('battleId and choice are required');
     }
 
-    // Submit move via dexter-api WebSocket manager
-    const result = await callDexterApi(`/api/pokedexter/battles/${battleId}/move`, {
+    const walletAddress = resolveWalletAddress(extra);
+    const agentId = deriveUserId(walletAddress);
+    
+    console.log(`[pokedexter] make_move: battleId=${battleId}, agentId=${agentId}, choice=${choice}`);
+
+    // Resolve room mapping first
+    const mappingResult = await callPokedexterDirect(`/api/v1/agent/battle/${battleId}/resolve`);
+    const actualRoomId = mappingResult.data?.actualRoomId || battleId;
+
+    // Submit move via PokeDexter agent API (writes to battle.stream.write)
+    const result = await callPokedexterDirect(`/api/v1/agent/battle/${actualRoomId}/move`, {
       method: 'POST',
-      body: { choice },
+      body: {
+        agentId,
+        choice,
+      },
     });
 
-    if (!result.ok || !result.data?.ok) {
-      throw new Error(result.data?.error || 'make_move_failed');
+    if (!result.ok || !result.data?.success) {
+      const errMsg = result.data?.error?.message || result.data?.error || 'make_move_failed';
+      throw new Error(errMsg);
     }
 
     return {
       structuredContent: result.data,
-      content: [{ type: 'text', text: `Move submitted: ${choice}. Turn: ${result.data.turn || 'unknown'}, Phase: ${result.data.phase || 'unknown'}` }],
+      content: [{ type: 'text', text: `Move submitted: ${choice}` }],
     };
   });
 
