@@ -337,6 +337,26 @@ export function registerAppsSdkResources(server) {
       invoking: 'Loading battles…',
       invoked: 'Battles ready',
     },
+    {
+      name: 'dexter_twitter_search',
+      templateUri: 'ui://dexter/twitter-search',
+      file: 'twitter-search.html',
+      title: 'Dexter Twitter Search widget',
+      description: 'Displays Twitter/X topic analysis results with tweets, engagement metrics, and media.',
+      widgetDescription: 'Shows tweets with author info, likes, retweets, views, and embedded media.',
+      invoking: 'Searching tweets…',
+      invoked: 'Tweets loaded',
+    },
+    {
+      name: 'dexter_media_jobs',
+      templateUri: 'ui://dexter/media-jobs',
+      file: 'media-jobs.html',
+      title: 'Dexter Media Jobs widget',
+      description: 'Displays Sora video or meme generator job status with preview, prompt, and pricing.',
+      widgetDescription: 'Shows media generation job progress, artifacts, cost, and status.',
+      invoking: 'Loading job…',
+      invoked: 'Job loaded',
+    },
   ];
 
   for (const entry of entries) {

@@ -34,6 +34,8 @@ export default defineConfig({
         'codex': path.resolve(rootDir, 'codex.html'),
         'studio': path.resolve(rootDir, 'studio.html'),
         'pokedexter': path.resolve(rootDir, 'pokedexter.html'),
+        'twitter-search': path.resolve(rootDir, 'twitter-search.html'),
+        'media-jobs': path.resolve(rootDir, 'media-jobs.html'),
       },
     },
   },
