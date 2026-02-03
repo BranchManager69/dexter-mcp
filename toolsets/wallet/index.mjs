@@ -21,6 +21,27 @@ const PORTFOLIO_WIDGET_META = createWidgetMeta({
   invoked: 'Wallet overview ready',
 });
 
+const WALLET_LIST_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/wallet-list',
+  widgetDescription: 'Shows linked wallets with addresses, labels, and default wallet indicator.',
+  invoking: 'Loading wallets…',
+  invoked: 'Wallets loaded',
+});
+
+const WALLET_AUTH_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/wallet-auth',
+  widgetDescription: 'Shows session wallet, user ID, and auth diagnostic information.',
+  invoking: 'Loading auth info…',
+  invoked: 'Auth info loaded',
+});
+
+const WALLET_OVERRIDE_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/wallet-override',
+  widgetDescription: 'Shows whether session wallet override is active, cleared, or failed.',
+  invoking: 'Processing override…',
+  invoked: 'Override complete',
+});
+
 export function buildApiUrl(base, path) {
   const normalizedBase = (base || '').replace(/\/+$/, '');
   if (!path) return normalizedBase || '';
@@ -285,7 +306,7 @@ export function registerWalletToolset(server) {
       category: 'wallets',
       access: 'guest',
       tags: ['resolver', 'listing'],
-      ...PORTFOLIO_WIDGET_META,
+      ...WALLET_LIST_WIDGET_META,
     },
     outputSchema: {
       user: z.object({ id: z.string().optional().nullable() }).nullable(),
@@ -322,7 +343,8 @@ export function registerWalletToolset(server) {
     _meta: {
       category: 'wallets',
       access: 'member',
-      tags: ['session', 'override']
+      tags: ['session', 'override'],
+      ...WALLET_OVERRIDE_WIDGET_META,
     },
     inputSchema: {
       wallet_address: z.string().optional(),
@@ -357,7 +379,8 @@ export function registerWalletToolset(server) {
     _meta: {
       category: 'wallets',
       access: 'internal',
-      tags: ['diagnostics']
+      tags: ['diagnostics'],
+      ...WALLET_AUTH_WIDGET_META,
     },
     inputSchema: {
       include_diagnostics: z.boolean().optional(),

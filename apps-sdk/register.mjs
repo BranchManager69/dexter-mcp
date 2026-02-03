@@ -267,6 +267,36 @@ export function registerAppsSdkResources(server) {
       invoking: 'Analyzing activity…',
       invoked: 'Activity loaded',
     },
+    {
+      name: 'dexter_wallet_list',
+      templateUri: 'ui://dexter/wallet-list',
+      file: 'wallet-list.html',
+      title: 'Dexter Wallet List widget',
+      description: 'Displays all wallets linked to the current user account.',
+      widgetDescription: 'Shows linked wallets with addresses, labels, and default wallet indicator.',
+      invoking: 'Loading wallets…',
+      invoked: 'Wallets loaded',
+    },
+    {
+      name: 'dexter_wallet_auth',
+      templateUri: 'ui://dexter/wallet-auth',
+      file: 'wallet-auth.html',
+      title: 'Dexter Wallet Auth widget',
+      description: 'Displays authentication diagnostics for the current session.',
+      widgetDescription: 'Shows session wallet, user ID, and auth diagnostic information.',
+      invoking: 'Loading auth info…',
+      invoked: 'Auth info loaded',
+    },
+    {
+      name: 'dexter_wallet_override',
+      templateUri: 'ui://dexter/wallet-override',
+      file: 'wallet-override.html',
+      title: 'Dexter Wallet Override widget',
+      description: 'Displays session wallet override status and confirmation.',
+      widgetDescription: 'Shows whether session wallet override is active, cleared, or failed.',
+      invoking: 'Processing override…',
+      invoked: 'Override complete',
+    },
   ];
 
   for (const entry of entries) {
