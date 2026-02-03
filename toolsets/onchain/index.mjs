@@ -1,6 +1,14 @@
 import { z } from 'zod';
 
 import { fetchWithX402Json } from '../../clients/x402Client.mjs';
+import { createWidgetMeta } from '../widgetMeta.mjs';
+
+const ONCHAIN_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/onchain-activity',
+  invoking: 'Analyzing activity…',
+  invoked: 'Activity loaded',
+  widgetDescription: 'Shows token or wallet activity with buy/sell volumes, top traders, and recent trades.',
+});
 
 function normalizeApiBase(candidate) {
   const value = (candidate || '').trim();
@@ -533,6 +541,7 @@ export function registerOnchainToolset(server) {
         access: 'public',
         tags: ['onchain', 'dexter', 'analytics', 'x402'],
         parameters: ACTIVITY_PARAMETER_METADATA,
+        ...ONCHAIN_WIDGET_META,
       },
       inputSchema: ActivityBaseSchema.shape,
     },
@@ -573,6 +582,7 @@ export function registerOnchainToolset(server) {
         access: 'public',
         tags: ['onchain', 'insight', 'dexter', 'x402'],
         parameters: ENTITY_PARAMETER_METADATA,
+        ...ONCHAIN_WIDGET_META,
       },
       inputSchema: EntityBaseSchema.shape,
     },

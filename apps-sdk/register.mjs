@@ -237,6 +237,36 @@ export function registerAppsSdkResources(server) {
       invoking: 'Loading balances…',
       invoked: 'Balances ready',
     },
+    {
+      name: 'dexter_pumpstream',
+      templateUri: 'ui://dexter/pumpstream',
+      file: 'pumpstream.html',
+      title: 'Dexter Pumpstream widget',
+      description: 'Displays live Pump.fun streams with thumbnails, viewer counts, and momentum.',
+      widgetDescription: 'Shows active Pump.fun live streams with market cap and momentum indicators.',
+      invoking: 'Loading live streams…',
+      invoked: 'Streams ready',
+    },
+    {
+      name: 'dexter_search',
+      templateUri: 'ui://dexter/search',
+      file: 'search.html',
+      title: 'Dexter Search widget',
+      description: 'Displays web search results with favicons, snippets, and AI summaries.',
+      widgetDescription: 'Shows search results with site icons, descriptions, and optional AI answer.',
+      invoking: 'Searching…',
+      invoked: 'Search complete',
+    },
+    {
+      name: 'dexter_onchain_activity',
+      templateUri: 'ui://dexter/onchain-activity',
+      file: 'onchain-activity.html',
+      title: 'Dexter On-Chain Activity widget',
+      description: 'Displays on-chain activity analysis with volume bars, net flow, and top traders.',
+      widgetDescription: 'Shows token or wallet activity with buy/sell volumes, top traders, and recent trades.',
+      invoking: 'Analyzing activity…',
+      invoked: 'Activity loaded',
+    },
   ];
 
   for (const entry of entries) {

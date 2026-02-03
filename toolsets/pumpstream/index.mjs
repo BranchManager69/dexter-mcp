@@ -1,6 +1,14 @@
 import { z } from 'zod';
+import { createWidgetMeta } from '../widgetMeta.mjs';
 
 const LIVE_ENDPOINT = process.env.PUMPSTREAM_LIVE_URL || 'https://pump.dexter.cash/api/live';
+
+const PUMPSTREAM_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/pumpstream',
+  invoking: 'Loading live streams…',
+  invoked: 'Streams ready',
+  widgetDescription: 'Shows active Pump.fun live streams with thumbnails, viewer counts, and momentum indicators.',
+});
 const MAX_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 25;
 
@@ -268,7 +276,8 @@ export function registerPumpstreamToolset(server) {
       _meta: {
         category: 'analytics',
         access: 'guest',
-        tags: ['pump.fun', 'streams']
+        tags: ['pump.fun', 'streams'],
+        ...PUMPSTREAM_WIDGET_META,
       },
       inputSchema: {
         pageSize: z

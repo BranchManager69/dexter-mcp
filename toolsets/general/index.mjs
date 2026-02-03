@@ -1,7 +1,15 @@
 import { z } from 'zod';
 import { tavily as createTavilyClient } from '@tavily/core';
+import { createWidgetMeta } from '../widgetMeta.mjs';
 
 const DEFAULT_SEARCH_MAX_RESULTS = 5;
+
+const SEARCH_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/search',
+  invoking: 'Searching…',
+  invoked: 'Search complete',
+  widgetDescription: 'Shows search results with site icons, descriptions, and optional AI answer.',
+});
 const MAX_SEARCH_RESULTS = 10;
 
 let cachedClient = null;
@@ -75,6 +83,7 @@ export function registerGeneralToolset(server) {
         category: 'knowledge-base',
         access: 'guest',
         tags: ['web', 'search', 'tavily'],
+        ...SEARCH_WIDGET_META,
       },
       inputSchema: {
         query: z.string().describe('Natural language search string.'),
