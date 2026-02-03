@@ -123,3 +123,113 @@ export type SolanaSendPayload = {
   transfer?: SolanaSendTransfer | null;
   result?: SolanaSendTransfer | null;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Identity Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type IdentityService = {
+  name?: string | null;
+  endpoint?: string | null;
+  version?: string | null;
+};
+
+export type Identity = {
+  id?: string | null;
+  supabaseUserId?: string | null;
+  managedWalletPublicKey?: string | null;
+  chain?: string | null;
+  agentRegistry?: string | null;
+  agentId?: string | null;
+  agentWallet?: string | null;
+  agentUri?: string | null;
+  agentUriHash?: string | null;
+  name?: string | null;
+  description?: string | null;
+  imageUrl?: string | null;
+  services?: IdentityService[];
+  status?: string | null;
+  mintTxHash?: string | null;
+  mintError?: string | null;
+  gasSponsored?: boolean | null;
+  gasCostNative?: string | null;
+  gasCostUsd?: string | null;
+  mintedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type IdentityStatusPayload = {
+  hasIdentity?: boolean;
+  hasBase?: boolean;
+  hasSolana?: boolean;
+  recommended?: string | null;
+  identity?: Identity | null;
+  identities?: Identity[];
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reputation Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ReputationFeedback = {
+  id?: string | null;
+  rating?: number | null;
+  comment?: string | null;
+  createdAt?: string | null;
+  fromAgentId?: string | null;
+};
+
+export type ReputationPayload = {
+  agentId?: string | null;
+  chain?: string | null;
+  score?: number | null;
+  totalRatings?: number | null;
+  averageRating?: number | null;
+  recentFeedback?: ReputationFeedback[];
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bundle Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type BundleTool = {
+  name?: string | null;
+  description?: string | null;
+};
+
+export type BundleCurator = {
+  userId?: string | null;
+  name?: string | null;
+};
+
+export type Bundle = {
+  id?: string | null;
+  slug?: string | null;
+  name?: string | null;
+  shortDescription?: string | null;
+  description?: string | null;
+  iconUrl?: string | null;
+  category?: string | null;
+  tags?: string[];
+  priceUsdc?: number | null;
+  usesPerPurchase?: number | null;
+  totalPurchases?: number | null;
+  avgRating?: number | null;
+  ratingCount?: number | null;
+  isFeatured?: boolean | null;
+  isVerified?: boolean | null;
+  toolCount?: number | null;
+  tools?: BundleTool[];
+  curator?: BundleCurator | null;
+};
+
+export type BundlePayload = {
+  ok?: boolean;
+  bundle?: Bundle | null;
+  bundles?: Bundle[];
+  total?: number | null;
+  categories?: string[];
+  hasAccess?: boolean | null;
+  remainingUses?: number | null;
+};

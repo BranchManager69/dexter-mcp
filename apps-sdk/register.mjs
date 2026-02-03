@@ -197,6 +197,36 @@ export function registerAppsSdkResources(server) {
       invoking: 'Submitting transfer…',
       invoked: 'Transfer summary ready',
     },
+    {
+      name: 'dexter_identity_status',
+      templateUri: 'ui://dexter/identity-status',
+      file: 'identity-status.html',
+      title: 'Dexter Identity Status widget',
+      description: 'Shows ERC-8004 identity status for the current user.',
+      widgetDescription: 'Displays ERC-8004 identity information including chain status and agent details.',
+      invoking: 'Checking identity…',
+      invoked: 'Identity status ready',
+    },
+    {
+      name: 'dexter_reputation_badge',
+      templateUri: 'ui://dexter/reputation-badge',
+      file: 'reputation-badge.html',
+      title: 'Dexter Reputation Badge widget',
+      description: 'Displays reputation score and feedback history for an agent.',
+      widgetDescription: 'Shows agent reputation including ratings, scores, and recent feedback.',
+      invoking: 'Loading reputation…',
+      invoked: 'Reputation loaded',
+    },
+    {
+      name: 'dexter_bundle_card',
+      templateUri: 'ui://dexter/bundle-card',
+      file: 'bundle-card.html',
+      title: 'Dexter Bundle Card widget',
+      description: 'Displays bundle information including tools, pricing, and access status.',
+      widgetDescription: 'Shows tool bundle details with pricing, included tools, and purchase status.',
+      invoking: 'Loading bundle…',
+      invoked: 'Bundle loaded',
+    },
   ];
 
   for (const entry of entries) {
