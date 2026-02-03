@@ -254,14 +254,22 @@ export function registerSolanaToolset(server) {
   });
 
   const sendInputShape = {
-    wallet_address: z.string().trim().optional(),
-    recipient_type: z.enum(['wallet', 'twitter']).optional(),
-    recipient_value: z.string().min(1, 'recipient_value is required'),
-    mint: z.string().trim().optional(),
-    amount_ui: z.union([z.number(), z.string()]).optional(),
-    amount: z.union([z.number(), z.string()]).optional(),
-    memo: z.string().max(280, 'Memo must be 280 characters or fewer').optional(),
-    confirm: z.boolean().optional(),
+    wallet_address: z.string().trim().optional()
+      .describe('Source wallet address to send FROM. If omitted, uses your default managed wallet.'),
+    recipient_type: z.enum(['wallet', 'twitter']).optional()
+      .describe('Type of recipient: "wallet" for Solana address, "twitter" for linked Twitter handle. Defaults to "wallet".'),
+    recipient_value: z.string().min(1, 'recipient_value is required')
+      .describe('Destination: a Solana wallet address (e.g., "GHhsTka...") or Twitter handle (e.g., "@deabordes").'),
+    mint: z.string().trim().optional()
+      .describe('Token to send. Use shortcuts like "SOL", "USDC", "DEXTER", or full mint address (e.g., "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" for USDC). Defaults to SOL.'),
+    amount_ui: z.union([z.number(), z.string()]).optional()
+      .describe('Human-readable amount to send (e.g., 1 for 1 USDC, 0.5 for 0.5 SOL). Do NOT use atomic/lamport amounts.'),
+    amount: z.union([z.number(), z.string()]).optional()
+      .describe('Alias for amount_ui. Prefer amount_ui for clarity.'),
+    memo: z.string().max(280, 'Memo must be 280 characters or fewer').optional()
+      .describe('Optional memo to include in the transaction (max 280 characters).'),
+    confirm: z.boolean().optional()
+      .describe('Set to true to skip confirmation prompt for transfers over $50. Required for large transfers.'),
   };
 
   const sendInputSchema = z.object(sendInputShape).superRefine((value, ctx) => {
@@ -275,7 +283,15 @@ export function registerSolanaToolset(server) {
 
   server.registerTool('solana_send', {
     title: 'Send SOL or SPL Token',
-    description: 'Transfer SOL, DEXTER, USDC, PAYAI, or any SPL token to another wallet address or linked Twitter handle.',
+    description: `Transfer SOL, USDC, DEXTER, or any SPL token to a wallet address or Twitter handle.
+
+REQUIRED: wallet_address (source wallet), recipient_value (destination), amount_ui (amount)
+OPTIONAL: mint (defaults to SOL), memo, confirm (for large transfers)
+
+Examples:
+- Send 1 USDC: wallet_address="YOUR_WALLET", recipient_value="DEST_WALLET", mint="USDC", amount_ui=1
+- Send 0.1 SOL: wallet_address="YOUR_WALLET", recipient_value="DEST_WALLET", amount_ui=0.1
+- Send to Twitter: recipient_type="twitter", recipient_value="@deabordes", mint="USDC", amount_ui=5`,
     annotations: {
       destructiveHint: true,
     },

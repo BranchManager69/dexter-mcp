@@ -6,12 +6,19 @@
  * 
  * This toolset loads BEFORE x402, so MCP users get these free versions
  * and the x402 duplicates are skipped.
+ * 
+ * CRITICAL: For wagered battles, agents must be "connected" to PokeDexter
+ * as fake users in the Users.users map. This is done automatically via
+ * the /api/v1/agent/connect endpoint when creating/accepting challenges.
  */
 
 import { z } from 'zod';
 
 const DEXTER_API_URL = process.env.DEXTER_API_URL || 'https://api.dexter.cash';
 const POKEDEXTER_API_URL = process.env.POKEDEXTER_API_URL || 'https://poke.dexter.cash';
+
+// Track connected agents to avoid redundant connection calls
+const connectedAgents = new Set();
 
 /**
  * Call Pokedexter API directly (bypassing dexter-api x402 protection)
@@ -101,6 +108,47 @@ function deriveUserId(walletAddress) {
   return `agent_${Date.now().toString(36)}`;
 }
 
+/**
+ * Ensure agent is connected to PokeDexter as a "fake user".
+ * 
+ * This is REQUIRED for wagered battles - the deposit monitor checks Users.get()
+ * when starting a battle, and returns refunds if players aren't found.
+ * 
+ * @param {string} agentId - The agent's user ID (e.g., "agent_ml68b98l")
+ * @returns {Promise<boolean>} - Whether connection succeeded
+ */
+async function ensureAgentConnected(agentId) {
+  // Skip if already connected in this session
+  if (connectedAgents.has(agentId)) {
+    console.log(`[pokedexter] Agent ${agentId} already connected (cached)`);
+    return true;
+  }
+
+  try {
+    console.log(`[pokedexter] Connecting agent ${agentId} to PokeDexter...`);
+    
+    const response = await fetch(`${POKEDEXTER_API_URL}/api/v1/agent/connect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agentId, name: agentId }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      connectedAgents.add(agentId);
+      console.log(`[pokedexter] Agent ${agentId} connected successfully`);
+      return true;
+    }
+
+    console.warn(`[pokedexter] Agent connect failed: ${data.error?.message || 'unknown'}`);
+    return false;
+  } catch (error) {
+    console.error(`[pokedexter] Agent connect error: ${error?.message || error}`);
+    return false;
+  }
+}
+
 export async function registerPokedexterToolset(server) {
   // ============================================================================
   // FREE TOOLS (local bridge versions)
@@ -134,12 +182,12 @@ export async function registerPokedexterToolset(server) {
   });
 
   /**
-   * Get current battle state
-   * Calls poke.dexter.cash directly to bypass x402 protection
+   * Get current battle state via WebSocket connection
+   * Uses dexter-api's WebSocket manager for real-time battle state
    */
   server.registerTool('pokedexter_get_battle_state', {
     title: 'Pokedexter: Get Battle State',
-    description: 'Get the current state of your active Pokémon battle including your team, opponent info, field conditions, and available moves. Use this before each turn to see what actions are available.',
+    description: 'Get the current state of your active Pokémon battle including your team, opponent info, field conditions, and available moves. Uses WebSocket for real-time data. Use this before each turn to see what actions are available.',
     _meta: {
       category: 'games.pokedexter',
       access: 'member',
@@ -147,35 +195,35 @@ export async function registerPokedexterToolset(server) {
     },
     inputSchema: {
       battleId: z.string().min(1).describe('The battle room ID from your wager/challenge response'),
+      side: z.enum(['p1', 'p2']).optional().describe('Which side you are playing as (default: p1)'),
     },
   }, async (args, extra) => {
-    const { battleId } = args;
+    const { battleId, side = 'p1' } = args;
     
     if (!battleId) {
       throw new Error('battleId is required');
     }
 
-    // Get wager/battle info from the Pokedexter API
-    const result = await callPokedexterDirect(`/api/v1/wager/room/${battleId}/deposits`);
+    // Get real-time battle state via dexter-api WebSocket manager
+    const result = await callDexterApi(`/api/pokedexter/battles/${battleId}/state?side=${side}`);
 
-    if (!result.ok) {
+    if (!result.ok || !result.data?.ok) {
       throw new Error(result.data?.error || 'get_battle_state_failed');
     }
 
     return {
-      structuredContent: { ok: true, battleId, ...result.data },
-      content: [{ type: 'text', text: JSON.stringify({ ok: true, battleId, ...result.data }) }],
+      structuredContent: result.data,
+      content: [{ type: 'text', text: result.data.prompt || JSON.stringify(result.data) }],
     };
   });
 
   /**
-   * Submit a move in battle
-   * Note: This tool is a placeholder - actual move submission requires WebSocket connection
-   * The poke.dexter.cash game uses WebSocket for real-time battle communication
+   * Submit a move in battle via WebSocket
+   * Uses dexter-api's WebSocket manager to send moves to the battle server
    */
   server.registerTool('pokedexter_make_move', {
     title: 'Pokedexter: Make Move',
-    description: 'Submit your battle action. Format: "move 1", "move 2", "switch 3", "move 1 terastallize", etc. Check battle state first to see available moves and switches.',
+    description: 'Submit your battle action via WebSocket. Format: "move 1", "move 2", "switch 3", "move 1 terastallize", etc. Call get_battle_state first to see available moves.',
     _meta: {
       category: 'games.pokedexter',
       access: 'member',
@@ -183,7 +231,7 @@ export async function registerPokedexterToolset(server) {
     },
     inputSchema: {
       battleId: z.string().min(1).describe('The battle room ID from your wager/challenge response'),
-      choice: z.string().min(1).describe('Your action: "move 1", "move 2", "switch 3", "move 1 terastallize", "pass", etc.'),
+      choice: z.string().min(1).describe('Your action: "move 1", "move 2", "switch 3", "move 1 terastallize", "pass", "default", etc.'),
     },
   }, async (args, extra) => {
     const { battleId, choice } = args;
@@ -192,22 +240,19 @@ export async function registerPokedexterToolset(server) {
       throw new Error('battleId and choice are required');
     }
 
-    const walletAddress = resolveWalletAddress(extra);
-    const userId = deriveUserId(walletAddress);
+    // Submit move via dexter-api WebSocket manager
+    const result = await callDexterApi(`/api/pokedexter/battles/${battleId}/move`, {
+      method: 'POST',
+      body: { choice },
+    });
 
-    // TODO: Implement WebSocket-based move submission
-    // For now, return acknowledgment that the move was received
-    // Full WebSocket integration requires dexter-api session manager
-    
+    if (!result.ok || !result.data?.ok) {
+      throw new Error(result.data?.error || 'make_move_failed');
+    }
+
     return {
-      structuredContent: { 
-        ok: true, 
-        submitted: choice, 
-        battleId,
-        userId,
-        note: 'Move recorded. WebSocket integration for real-time battle coming soon.',
-      },
-      content: [{ type: 'text', text: JSON.stringify({ ok: true, submitted: choice, battleId }) }],
+      structuredContent: result.data,
+      content: [{ type: 'text', text: `Move submitted: ${choice}. Turn: ${result.data.turn || 'unknown'}, Phase: ${result.data.phase || 'unknown'}` }],
     };
   });
 
@@ -305,6 +350,10 @@ export async function registerPokedexterToolset(server) {
     const walletAddress = resolveWalletAddress(extra);
     const userId = deriveUserId(walletAddress);
 
+    // CRITICAL: Connect agent to PokeDexter BEFORE creating challenge
+    // This registers the agent in Users.users so the battle can start when deposits confirm
+    await ensureAgentConnected(userId);
+
     const result = await callPokedexterDirect('/api/v1/matchmaking/challenges', {
       method: 'POST',
       body: {
@@ -320,7 +369,7 @@ export async function registerPokedexterToolset(server) {
     }
 
     return {
-      structuredContent: { ok: true, ...result.data },
+      structuredContent: { ok: true, ...result.data, agentConnected: connectedAgents.has(userId) },
       content: [{ type: 'text', text: JSON.stringify({ ok: true, ...result.data }) }],
     };
   });
@@ -349,6 +398,10 @@ export async function registerPokedexterToolset(server) {
     const walletAddress = resolveWalletAddress(extra);
     const userId = deriveUserId(walletAddress);
 
+    // CRITICAL: Connect agent to PokeDexter BEFORE accepting challenge
+    // This registers the agent in Users.users so the battle can start when deposits confirm
+    await ensureAgentConnected(userId);
+
     const result = await callPokedexterDirect(`/api/v1/matchmaking/challenges/${challengeId}/accept`, {
       method: 'POST',
       body: {
@@ -362,7 +415,7 @@ export async function registerPokedexterToolset(server) {
     }
 
     return {
-      structuredContent: { ok: true, ...result.data },
+      structuredContent: { ok: true, ...result.data, agentConnected: connectedAgents.has(userId) },
       content: [{ type: 'text', text: JSON.stringify({ ok: true, ...result.data }) }],
     };
   });
@@ -392,6 +445,10 @@ export async function registerPokedexterToolset(server) {
     const walletAddress = resolveWalletAddress(extra);
     const userId = deriveUserId(walletAddress);
 
+    // CRITICAL: Connect agent to PokeDexter BEFORE joining queue
+    // This registers the agent in Users.users so the battle can start when matched
+    await ensureAgentConnected(userId);
+
     const result = await callPokedexterDirect('/api/v1/matchmaking/queue', {
       method: 'POST',
       body: {
@@ -407,7 +464,7 @@ export async function registerPokedexterToolset(server) {
     }
 
     return {
-      structuredContent: { ok: true, ...result.data },
+      structuredContent: { ok: true, ...result.data, agentConnected: connectedAgents.has(userId) },
       content: [{ type: 'text', text: JSON.stringify({ ok: true, ...result.data }) }],
     };
   });
@@ -442,5 +499,5 @@ export async function registerPokedexterToolset(server) {
     };
   });
 
-  console.log('[pokedexter] Local bridge toolset registered (9 free tools)');
+  console.log('[pokedexter] Local bridge toolset registered (9 free tools with agent auto-connect)');
 }
