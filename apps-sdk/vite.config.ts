@@ -23,6 +23,7 @@ export default defineConfig({
         'identity-status': path.resolve(rootDir, 'identity-status.html'),
         'reputation-badge': path.resolve(rootDir, 'reputation-badge.html'),
         'bundle-card': path.resolve(rootDir, 'bundle-card.html'),
+        'solana-balances': path.resolve(rootDir, 'solana-balances.html'),
       },
     },
   },

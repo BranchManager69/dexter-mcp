@@ -34,6 +34,13 @@ const SEND_WIDGET_META = createWidgetMeta({
   invoked: 'Transfer sent',
 });
 
+const BALANCES_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/solana-balances',
+  widgetDescription: 'Displays wallet token holdings with USD values, price changes, and portfolio totals.',
+  invoking: 'Loading balances…',
+  invoked: 'Balances ready',
+});
+
 function buildApiUrl(base, path) {
   const normalizedBase = (base || '').replace(/\/+$/, '');
   if (!path) return normalizedBase || '';
@@ -221,7 +228,8 @@ export function registerSolanaToolset(server) {
     _meta: {
       category: 'solana.portfolio',
       access: 'managed',
-      tags: ['balances', 'spl']
+      tags: ['balances', 'spl'],
+      ...BALANCES_WIDGET_META,
     },
     inputSchema: {
       wallet_address: z.string().optional(),
@@ -243,6 +251,7 @@ export function registerSolanaToolset(server) {
       return {
         content: [{ type: 'text', text: JSON.stringify({ error: 'wallet_address_required' }) }],
         isError: true,
+        _meta: { ...BALANCES_WIDGET_META },
       };
     }
 
@@ -250,7 +259,11 @@ export function registerSolanaToolset(server) {
     if (min_ui != null) params.set('minUi', String(min_ui));
     if (limit != null) params.set('limit', String(limit));
     const result = await apiFetch(`/api/solana/balances?${params.toString()}`, { method: 'GET' }, extra);
-    return { structuredContent: result, content: [{ type: 'text', text: JSON.stringify(result.balances || []) }] };
+    return { 
+      structuredContent: result, 
+      content: [{ type: 'text', text: JSON.stringify(result.balances || []) }],
+      _meta: { ...BALANCES_WIDGET_META },
+    };
   });
 
   const sendInputShape = {

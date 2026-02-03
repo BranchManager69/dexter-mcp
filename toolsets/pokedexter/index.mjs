@@ -203,18 +203,31 @@ export async function registerPokedexterToolset(server) {
       throw new Error('battleId is required');
     }
 
-    const walletAddress = resolveWalletAddress(extra);
-    const agentId = deriveUserId(walletAddress);
-    
-    console.log(`[pokedexter] get_battle_state: battleId=${battleId}, agentId=${agentId}`);
-
-    // 1. Resolve room mapping (wager ID -> actual room ID)
+    // 1. Resolve room mapping FIRST - it contains the actual agent IDs
     const mappingResult = await callPokedexterDirect(`/api/v1/agent/battle/${battleId}/resolve`);
     const mapping = mappingResult.ok && mappingResult.data?.success ? mappingResult.data : null;
     const actualRoomId = mapping?.actualRoomId || battleId;
-    const playerSlot = mapping?.player1Id === agentId ? 'p1' : (mapping?.player2Id === agentId ? 'p2' : null);
     
-    console.log(`[pokedexter] Room: ${battleId} -> ${actualRoomId}, slot=${playerSlot}`);
+    // 2. Get agent ID from the mapping (NOT derived fresh - that creates mismatches!)
+    // API returns: player1: { id, isAgent }, player2: { id, isAgent }
+    let agentId = null;
+    let playerSlot = null;
+    
+    if (mapping?.player1?.isAgent) {
+      agentId = mapping.player1.id;
+      playerSlot = 'p1';
+    } else if (mapping?.player2?.isAgent) {
+      agentId = mapping.player2.id;
+      playerSlot = 'p2';
+    } else {
+      // Fallback: try to derive from wallet (less reliable)
+      const walletAddress = resolveWalletAddress(extra);
+      agentId = deriveUserId(walletAddress);
+      playerSlot = mapping?.player1?.id === agentId ? 'p1' : (mapping?.player2?.id === agentId ? 'p2' : null);
+    }
+    
+    console.log(`[pokedexter] get_battle_state: battleId=${battleId}, agentId=${agentId}, slot=${playerSlot}`);
+    console.log(`[pokedexter] Room: ${battleId} -> ${actualRoomId}`);
 
     // 2. Get YOUR actual request data (moves, team, etc.)
     const requestResult = await callPokedexterDirect(`/api/v1/agent/battle/${actualRoomId}/request?agentId=${encodeURIComponent(agentId)}`);
@@ -250,6 +263,11 @@ export async function registerPokedexterToolset(server) {
         forceSwitch: req.forceSwitch || false,
         trapped: req.trapped || false,
       };
+      
+      // Opponent info from battle log parsing
+      if (req.opponent) {
+        response.opponent = req.opponent;
+      }
     } else {
       response.waiting = true;
       response.message = req?.message || 'No pending request - waiting for turn or battle to start';
@@ -277,9 +295,32 @@ export async function registerPokedexterToolset(server) {
     
     if (state.yourActive) {
       const p = state.yourActive;
-      lines.push(`YOUR ACTIVE: ${p.name} (${p.species}) - ${p.hpPercent}% HP${p.status ? ` [${p.status}]` : ''}`);
+      const typeStr = p.types?.length ? ` (${p.types.join('/')})` : '';
+      lines.push(`YOUR ACTIVE: ${p.name}${typeStr} - ${p.hpPercent}% HP${p.status ? ` [${p.status}]` : ''}`);
       if (p.ability) lines.push(`  Ability: ${p.ability}`);
       if (p.item) lines.push(`  Item: ${p.item}`);
+      lines.push('');
+    }
+    
+    // Show opponent info (from battle log - what you can actually see)
+    if (state.opponent) {
+      const opp = state.opponent;
+      if (opp.activePokemon) {
+        const activeMon = opp.team?.find(p => p.active);
+        const activeHp = activeMon ? `${activeMon.hp}% HP` : '?';
+        const typeStr = opp.activeTypes?.length ? ` (${opp.activeTypes.join('/')})` : '';
+        lines.push(`OPPONENT ACTIVE: ${opp.activePokemon}${typeStr} - ${activeHp}`);
+      }
+      if (opp.team?.length > 0) {
+        lines.push(`OPPONENT TEAM (${opp.remainingCount}/${opp.revealedCount} alive, ${6 - opp.revealedCount} unrevealed):`);
+        for (const p of opp.team) {
+          const status = p.fainted ? '[FAINTED]' : (p.active ? '(active)' : '');
+          const typeStr = p.types?.length ? ` (${p.types.join('/')})` : '';
+          lines.push(`  - ${p.species}${typeStr} - ${p.hp}% HP ${status}`);
+        }
+      } else {
+        lines.push(`OPPONENT: No Pokemon revealed yet`);
+      }
       lines.push('');
     }
     
@@ -287,7 +328,12 @@ export async function registerPokedexterToolset(server) {
       lines.push('YOUR TEAM:');
       for (const p of state.yourTeam) {
         const status = p.fainted ? '[FAINTED]' : (p.status ? `[${p.status}]` : '');
-        lines.push(`  ${p.slot}. ${p.name} - ${p.hpPercent}% HP ${status}${p.active ? ' (active)' : ''}`);
+        const typeStr = p.types?.length ? `(${p.types.join('/')})` : '';
+        lines.push(`  ${p.slot}. ${p.name} ${typeStr} - ${p.hpPercent}% HP ${status}${p.active ? ' (active)' : ''}`);
+        lines.push(`     Ability: ${p.ability || '?'} | Item: ${p.item || 'none'}`);
+        if (p.moves?.length) {
+          lines.push(`     Moves: ${p.moves.join(', ')}`);
+        }
       }
       lines.push('');
     }
@@ -295,7 +341,19 @@ export async function registerPokedexterToolset(server) {
     if (state.availableActions?.moves?.length) {
       lines.push('MOVES:');
       for (const m of state.availableActions.moves) {
-        lines.push(`  ${m.slot}. ${m.name} (PP: ${m.pp}/${m.maxpp})${m.canUse ? '' : ' [DISABLED]'}`);
+        // Format effectiveness
+        let effStr = '';
+        if (m.effectiveness !== undefined && m.effectiveness !== 1) {
+          if (m.effectiveness === 0) effStr = ' → IMMUNE';
+          else if (m.effectiveness === 0.25) effStr = ' → 0.25x';
+          else if (m.effectiveness === 0.5) effStr = ' → 0.5x';
+          else if (m.effectiveness === 2) effStr = ' → 2x';
+          else if (m.effectiveness === 4) effStr = ' → 4x';
+        }
+        const typeInfo = m.type && m.type !== 'Unknown' ? `${m.type}` : '';
+        const bpInfo = m.basePower > 0 ? `, ${m.basePower} BP` : '';
+        const moveTypeStr = typeInfo ? ` (${typeInfo}${bpInfo})` : '';
+        lines.push(`  ${m.slot}. ${m.name}${moveTypeStr}${effStr} (PP: ${m.pp}/${m.maxpp})${m.canUse ? '' : ' [DISABLED]'}`);
       }
       lines.push('');
     }
@@ -340,14 +398,26 @@ export async function registerPokedexterToolset(server) {
       throw new Error('battleId and choice are required');
     }
 
-    const walletAddress = resolveWalletAddress(extra);
-    const agentId = deriveUserId(walletAddress);
+    // Resolve room mapping FIRST - it contains the actual agent IDs
+    const mappingResult = await callPokedexterDirect(`/api/v1/agent/battle/${battleId}/resolve`);
+    const mapping = mappingResult.ok && mappingResult.data?.success ? mappingResult.data : null;
+    const actualRoomId = mapping?.actualRoomId || battleId;
+    
+    // Get agent ID from the mapping (NOT derived fresh!)
+    // API returns: player1: { id, isAgent }, player2: { id, isAgent }
+    let agentId = null;
+    
+    if (mapping?.player1?.isAgent) {
+      agentId = mapping.player1.id;
+    } else if (mapping?.player2?.isAgent) {
+      agentId = mapping.player2.id;
+    } else {
+      // Fallback: try to derive from wallet
+      const walletAddress = resolveWalletAddress(extra);
+      agentId = deriveUserId(walletAddress);
+    }
     
     console.log(`[pokedexter] make_move: battleId=${battleId}, agentId=${agentId}, choice=${choice}`);
-
-    // Resolve room mapping first
-    const mappingResult = await callPokedexterDirect(`/api/v1/agent/battle/${battleId}/resolve`);
-    const actualRoomId = mappingResult.data?.actualRoomId || battleId;
 
     // Submit move via PokeDexter agent API (writes to battle.stream.write)
     const result = await callPokedexterDirect(`/api/v1/agent/battle/${actualRoomId}/move`, {

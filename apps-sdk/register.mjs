@@ -227,6 +227,16 @@ export function registerAppsSdkResources(server) {
       invoking: 'Loading bundle…',
       invoked: 'Bundle loaded',
     },
+    {
+      name: 'dexter_solana_balances',
+      templateUri: 'ui://dexter/solana-balances',
+      file: 'solana-balances.html',
+      title: 'Dexter Solana Balances widget',
+      description: 'Displays token balances with prices, 24h changes, and portfolio totals.',
+      widgetDescription: 'Shows wallet token holdings with USD values, price changes, and research links.',
+      invoking: 'Loading balances…',
+      invoked: 'Balances ready',
+    },
   ];
 
   for (const entry of entries) {
