@@ -4,8 +4,29 @@ import { promises as fsp } from 'node:fs';
 import { buildWidgetBootstrapScript } from './bootstrap.js';
 
 const SKYBRIDGE_MIME = 'text/html+skybridge';
-const DEFAULT_WIDGET_DOMAIN = 'dexter-mcp';
 const APPS_SDK_DIR = path.resolve(new URL('.', import.meta.url).pathname, '../public/apps-sdk');
+
+/**
+ * Resolves the widget domain from environment or derives from MCP public URL.
+ * Must be a valid HTTPS origin per OpenAI Apps SDK requirements.
+ * @see https://developers.openai.com/apps-sdk/reference
+ */
+function resolveWidgetDomain() {
+  // Explicit override takes precedence
+  const explicit = process.env.TOKEN_AI_WIDGET_DOMAIN;
+  if (explicit) return explicit;
+
+  // Derive from MCP public URL
+  const mcpUrl = process.env.TOKEN_AI_MCP_PUBLIC_URL;
+  if (mcpUrl) {
+    try {
+      return new URL(mcpUrl).origin;
+    } catch {}
+  }
+
+  // Fallback to production default
+  return 'https://dexter.cash';
+}
 
 function rewriteHtmlForAssets(html, assetBase) {
   if (!html) return html;
@@ -38,19 +59,49 @@ function fileExistsSync(filePath) {
   }
 }
 
+/**
+ * Builds the OpenAI widgetCSP object per Apps SDK spec.
+ * This tells ChatGPT's sandbox which domains the widget may contact.
+ * @see https://developers.openai.com/apps-sdk/reference#component-resource-_meta-fields
+ *
+ * @param {string} assetBase - Base URL for widget assets
+ * @returns {{ connect_domains: string[], resource_domains: string[] }}
+ */
 function buildWidgetCsp(assetBase) {
-  const extraOrigins = [];
+  const resourceDomains = [];
+  const connectDomains = [];
+
+  // Allow fetching assets from the asset base origin
   try {
     const origin = new URL(assetBase).origin;
     if (origin) {
-      extraOrigins.push(origin);
+      resourceDomains.push(origin);
     }
   } catch {}
 
-  const scriptSources = [`'self'`, `'unsafe-inline'`, ...extraOrigins];
-  const styleSources = [`'self'`, `'unsafe-inline'`, ...extraOrigins];
+  // Allow connecting to the Dexter API for tool calls from widget
+  const apiBase = process.env.DEXTER_API_BASE_URL;
+  if (apiBase) {
+    try {
+      const apiOrigin = new URL(apiBase).origin;
+      if (apiOrigin && apiOrigin.startsWith('https://')) {
+        connectDomains.push(apiOrigin);
+      }
+    } catch {}
+  }
 
-  return `script-src ${scriptSources.join(' ')}; style-src ${styleSources.join(' ')}`;
+  // Production API fallback
+  if (!connectDomains.some(d => d.includes('dexter.cash'))) {
+    connectDomains.push('https://api.dexter.cash');
+  }
+
+  // OpenAI's CDN for static assets (fonts, etc.)
+  resourceDomains.push('https://*.oaistatic.com');
+
+  return {
+    connect_domains: connectDomains,
+    resource_domains: resourceDomains,
+  };
 }
 
 function injectBootstrap(html, baseHref) {
@@ -80,7 +131,11 @@ export function registerAppsSdkResources(server) {
     return;
   }
 
-  const widgetCsp = buildWidgetCsp(assetBase);
+  const widgetDomain = resolveWidgetDomain();
+  const widgetCSP = buildWidgetCsp(assetBase);
+
+  console.log('[apps-sdk] Registering widgets with domain:', widgetDomain);
+
   const entries = [
     {
       name: 'dexter_portfolio_status',
@@ -159,9 +214,10 @@ export function registerAppsSdkResources(server) {
         description: entry.description,
         mimeType: SKYBRIDGE_MIME,
         _meta: {
-          'openai/widgetDomain': DEFAULT_WIDGET_DOMAIN,
-          'openai/widgetCsp': widgetCsp,
+          'openai/widgetDomain': widgetDomain,
+          'openai/widgetCSP': widgetCSP,
           'openai/widgetDescription': entry.widgetDescription || entry.description,
+          'openai/widgetPrefersBorder': true,
         },
       },
       async () => {
@@ -176,9 +232,10 @@ export function registerAppsSdkResources(server) {
               text: html,
               mimeType: SKYBRIDGE_MIME,
               _meta: {
-                'openai/widgetDomain': DEFAULT_WIDGET_DOMAIN,
-                'openai/widgetCsp': widgetCsp,
+                'openai/widgetDomain': widgetDomain,
+                'openai/widgetCSP': widgetCSP,
                 'openai/widgetDescription': entry.widgetDescription || entry.description,
+                'openai/widgetPrefersBorder': true,
               },
             },
           ],
