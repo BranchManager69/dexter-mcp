@@ -527,7 +527,7 @@ export function registerOnchainToolset(server) {
     {
       title: 'On-chain Activity Overview',
       description:
-        'Primary on-chain analytics for tokens and wallets. Resolve the mint first, then summarize swap activity over a timeframe. Use this before any Kolscan fallback.',
+        'On-chain swap analytics. REQUIRED: scope="token" needs mint; scope="wallet" needs BOTH mint AND wallet. Always resolve the mint address first.',
       _meta: {
         category: 'onchain.analytics',
         access: 'public',
@@ -567,7 +567,7 @@ export function registerOnchainToolset(server) {
     {
       title: 'On-chain Entity Insight',
       description:
-        'Primary on-chain deep dive for wallets, tokens, or specific signatures. Resolve the mint first; use scope=trade with a signature for transaction deltas.',
+        'On-chain entity deep dive. REQUIRED: scope="token" or "wallet" needs mint; scope="wallet" also needs wallet; scope="trade" needs signature.',
       _meta: {
         category: 'onchain.analytics',
         access: 'public',
