@@ -1,134 +1,349 @@
 import '../styles/global.css';
 
 import { createRoot } from 'react-dom/client';
-import { AppShell, Card, EmptyState, Field, Grid, Status, Warning } from '../components/AppShell';
-import { abbreviateAddress, formatTimestamp, formatValue } from '../components/utils';
-import type { SolanaSendPayload, SolanaSendTransfer } from '../types';
-import { useDisplayMode, useMaxHeight, useOpenAIGlobal, useRequestDisplayMode } from '../sdk';
+import { useState } from 'react';
+import { useOpenAIGlobal } from '../sdk';
 
-function normalizeTransfer(payload: SolanaSendPayload | null): SolanaSendTransfer | null {
-  if (!payload) return null;
-  if (payload.result) {
-    return payload.result;
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+type SolanaSendTransfer = {
+  walletAddress?: string;
+  destination?: string;
+  recipient?: string;
+  recipientHandle?: string;
+  mint?: string;
+  amountUi?: number;
+  amountRaw?: string;
+  decimals?: number;
+  valueUsd?: number;
+  priceUsd?: number;
+  memo?: string;
+  signature?: string;
+  solscanUrl?: string;
+};
+
+type SolanaSendPayload = {
+  ok?: boolean;
+  error?: string;
+  message?: string;
+  thresholdUsd?: number;
+  result?: SolanaSendTransfer;
+  transfer?: SolanaSendTransfer;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function pickString(...values: (string | null | undefined)[]): string | undefined {
+  for (const v of values) {
+    if (typeof v === 'string' && v.trim()) return v.trim();
   }
-  if (payload.transfer) {
-    const { transfer } = payload;
-    if (transfer && !transfer.destination && transfer.recipient) {
-      return { ...transfer, destination: transfer.recipient };
+  return undefined;
+}
+
+function pickNumber(...values: (number | string | null | undefined)[]): number | undefined {
+  for (const v of values) {
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string') {
+      const n = Number(v);
+      if (Number.isFinite(n)) return n;
     }
-    return transfer ?? null;
   }
-  return null;
+  return undefined;
 }
 
-function formatUsd(value: number | string | null | undefined): string {
-  if (value === null || value === undefined || value === '') return '—';
-  const numeric = typeof value === 'string' ? Number(value) : value;
-  if (!Number.isFinite(numeric)) return '—';
-  return `$${numeric.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+const WELL_KNOWN: Record<string, string> = {
+  'native:SOL': 'SOL',
+  So11111111111111111111111111111111111111112: 'SOL',
+  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: 'USDC',
+  Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: 'USDT',
+};
+
+function resolveSymbol(mint?: string): string {
+  if (!mint) return 'TOKEN';
+  if (mint.toLowerCase().includes('sol') || mint === 'native:SOL') return 'SOL';
+  return WELL_KNOWN[mint] ?? mint.slice(0, 4).toUpperCase();
 }
 
-function formatHandle(handle: string | null | undefined): string {
-  if (!handle) return '—';
-  const trimmed = handle.startsWith('@') ? handle.slice(1) : handle;
-  const clean = trimmed.trim();
-  if (!clean) return '—';
-  return `@${clean}`;
+function formatAmount(value?: number, decimals?: number): string {
+  if (value === undefined) return '—';
+  const maxDigits = decimals && decimals > 4 ? 4 : decimals ?? 6;
+  if (Math.abs(value) >= 1) {
+    return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: maxDigits });
+  }
+  return value.toLocaleString('en-US', { maximumSignificantDigits: 6 });
 }
+
+function formatUsd(value?: number): string {
+  if (value === undefined || !Number.isFinite(value)) return '—';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function abbreviate(value: string, prefix = 6, suffix = 4): string {
+  if (value.length <= prefix + suffix + 3) return value;
+  return `${value.slice(0, prefix)}…${value.slice(-suffix)}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Solana Icon
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SolanaIcon({ size = 24 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none">
+      <defs>
+        <linearGradient id="sol-send-grad" x1="90%" y1="0%" x2="10%" y2="100%">
+          <stop offset="0%" stopColor="#00FFA3" />
+          <stop offset="100%" stopColor="#DC1FFF" />
+        </linearGradient>
+      </defs>
+      <path d="M25.3 93.5c0.9-0.9 2.2-1.5 3.5-1.5h97.1c2.2 0 3.4 2.7 1.8 4.3l-24.2 24.2c-0.9 0.9-2.2 1.5-3.5 1.5H2.9c-2.2 0-3.4-2.7-1.8-4.3L25.3 93.5z" fill="url(#sol-send-grad)" />
+      <path d="M25.3 2.5c1-1 2.3-1.5 3.5-1.5h97.1c2.2 0 3.4 2.7 1.8 4.3L103.5 29.5c-0.9 0.9-2.2 1.5-3.5 1.5H2.9c-2.2 0-3.4-2.7-1.8-4.3L25.3 2.5z" fill="url(#sol-send-grad)" />
+      <path d="M102.7 47.3c-0.9-0.9-2.2-1.5-3.5-1.5H2.1c-2.2 0-3.4 2.7-1.8 4.3l24.2 24.2c0.9 0.9 2.2 1.5 3.5 1.5h97.1c2.2 0 3.4-2.7 1.8-4.3L102.7 47.3z" fill="url(#sol-send-grad)" />
+    </svg>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Token Icon
+// ─────────────────────────────────────────────────────────────────────────────
+
+function TokenIcon({ symbol, size = 24 }: { symbol: string; size?: number }) {
+  if (symbol === 'SOL') {
+    return <SolanaIcon size={size} />;
+  }
+  return (
+    <div className="send-token-icon" style={{ width: size, height: size }}>
+      <span style={{ fontSize: size * 0.4 }}>{symbol.slice(0, 2)}</span>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Status Badge
+// ─────────────────────────────────────────────────────────────────────────────
+
+type TransferStatus = 'sent' | 'confirm' | 'failed';
+
+function StatusBadge({ status }: { status: TransferStatus }) {
+  const config = {
+    sent: { label: 'Confirmed', className: 'send-status-badge--success', icon: '✓' },
+    confirm: { label: 'Needs Confirmation', className: 'send-status-badge--warning', icon: '⚠' },
+    failed: { label: 'Failed', className: 'send-status-badge--error', icon: '✕' },
+  }[status];
+
+  return (
+    <span className={`send-status-badge ${config.className}`}>
+      <span className="send-status-badge__icon">{config.icon}</span>
+      {config.label}
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Transfer Flow Visualization
+// ─────────────────────────────────────────────────────────────────────────────
+
+function TransferFlow({
+  from,
+  to,
+  amount,
+  symbol,
+  valueUsd,
+  recipientHandle,
+}: {
+  from: string;
+  to: string;
+  amount: string;
+  symbol: string;
+  valueUsd?: string;
+  recipientHandle?: string;
+}) {
+  return (
+    <div className="send-flow">
+      {/* From Wallet */}
+      <div className="send-flow__wallet">
+        <div className="send-flow__wallet-box">
+          <span className="send-flow__wallet-label">FROM</span>
+        </div>
+        <span className="send-flow__wallet-address">{abbreviate(from)}</span>
+      </div>
+
+      {/* Amount Display with Animation */}
+      <div className="send-flow__center">
+        <div className="send-flow__amount-box">
+          <TokenIcon symbol={symbol} size={28} />
+          <div className="send-flow__amount-info">
+            <span className="send-flow__amount">{amount} <span className="send-flow__symbol">{symbol}</span></span>
+            {valueUsd && <span className="send-flow__value-usd">{valueUsd}</span>}
+          </div>
+        </div>
+        <div className="send-flow__track">
+          <div className="send-flow__track-line" />
+          <div className="send-flow__plane">✈</div>
+        </div>
+      </div>
+
+      {/* To Wallet */}
+      <div className="send-flow__wallet send-flow__wallet--to">
+        <div className="send-flow__wallet-box send-flow__wallet-box--to">
+          <span className="send-flow__wallet-label">TO</span>
+        </div>
+        <span className="send-flow__wallet-address">{abbreviate(to)}</span>
+        {recipientHandle && <span className="send-flow__handle">{recipientHandle}</span>}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────────────────────
 
 function SolanaSend() {
-  const props = useOpenAIGlobal('toolOutput') as SolanaSendPayload | null;
-  const transfer = normalizeTransfer(props);
-  const maxHeight = useMaxHeight() ?? null;
-  const displayMode = useDisplayMode();
-  const requestDisplayMode = useRequestDisplayMode();
+  const toolOutput = useOpenAIGlobal('toolOutput') as SolanaSendPayload | null;
 
-  const style = maxHeight ? { maxHeight, overflow: 'auto' } : undefined;
-  const canExpand = displayMode !== 'fullscreen' && typeof requestDisplayMode === 'function';
-
-  if (!props) {
+  // Loading
+  if (!toolOutput) {
     return (
-      <AppShell style={style}>
-        <Card title="Solana Transfer" badge={{ label: 'Loading' }}>
-          <EmptyState message="Processing transfer..." />
-        </Card>
-      </AppShell>
+      <div className="send-container">
+        <div className="send-loading">
+          <div className="send-loading__spinner" />
+          <span>Processing transfer...</span>
+        </div>
+      </div>
     );
   }
 
-  const status = props.ok ? 'sent' : props.error === 'confirmation_required' ? 'confirm' : 'error';
-  const badgeLabel = status === 'sent' ? 'Sent' : status === 'confirm' ? 'Confirm' : 'Failed';
+  // Normalize transfer data
+  const transfer = toolOutput.result ?? toolOutput.transfer ?? null;
+  
+  // Determine status
+  const status: TransferStatus = 
+    toolOutput.ok ? 'sent' :
+    toolOutput.error === 'confirmation_required' ? 'confirm' : 'failed';
 
-  const destination = transfer?.destination ?? transfer?.recipient ?? null;
-  const signature = transfer?.signature ?? null;
-  const solscanUrl = transfer?.solscanUrl ?? (signature ? `https://solscan.io/tx/${signature}` : null);
-  const threshold = props.thresholdUsd ?? null;
-  const amountDisplay = transfer?.amountUi != null
-    ? `${formatValue(transfer.amountUi)}${transfer?.mint ? ` ${transfer.mint}` : ''}`.trim()
-    : '—';
-  const valueUsd = formatUsd(transfer?.valueUsd ?? null);
-  const priceUsd = formatUsd(transfer?.priceUsd ?? null);
+  const destination = pickString(transfer?.destination, transfer?.recipient) ?? '';
+  const signature = pickString(transfer?.signature);
+  const solscanUrl = pickString(transfer?.solscanUrl) ?? (signature ? `https://solscan.io/tx/${signature}` : null);
+  const symbol = resolveSymbol(transfer?.mint);
+  const amount = formatAmount(pickNumber(transfer?.amountUi), transfer?.decimals);
+  const valueUsd = formatUsd(pickNumber(transfer?.valueUsd));
+  const priceUsd = formatUsd(pickNumber(transfer?.priceUsd));
+  const threshold = pickNumber(toolOutput.thresholdUsd);
+  const walletAddress = pickString(transfer?.walletAddress) ?? '';
+  const recipientHandle = pickString(transfer?.recipientHandle);
+  const memo = pickString(transfer?.memo);
 
   return (
-    <AppShell style={style}>
-      <Card
-        title="Solana Transfer"
-        badge={{ label: badgeLabel }}
-        actions={
-          canExpand ? (
-            <button className="dexter-link" onClick={() => requestDisplayMode?.({ mode: 'fullscreen' })}>
-              Expand
-            </button>
-          ) : null
-        }
-      >
-        {transfer ? (
-          <Grid columns={3}>
-            <Field label="Source Wallet" value={abbreviateAddress(transfer.walletAddress ?? '')} code />
-            <Field label="Destination" value={abbreviateAddress(destination ?? '')} code />
-            <Field label="Recipient Handle" value={formatHandle(transfer.recipientHandle)} />
-            <Field label="Mint" value={formatValue(transfer.mint)} />
-            <Field label="Amount (UI)" value={amountDisplay} />
-            <Field label="Value (USD)" value={valueUsd} />
-            <Field label="Price (USD)" value={priceUsd} />
-            <Field label="Decimals" value={formatValue(transfer.decimals)} />
-            <Field label="Raw Amount" value={formatValue(transfer.amountRaw)} />
-            <Field label="Memo" value={formatValue(transfer.memo)} />
-            {status === 'confirm' && threshold != null ? (
-              <Field label="Confirmation Threshold" value={formatUsd(threshold)} />
-            ) : null}
-          </Grid>
-        ) : (
-          <EmptyState message="No transfer details were returned." />
+    <div className="send-container">
+      <div className={`send-card ${status === 'sent' ? 'send-card--success' : status === 'confirm' ? 'send-card--warning' : 'send-card--error'}`}>
+        {/* Glow effect */}
+        {status === 'sent' && <div className="send-card__glow send-card__glow--success" />}
+
+        {/* Header */}
+        <div className="send-card__header">
+          <div className="send-card__title-row">
+            <span className="send-card__icon">✈</span>
+            <span className="send-card__title">
+              {status === 'confirm' ? 'Transfer Preview' : 'Token Transfer'}
+            </span>
+          </div>
+          <StatusBadge status={status} />
+        </div>
+
+        {/* Confirmation Warning */}
+        {status === 'confirm' && (
+          <div className="send-card__warning">
+            <div className="send-card__warning-icon">⚠</div>
+            <div className="send-card__warning-content">
+              <span className="send-card__warning-title">Confirmation Required</span>
+              <span className="send-card__warning-text">
+                This transfer exceeds the ${threshold ?? 50} threshold. 
+                Re-run with <code>confirm=true</code> to proceed.
+              </span>
+            </div>
+          </div>
         )}
-        <Status>
-          <span>Updated {formatTimestamp(Date.now())}</span>
-          {status === 'sent' ? (
-            <>
-              <span>Transfer broadcast successfully.</span>
-              {signature ? <span>Signature: {signature}</span> : null}
-              {solscanUrl ? (
-                <a className="dexter-link" href={solscanUrl} target="_blank" rel="noreferrer">
-                  View on Solscan
-                </a>
-              ) : null}
-            </>
-          ) : status === 'confirm' ? (
-            <>
-              <span>This transfer meets or exceeds the confirmation threshold.</span>
-              <Warning>Re-run the tool with <code>confirm=true</code> to approve this transfer.</Warning>
-            </>
-          ) : (
-            <>
-              <span>{formatValue(props.message || props.error || 'Send failed')}</span>
-              <Warning>Review the parameters and try again.</Warning>
-            </>
-          )}
-        </Status>
-      </Card>
-    </AppShell>
+
+        {/* Error Message */}
+        {status === 'failed' && (
+          <div className="send-card__error">
+            <span>{toolOutput.message || toolOutput.error || 'Transfer failed'}</span>
+          </div>
+        )}
+
+        {/* Transfer Flow */}
+        {transfer && (
+          <TransferFlow
+            from={walletAddress}
+            to={destination}
+            amount={amount}
+            symbol={symbol}
+            valueUsd={valueUsd !== '—' ? valueUsd : undefined}
+            recipientHandle={recipientHandle}
+          />
+        )}
+
+        {/* Metrics */}
+        {transfer && (
+          <div className="send-card__metrics">
+            <div className="send-card__metric">
+              <span className="send-card__metric-label">Amount</span>
+              <span className="send-card__metric-value">{amount} {symbol}</span>
+            </div>
+            <div className="send-card__metric">
+              <span className="send-card__metric-label">Value</span>
+              <span className="send-card__metric-value">{valueUsd}</span>
+            </div>
+            {priceUsd !== '—' && (
+              <div className="send-card__metric">
+                <span className="send-card__metric-label">Price</span>
+                <span className="send-card__metric-value">{priceUsd}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Memo */}
+        {memo && (
+          <div className="send-card__memo">
+            <span className="send-card__memo-label">Memo</span>
+            <span className="send-card__memo-value">{memo}</span>
+          </div>
+        )}
+
+        {/* Signature */}
+        {signature && (
+          <div className="send-card__signature">
+            <span className="send-card__signature-label">Transaction</span>
+            <span className="send-card__signature-value">{abbreviate(signature)}</span>
+          </div>
+        )}
+
+        {/* Footer */}
+        {solscanUrl && (
+          <div className="send-card__footer">
+            <a href={solscanUrl} target="_blank" rel="noreferrer" className="send-card__link">
+              View on Solscan ↗
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mount
+// ─────────────────────────────────────────────────────────────────────────────
 
 const root = document.getElementById('solana-send-root');
 if (root) {
