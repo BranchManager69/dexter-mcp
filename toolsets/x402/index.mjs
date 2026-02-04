@@ -2,8 +2,27 @@ import { listX402Resources } from '../../registry/x402/index.mjs';
 import { buildInputSchemaShape } from '../../lib/x402/zod.mjs';
 import { normalizeX402Fields, trimUrl } from '../../lib/x402/utils.mjs';
 import { fetchWithX402Json } from '../../clients/x402Client.mjs';
+import { createWidgetMeta } from '../widgetMeta.mjs';
 
 const ALLOWED_HOSTS = new Set(['api.dexter.cash', 'x402.dexter.cash']);
+
+// Widget meta for dynamically registered x402 tools
+const WIDGET_META_BY_TOOL = new Map([
+  ['v2-test', createWidgetMeta({ templateUri: 'ui://dexter/test-endpoint', invoking: 'Testing…', invoked: 'Test complete' })],
+  ['v2_test', createWidgetMeta({ templateUri: 'ui://dexter/test-endpoint', invoking: 'Testing…', invoked: 'Test complete' })],
+  ['slippage_sentinel', createWidgetMeta({ templateUri: 'ui://dexter/slippage-sentinel', invoking: 'Analyzing…', invoked: 'Analysis ready' })],
+  ['jupiter_quote_preview', createWidgetMeta({ templateUri: 'ui://dexter/jupiter-quote', invoking: 'Fetching quote…', invoked: 'Quote ready' })],
+  ['jupiter_quote_pro', createWidgetMeta({ templateUri: 'ui://dexter/jupiter-quote', invoking: 'Fetching quote…', invoked: 'Quote ready' })],
+  ['solscan_trending_tokens', createWidgetMeta({ templateUri: 'ui://dexter/solscan-trending', invoking: 'Loading…', invoked: 'Trending loaded' })],
+  ['tools_solscan_trending_pro', createWidgetMeta({ templateUri: 'ui://dexter/solscan-trending', invoking: 'Loading…', invoked: 'Trending loaded' })],
+  ['twitter_topic_analysis', createWidgetMeta({ templateUri: 'ui://dexter/twitter-search', invoking: 'Searching…', invoked: 'Results ready' })],
+  ['sora_video_job', createWidgetMeta({ templateUri: 'ui://dexter/media-jobs', invoking: 'Submitting…', invoked: 'Job submitted' })],
+  ['meme_generator_job', createWidgetMeta({ templateUri: 'ui://dexter/media-jobs', invoking: 'Submitting…', invoked: 'Job submitted' })],
+  ['x402_scan_stats', createWidgetMeta({ templateUri: 'ui://dexter/x402-stats', invoking: 'Loading…', invoked: 'Stats loaded' })],
+  ['stream_public_shout', createWidgetMeta({ templateUri: 'ui://dexter/stream-shout', invoking: 'Sending…', invoked: 'Shout sent' })],
+  ['onchain_activity_overview', createWidgetMeta({ templateUri: 'ui://dexter/onchain-activity', invoking: 'Loading…', invoked: 'Activity loaded' })],
+  ['onchain_entity_insight', createWidgetMeta({ templateUri: 'ui://dexter/onchain-activity', invoking: 'Loading…', invoked: 'Insight loaded' })],
+]);
 
 const PATH_OVERRIDES = new Map([
   [
@@ -426,6 +445,9 @@ export async function registerX402Toolset(server) {
         tags.add(String(accept.network).toLowerCase());
       }
 
+      // Get widget meta for this tool if available
+      const widgetMeta = WIDGET_META_BY_TOOL.get(toolMeta.name) || {};
+
       server.registerTool(toolMeta.name, {
         title,
         description: decoratedDescription,
@@ -438,6 +460,7 @@ export async function registerX402Toolset(server) {
           bountyTitle: bountyMeta?.title || null,
           bountyPromptSlug: promptSlug || null,
           bounty: bountyMeta,
+          ...widgetMeta,
         },
         inputSchema: shape,
       }, async (args, extra) => {

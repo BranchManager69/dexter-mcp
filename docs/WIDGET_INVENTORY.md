@@ -2,8 +2,8 @@
 
 > **Last Updated:** 2026-02-04  
 > **Total Tools:** 74  
-> **ChatGPT Widgets:** 33 (+1 web-fetch)  
-> **dexter-agents Renderers:** 48
+> **ChatGPT Widgets:** 34 (+1 test-endpoint)  
+> **dexter-agents Renderers:** 49 (+1 test-endpoint)
 
 ## Priority Queue (Missing Renderers)
 
@@ -164,9 +164,9 @@ Tools that need widgets, ordered by priority:
 | `tools_spaces_jobs` | `async-job` | `x402Dynamic` ✨ | ✅ Both |
 | `tools_code-interpreter_jobs` | `async-job` | `x402Dynamic` ✨ | ✅ Both |
 | `tools_deep-research_jobs` | `async-job` | `x402Dynamic` ✨ | ✅ Both |
-| `games_king_state` | `game-state` (stub) | `x402Dynamic` ✨ (stub) | ✅ Both (stubs) |
-| `games_story_read` | `game-state` (stub) | `x402Dynamic` ✨ (stub) | ✅ Both (stubs) |
-| `v2-test` | — | — | Test endpoint |
+| `games_king_state` | `game-state` (stub) | `x402Dynamic` (stub) | ✅ Both (stubs) |
+| `games_story_read` | `game-state` (stub) | `x402Dynamic` (stub) | ✅ Both (stubs) |
+| `v2-test` | `test-endpoint` ✨ | `x402Dynamic` ✨ | ✅ Both |
 
 ---
 
@@ -187,14 +187,12 @@ Tools that need widgets, ordered by priority:
 | studio | 7 | 7 | 0 | 0 | 0 |
 | identity | 7 | 7 | 0 | 0 | 0 |
 | bundles | 10 | 10 | 0 | 0 | 0 |
-| x402 | 16 | **15** ✨ | 0 | 0 | **1** (test) |
-| **TOTAL** | **74** | **73** | **0** | **0** | **1** |
+| x402 | 16 | **16** ✨ | 0 | 0 | 0 |
+| **TOTAL** | **74** | **74** | **0** | **0** | **0** |
 
 ### Key Stats (Final)
-- **99%** of tools have renderers in both platforms (73 of 74)
-- **0%** have ChatGPT widget only
-- **0%** have dexter-agents renderer only
-- **1%** have no renderer (`v2-test` - test endpoint, intentional)
+- **100%** of tools have renderers in both platforms (74 of 74)
+- **0** tools missing coverage
 
 ---
 
@@ -217,10 +215,14 @@ Tools that need widgets, ordered by priority:
 
 ## Changelog
 
+### 2026-02-04 (Part 5 - FINAL)
+- Added `test-endpoint` widget for ChatGPT and `testEndpointRenderer` for dexter-agents
+- Added WIDGET_META_BY_TOOL map to x402 toolset for dynamic widget assignment
+- **100% COVERAGE ACHIEVED** - All 74 tools have both ChatGPT and dexter-agents renderers
+
 ### 2026-02-04 (Part 4)
 - Added `web-fetch` ChatGPT widget for `fetch` tool
-- Both platforms coverage: 97% → **99%** (73 of 74 tools)
-- Only `v2-test` remains uncovered (intentionally - test endpoint)
+- Both platforms coverage: 97% → 99% (73 of 74 tools)
 
 ### 2026-02-04 (Part 3)
 - Added 11 new dexter-agents renderers for x402 dynamic tools in `x402Dynamic.tsx`:

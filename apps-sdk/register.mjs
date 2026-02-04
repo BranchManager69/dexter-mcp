@@ -467,6 +467,16 @@ export function registerAppsSdkResources(server) {
       invoking: 'Fetching page…',
       invoked: 'Page loaded',
     },
+    {
+      name: 'dexter_test_endpoint',
+      templateUri: 'ui://dexter/test-endpoint',
+      file: 'test-endpoint.html',
+      title: 'Dexter Test Endpoint widget',
+      description: 'Displays test endpoint response with status and data.',
+      widgetDescription: 'Shows test endpoint status, message, and response data.',
+      invoking: 'Testing…',
+      invoked: 'Test complete',
+    },
   ];
 
   for (const entry of entries) {

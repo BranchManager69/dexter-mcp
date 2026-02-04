@@ -47,6 +47,7 @@ export default defineConfig({
         'feedback': path.resolve(rootDir, 'feedback.html'),
         'game-state': path.resolve(rootDir, 'game-state.html'),
         'web-fetch': path.resolve(rootDir, 'web-fetch.html'),
+        'test-endpoint': path.resolve(rootDir, 'test-endpoint.html'),
       },
     },
   },
