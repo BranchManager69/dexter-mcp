@@ -41,12 +41,18 @@ type TokenActivitySummary = {
   uniqueWallets: number;
   primaryQuoteSymbol?: string | null;
   primaryBaseSymbol?: string | null;
-  buyQuoteVolume: number;
-  sellQuoteVolume: number;
-  netQuoteVolume: number;
-  buyBaseVolume: number;
-  sellBaseVolume: number;
-  netBaseVolume: number;
+  // Widget expects these names
+  buyQuoteVolume?: number;
+  sellQuoteVolume?: number;
+  netQuoteVolume?: number;
+  // API returns these names
+  buyVolumeSol?: number;
+  sellVolumeSol?: number;
+  netFlowSol?: number;
+  netSol?: number;
+  buyBaseVolume?: number;
+  sellBaseVolume?: number;
+  netBaseVolume?: number;
   topNetBuyers?: WalletFlowSummary[];
   topNetSellers?: WalletFlowSummary[];
   largestTrades?: NormalizedTrade[];
@@ -60,9 +66,15 @@ type WalletActivitySummary = {
   tradeCount: number;
   primaryQuoteSymbol?: string | null;
   primaryBaseSymbol?: string | null;
-  buyQuoteVolume: number;
-  sellQuoteVolume: number;
-  netQuoteVolume: number;
+  // Widget expects these names
+  buyQuoteVolume?: number;
+  sellQuoteVolume?: number;
+  netQuoteVolume?: number;
+  // API returns these names
+  buyVolumeSol?: number;
+  sellVolumeSol?: number;
+  netFlowSol?: number;
+  netSol?: number;
   buyBaseVolume?: number;
   sellBaseVolume?: number;
   netBaseVolume?: number;
@@ -81,6 +93,15 @@ type OnchainPayload = {
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** Extract volume fields regardless of naming convention (API vs widget) */
+function getVolumes(summary: TokenActivitySummary | WalletActivitySummary) {
+  return {
+    buy: summary.buyQuoteVolume ?? summary.buyVolumeSol ?? 0,
+    sell: summary.sellQuoteVolume ?? summary.sellVolumeSol ?? 0,
+    net: summary.netQuoteVolume ?? summary.netFlowSol ?? summary.netSol ?? 0,
+  };
+}
 
 function formatTimeframe(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -311,8 +332,8 @@ function TokenActivityView({ summary }: { summary: TokenActivitySummary }) {
         </div>
       </div>
 
-      <VolumeBar buy={summary.buyQuoteVolume} sell={summary.sellQuoteVolume} label="VOLUME (SOL)" />
-      <NetFlowIndicator value={summary.netQuoteVolume} />
+      <VolumeBar buy={getVolumes(summary).buy} sell={getVolumes(summary).sell} label="VOLUME (SOL)" />
+      <NetFlowIndicator value={getVolumes(summary).net} />
       <TopTradersList buyers={summary.topNetBuyers} sellers={summary.topNetSellers} />
       <RecentTradesList trades={summary.recentTrades} />
 
@@ -358,16 +379,16 @@ function WalletActivityView({ summary }: { summary: WalletActivitySummary }) {
         </div>
         <div className="onchain-metric">
           <span className="onchain-metric__label">BUY VOL</span>
-          <span className="onchain-metric__value">{formatVolume(summary.buyQuoteVolume, 4)} SOL</span>
+          <span className="onchain-metric__value">{formatVolume(getVolumes(summary).buy, 4)} SOL</span>
         </div>
         <div className="onchain-metric">
           <span className="onchain-metric__label">SELL VOL</span>
-          <span className="onchain-metric__value">{formatVolume(summary.sellQuoteVolume, 4)} SOL</span>
+          <span className="onchain-metric__value">{formatVolume(getVolumes(summary).sell, 4)} SOL</span>
         </div>
         <div className="onchain-metric">
           <span className="onchain-metric__label">NET SOL</span>
-          <span className={`onchain-metric__value ${summary.netQuoteVolume > 0 ? 'onchain-metric__value--positive' : summary.netQuoteVolume < 0 ? 'onchain-metric__value--negative' : ''}`}>
-            {formatVolume(summary.netQuoteVolume, 4)} SOL
+          <span className={`onchain-metric__value ${getVolumes(summary).net > 0 ? 'onchain-metric__value--positive' : getVolumes(summary).net < 0 ? 'onchain-metric__value--negative' : ''}`}>
+            {formatVolume(getVolumes(summary).net, 4)} SOL
           </span>
         </div>
       </div>
