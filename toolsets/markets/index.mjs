@@ -86,6 +86,9 @@ export function registerMarketsToolset(server) {
     {
       title: 'Fetch OHLCV Range',
       description: 'Fetch Birdeye OHLCV candles for a Solana token mint over a specified window.',
+      annotations: {
+        readOnlyHint: true,
+      },
       _meta: {
         category: 'markets.analytics',
         access: 'guest',

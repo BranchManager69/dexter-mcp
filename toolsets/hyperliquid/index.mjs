@@ -88,6 +88,9 @@ export function registerHyperliquidToolset(server) {
     {
       title: 'Hyperliquid Market List',
       description: 'Returns the current list of tradable Hyperliquid perp symbols.',
+      annotations: {
+        readOnlyHint: true,
+      },
       _meta: {
         category: 'hyperliquid',
         access: 'pro',
@@ -133,6 +136,12 @@ export function registerHyperliquidToolset(server) {
       title: 'Hyperliquid Opt-in',
       description:
         'Provision a Hyperliquid agent wallet for a Dexter-managed wallet so the user can trade perps.',
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,  // Bounded to user's own Dexter/Hyperliquid account
+        destructiveHint: false,
+        idempotentHint: true,  // Re-calling just returns existing agent
+      },
       _meta: {
         category: 'hyperliquid',
         access: 'pro',
@@ -195,6 +204,8 @@ export function registerHyperliquidToolset(server) {
         ...HYPERLIQUID_WIDGET_META,
       },
       annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,  // Moves funds within user's own accounts
         destructiveHint: true,
       },
       inputSchema: fundSchema,
@@ -246,6 +257,11 @@ export function registerHyperliquidToolset(server) {
     {
       title: 'Hyperliquid Bridge Deposit',
       description: 'Deposit funds from Arbitrum L2 (Master Wallet) into Hyperliquid L1 bridge contract.',
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,  // Moves funds within user's own accounts
+        destructiveHint: true,
+      },
       _meta: {
         category: 'hyperliquid',
         access: 'pro',
@@ -301,6 +317,11 @@ export function registerHyperliquidToolset(server) {
     {
       title: 'Hyperliquid Perp Trade',
       description: 'Submit a Hyperliquid perpetual order through a Dexter-managed wallet.',
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,  // Bounded to user's own Hyperliquid account
+        destructiveHint: true,
+      },
       _meta: {
         category: 'hyperliquid',
         access: 'pro',

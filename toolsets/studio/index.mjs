@@ -247,6 +247,11 @@ export function registerStudioToolset(server) {
     {
       title: 'Start Studio Agent',
       description: 'Start a Dexter Studio agent to perform a task. Returns a job ID immediately. Poll with studio_status to check progress. SUPERADMIN ONLY.',
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,  // Creates job in Dexter system
+        destructiveHint: false,
+      },
       _meta: {
         category: 'studio.core',
         access: 'superadmin',
@@ -285,6 +290,9 @@ export function registerStudioToolset(server) {
     {
       title: 'Check Studio Job Status',
       description: 'Check the status of a Studio job. Returns current step, turn count, and result when complete.',
+      annotations: {
+        readOnlyHint: true,
+      },
       _meta: {
         category: 'studio.core',
         access: 'superadmin',
@@ -352,6 +360,11 @@ export function registerStudioToolset(server) {
     {
       title: 'Cancel Studio Job',
       description: 'Cancel a running Studio job. Only works on jobs with status "running".',
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,  // Cancels user's own job
+        destructiveHint: true,
+      },
       _meta: {
         category: 'studio.core',
         access: 'superadmin',
@@ -387,6 +400,9 @@ export function registerStudioToolset(server) {
     {
       title: 'Inspect Studio Job',
       description: 'Get full details of a Studio job including event timeline. For debugging.',
+      annotations: {
+        readOnlyHint: true,
+      },
       _meta: {
         category: 'studio.debug',
         access: 'superadmin',
@@ -431,6 +447,9 @@ export function registerStudioToolset(server) {
     {
       title: 'List Studio Jobs',
       description: 'List all Studio jobs (for debugging). Shows recent jobs.',
+      annotations: {
+        readOnlyHint: true,
+      },
       _meta: {
         category: 'studio.debug',
         access: 'superadmin',
@@ -479,6 +498,11 @@ export function registerStudioToolset(server) {
     {
       title: 'Generate Breaking News Media',
       description: 'Create professional newscast videos and infographics for marketing. Generates Sora videos and/or meme infographics with the Dexter branding. SUPERADMIN ONLY.',
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,  // Creates media in Dexter system
+        destructiveHint: false,
+      },
       _meta: {
         category: 'studio.media',
         access: 'superadmin',
@@ -555,6 +579,9 @@ export function registerStudioToolset(server) {
     {
       title: 'Check News Media Status',
       description: 'Check the status of a breaking news video or infographic job.',
+      annotations: {
+        readOnlyHint: true,
+      },
       _meta: {
         category: 'studio.media',
         access: 'superadmin',

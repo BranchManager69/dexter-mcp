@@ -536,6 +536,9 @@ export function registerOnchainToolset(server) {
       title: 'On-chain Activity Overview',
       description:
         'On-chain swap analytics. REQUIRED: scope="token" needs mint; scope="wallet" needs BOTH mint AND wallet. Always resolve the mint address first.',
+      annotations: {
+        readOnlyHint: true,
+      },
       _meta: {
         category: 'onchain.analytics',
         access: 'public',
@@ -577,6 +580,9 @@ export function registerOnchainToolset(server) {
       title: 'On-chain Entity Insight',
       description:
         'On-chain entity deep dive. REQUIRED: scope="token" or "wallet" needs mint; scope="wallet" also needs wallet; scope="trade" needs signature.',
+      annotations: {
+        readOnlyHint: true,
+      },
       _meta: {
         category: 'onchain.analytics',
         access: 'public',

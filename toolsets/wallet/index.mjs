@@ -347,6 +347,9 @@ export function registerWalletToolset(server) {
     title: 'Set Session Wallet Override',
     description: 'Override the wallet used for this MCP session (until cleared).',
     annotations: {
+      readOnlyHint: false,
+      openWorldHint: false,
+      destructiveHint: false,
       idempotentHint: true,
     },
     _meta: {

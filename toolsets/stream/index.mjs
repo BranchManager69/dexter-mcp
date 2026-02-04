@@ -277,6 +277,12 @@ export function registerStreamToolset(server) {
     {
       title: 'Send Stream Public Shout',
       description: 'Submit a short shout-out for Dexter to highlight on the live stream.',
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,  // Publishes to user's own Dexter overlay, not external
+        destructiveHint: false,
+        idempotentHint: false,
+      },
       _meta: {
         category: 'stream.engagement',
         access: 'member',
@@ -322,6 +328,9 @@ export function registerStreamToolset(server) {
     {
       title: 'Fetch Stream Public Shouts',
       description: 'Retrieve the latest public shouts queued for the stream overlay.',
+      annotations: {
+        readOnlyHint: true,
+      },
       _meta: {
         category: 'stream.engagement',
         access: 'member',

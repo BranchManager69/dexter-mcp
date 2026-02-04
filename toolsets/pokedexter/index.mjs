@@ -170,6 +170,9 @@ export async function registerPokedexterToolset(server) {
   server.registerTool('pokedexter_list_challenges', {
     title: 'Pokedexter: List Open Challenges',
     description: 'List all open wagered Pokémon battle challenges you can accept. Shows challenger, wager amount ($1-$25), format, and expiration time.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'games.pokedexter',
       access: 'member',
@@ -197,6 +200,9 @@ export async function registerPokedexterToolset(server) {
   server.registerTool('pokedexter_get_battle_state', {
     title: 'Pokedexter: Get Battle State',
     description: 'Get YOUR battle state including your actual moves, team, and available actions. Use this before each turn to see what you can do.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'games.pokedexter',
       access: 'member',
@@ -392,6 +398,11 @@ export async function registerPokedexterToolset(server) {
   server.registerTool('pokedexter_make_move', {
     title: 'Pokedexter: Make Move',
     description: 'Submit your battle action. Use "move 1", "move 2", "switch 3", etc. Call get_battle_state first to see available moves.',
+    annotations: {
+      readOnlyHint: false,
+      openWorldHint: false,  // Bounded to user's own battle
+      destructiveHint: false,
+    },
     _meta: {
       category: 'games.pokedexter',
       access: 'member',
@@ -457,6 +468,9 @@ export async function registerPokedexterToolset(server) {
   server.registerTool('pokedexter_get_active_wager', {
     title: 'Pokedexter: Get Active Wager',
     description: 'Get details about your currently active wagered battle, including escrow status, opponent, and battle room ID.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'games.pokedexter',
       access: 'member',
@@ -489,6 +503,9 @@ export async function registerPokedexterToolset(server) {
   server.registerTool('pokedexter_get_wager_status', {
     title: 'Pokedexter: Get Wager Status',
     description: 'Check the status of a specific wager by ID. Use this to verify escrow deposits, see settlement status, or check if a battle is complete.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'games.pokedexter',
       access: 'member',
@@ -527,6 +544,11 @@ export async function registerPokedexterToolset(server) {
   server.registerTool('pokedexter_create_challenge', {
     title: 'Pokedexter: Create Challenge',
     description: 'Create an open wagered Pokémon battle challenge. Set your wager ($1-$25) and format. Other players can accept. Winner takes 100% of the pot (0% house cut).',
+    annotations: {
+      readOnlyHint: false,
+      openWorldHint: false,  // Bounded to Pokedexter system
+      destructiveHint: true,  // Involves money escrow
+    },
     _meta: {
       category: 'games.pokedexter',
       access: 'member',
@@ -577,6 +599,11 @@ export async function registerPokedexterToolset(server) {
   server.registerTool('pokedexter_accept_challenge', {
     title: 'Pokedexter: Accept Challenge',
     description: 'Accept an open wagered battle challenge. Returns escrow deposit instructions and battle room ID.',
+    annotations: {
+      readOnlyHint: false,
+      openWorldHint: false,  // Bounded to Pokedexter system
+      destructiveHint: true,  // Involves money escrow
+    },
     _meta: {
       category: 'games.pokedexter',
       access: 'member',
@@ -624,6 +651,11 @@ export async function registerPokedexterToolset(server) {
   server.registerTool('pokedexter_join_queue', {
     title: 'Pokedexter: Join Quick Match',
     description: 'Join the quick match queue for instant wagered battles. Set your wager ($1-$25) and format. You\'ll be matched with another player at the same stake.',
+    annotations: {
+      readOnlyHint: false,
+      openWorldHint: false,  // Bounded to Pokedexter system
+      destructiveHint: true,  // Involves money escrow when matched
+    },
     _meta: {
       category: 'games.pokedexter',
       access: 'member',
@@ -674,6 +706,9 @@ export async function registerPokedexterToolset(server) {
   server.registerTool('pokedexter_queue_status', {
     title: 'Pokedexter: Queue Status',
     description: 'Check your position in the quick match queue and see if you\'ve been matched.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'games.pokedexter',
       access: 'member',

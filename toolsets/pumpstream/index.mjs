@@ -273,6 +273,9 @@ export function registerPumpstreamToolset(server) {
     {
       title: 'Pumpstream Live Summary',
       description: 'Returns a quick summary of live pump.fun streams.',
+      annotations: {
+        readOnlyHint: true,
+      },
       _meta: {
         category: 'analytics',
         access: 'guest',

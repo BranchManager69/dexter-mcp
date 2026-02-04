@@ -317,6 +317,8 @@ Examples:
 - Send 0.1 SOL: wallet_address="YOUR_WALLET", recipient_value="DEST_WALLET", amount_ui=0.1
 - Send to Twitter: recipient_type="twitter", recipient_value="@deabordes", mint="USDC", amount_ui=5`,
     annotations: {
+      readOnlyHint: false,
+      openWorldHint: false,  // Sends from user's own managed wallet
       destructiveHint: true,
     },
     _meta: {
@@ -485,6 +487,8 @@ Examples:
     title: 'Execute Solana Swap',
     description: 'Execute a SOL-token swap after previewing the expected output.',
     annotations: {
+      readOnlyHint: false,
+      openWorldHint: false,  // Swaps within user's own managed wallet
       destructiveHint: true,
     },
     _meta: {

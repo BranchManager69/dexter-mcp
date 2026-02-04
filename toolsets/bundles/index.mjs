@@ -87,6 +87,9 @@ export function registerBundlesToolset(server) {
   server.registerTool('list_bundles', {
     title: 'List Tool Bundles',
     description: 'Browse and search available tool bundles in the Dexter marketplace. Filter by category, search term, or curator.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'bundles',
       access: 'guest',
@@ -178,6 +181,9 @@ export function registerBundlesToolset(server) {
   server.registerTool('get_bundle', {
     title: 'Get Bundle Details',
     description: 'Get detailed information about a specific bundle including all included tools, pricing, and curator info.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'bundles',
       access: 'guest',
@@ -302,6 +308,9 @@ export function registerBundlesToolset(server) {
   server.registerTool('get_my_bundles', {
     title: 'Get My Bundles',
     description: 'List all bundles you have created as a curator, including drafts and stats.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'bundles',
       access: 'member',
@@ -390,6 +399,11 @@ export function registerBundlesToolset(server) {
   server.registerTool('create_bundle', {
     title: 'Create Bundle',
     description: 'Create a new tool bundle. Starts as draft. Add tools, then publish when ready.',
+    annotations: {
+      readOnlyHint: false,
+      openWorldHint: false,  // Creates in user's own account
+      destructiveHint: false,
+    },
     _meta: {
       category: 'bundles',
       access: 'member',
@@ -480,6 +494,11 @@ export function registerBundlesToolset(server) {
   server.registerTool('update_bundle', {
     title: 'Update Bundle',
     description: 'Update bundle name, description, pricing, or other details. Cannot change price after purchases.',
+    annotations: {
+      readOnlyHint: false,
+      openWorldHint: false,  // Updates user's own bundle
+      destructiveHint: false,
+    },
     _meta: {
       category: 'bundles',
       access: 'member',
@@ -566,6 +585,11 @@ export function registerBundlesToolset(server) {
   server.registerTool('publish_bundle', {
     title: 'Publish Bundle',
     description: 'Publish a draft bundle to make it available for purchase. Requires at least one tool.',
+    annotations: {
+      readOnlyHint: false,
+      openWorldHint: false,  // Publishes user's own bundle
+      destructiveHint: false,
+    },
     _meta: {
       category: 'bundles',
       access: 'member',
@@ -632,6 +656,11 @@ export function registerBundlesToolset(server) {
   server.registerTool('add_bundle_item', {
     title: 'Add Tool to Bundle',
     description: 'Add a marketplace tool to your bundle. The tool must be a valid x402 resource.',
+    annotations: {
+      readOnlyHint: false,
+      openWorldHint: false,  // Modifies user's own bundle
+      destructiveHint: false,
+    },
     _meta: {
       category: 'bundles',
       access: 'member',
@@ -720,6 +749,11 @@ export function registerBundlesToolset(server) {
   server.registerTool('remove_bundle_item', {
     title: 'Remove Tool from Bundle',
     description: 'Remove a tool from your bundle.',
+    annotations: {
+      readOnlyHint: false,
+      openWorldHint: false,  // Modifies user's own bundle
+      destructiveHint: true,  // Removes item
+    },
     _meta: {
       category: 'bundles',
       access: 'member',
@@ -788,6 +822,9 @@ export function registerBundlesToolset(server) {
   server.registerTool('check_bundle_access', {
     title: 'Check Bundle Access',
     description: 'Check your access status for a purchased bundle. Shows remaining uses and tool usage.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'bundles',
       access: 'member',
@@ -875,6 +912,9 @@ export function registerBundlesToolset(server) {
   server.registerTool('get_my_purchases', {
     title: 'Get My Bundle Purchases',
     description: 'List all bundles you have purchased and their access status.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'bundles',
       access: 'member',

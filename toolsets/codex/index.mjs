@@ -331,6 +331,12 @@ export function registerCodexToolset(server) {
       title: 'Start Codex Session',
       description:
         'Begin a new Codex conversation. Default sandbox is read-only; superadmins may set sandbox="danger-full-access" when full access is required.',
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,  // Bounded to user's own Codex environment
+        destructiveHint: false,
+        idempotentHint: false,
+      },
       _meta: {
         category: 'codex.session',
         access: 'dev',
@@ -373,6 +379,12 @@ export function registerCodexToolset(server) {
       title: 'Continue Codex Session',
       description:
         'Send a follow-up prompt to an existing Codex conversation. Sandbox defaults to read-only unless a superadmin explicitly requests danger-full-access.',
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,  // Bounded to user's own Codex session
+        destructiveHint: false,
+        idempotentHint: false,
+      },
       _meta: {
         category: 'codex.session',
         access: 'dev',
@@ -415,6 +427,12 @@ export function registerCodexToolset(server) {
       title: 'Codex Exec Session',
       description:
         'Run Codex exec with optional JSON schema. Sandbox is read-only by default; superadmins can request danger-full-access when they need unrestricted execution.',
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,  // Bounded to user's own Codex environment
+        destructiveHint: false,  // Sandbox controlled server-side
+        idempotentHint: false,
+      },
       _meta: {
         category: 'codex.session',
         access: 'dev',

@@ -97,6 +97,9 @@ export function registerIdentityToolset(server) {
   server.registerTool('check_identity', {
     title: 'Check ERC-8004 Identity',
     description: 'Check if the authenticated user has an ERC-8004 identity on Base and/or Solana. Returns status for both chains.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'identity',
       access: 'member',
@@ -164,6 +167,9 @@ export function registerIdentityToolset(server) {
   server.registerTool('get_my_identity', {
     title: 'Get My ERC-8004 Identity',
     description: 'Get the full ERC-8004 identity details for the authenticated user, optionally filtered by chain.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'identity',
       access: 'member',
@@ -294,6 +300,12 @@ export function registerIdentityToolset(server) {
   server.registerTool('mint_identity', {
     title: 'Mint ERC-8004 Identity',
     description: 'Mint a new ERC-8004 identity NFT on Base or Solana. This creates your on-chain agent identity for the Dexter Trust Layer. Gas fees are sponsored by Dexter.',
+    annotations: {
+      readOnlyHint: false,
+      openWorldHint: false,  // Mints to user's own identity
+      destructiveHint: false,
+      idempotentHint: true,  // Re-minting returns existing identity
+    },
     _meta: {
       category: 'identity',
       access: 'member',
@@ -399,6 +411,9 @@ export function registerIdentityToolset(server) {
   server.registerTool('get_agent_reputation', {
     title: 'Get Agent Reputation',
     description: 'Get the ERC-8004 reputation summary for an agent by their registry address and agent ID.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'reputation',
       access: 'guest',
@@ -476,6 +491,9 @@ export function registerIdentityToolset(server) {
   server.registerTool('get_reputation_leaderboard', {
     title: 'Reputation Leaderboard',
     description: 'Get the top agents ranked by ERC-8004 reputation score.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'reputation',
       access: 'guest',
@@ -547,6 +565,11 @@ export function registerIdentityToolset(server) {
   server.registerTool('submit_feedback', {
     title: 'Submit Agent Feedback',
     description: 'Submit ERC-8004 reputation feedback for an agent. Requires authentication and a Dexter wallet.',
+    annotations: {
+      readOnlyHint: false,
+      openWorldHint: false,  // Feedback submitted to Dexter system
+      destructiveHint: false,
+    },
     _meta: {
       category: 'reputation',
       access: 'member',
@@ -625,6 +648,9 @@ export function registerIdentityToolset(server) {
   server.registerTool('get_identity_stats', {
     title: 'Identity Statistics',
     description: 'Get overall statistics for ERC-8004 identities and reputation on Dexter.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'identity',
       access: 'guest',
