@@ -2,8 +2,8 @@
 
 > **Last Updated:** 2026-02-04  
 > **Total Tools:** 74  
-> **ChatGPT Widgets:** 32 (+10 new)  
-> **dexter-agents Renderers:** 20
+> **ChatGPT Widgets:** 32  
+> **dexter-agents Renderers:** 37 (+17 new)
 
 ## Priority Queue (Missing Renderers)
 
@@ -126,27 +126,27 @@ Tools that need widgets, ordered by priority:
 ### IDENTITY (7 tools)
 | Tool | ChatGPT Widget | dexter-agents | Status |
 |------|----------------|---------------|--------|
-| `check_identity` | `identity-status` | ❌ | ⚠️ agents missing |
-| `get_my_identity` | `identity-status` | ❌ | ⚠️ agents missing |
-| `mint_identity` | `identity-status` | ❌ | ⚠️ agents missing |
-| `get_agent_reputation` | `reputation-badge` | ❌ | ⚠️ agents missing |
-| `get_reputation_leaderboard` | `reputation-badge` | ❌ | ⚠️ agents missing |
-| `submit_feedback` | `feedback` ✨ | ❌ | ⚠️ agents missing |
-| `get_identity_stats` | `identity-status` | ❌ | ⚠️ agents missing |
+| `check_identity` | `identity-status` | `identity` ✨ | ✅ Both |
+| `get_my_identity` | `identity-status` | `identity` ✨ | ✅ Both |
+| `mint_identity` | `identity-status` | `identity` ✨ | ✅ Both |
+| `get_agent_reputation` | `reputation-badge` | `identity` ✨ | ✅ Both |
+| `get_reputation_leaderboard` | `reputation-badge` | `identity` ✨ | ✅ Both |
+| `submit_feedback` | `feedback` | `identity` ✨ | ✅ Both |
+| `get_identity_stats` | `identity-status` | `identity` ✨ | ✅ Both |
 
 ### BUNDLES (10 tools)
 | Tool | ChatGPT Widget | dexter-agents | Status |
 |------|----------------|---------------|--------|
-| `list_bundles` | `bundle-card` | ❌ | ⚠️ agents missing |
-| `get_bundle` | `bundle-card` | ❌ | ⚠️ agents missing |
-| `get_my_bundles` | `bundle-card` | ❌ | ⚠️ agents missing |
-| `create_bundle` | `bundle-card` | ❌ | ⚠️ agents missing |
-| `update_bundle` | `bundle-card` | ❌ | ⚠️ agents missing |
-| `publish_bundle` | `bundle-card` | ❌ | ⚠️ agents missing |
-| `add_bundle_item` | `bundle-card` | ❌ | ⚠️ agents missing |
-| `remove_bundle_item` | `bundle-card` | ❌ | ⚠️ agents missing |
-| `check_bundle_access` | `bundle-card` | ❌ | ⚠️ agents missing |
-| `get_my_purchases` | `bundle-card` | ❌ | ⚠️ agents missing |
+| `list_bundles` | `bundle-card` | `bundles` ✨ | ✅ Both |
+| `get_bundle` | `bundle-card` | `bundles` ✨ | ✅ Both |
+| `get_my_bundles` | `bundle-card` | `bundles` ✨ | ✅ Both |
+| `create_bundle` | `bundle-card` | `bundles` ✨ | ✅ Both |
+| `update_bundle` | `bundle-card` | `bundles` ✨ | ✅ Both |
+| `publish_bundle` | `bundle-card` | `bundles` ✨ | ✅ Both |
+| `add_bundle_item` | `bundle-card` | `bundles` ✨ | ✅ Both |
+| `remove_bundle_item` | `bundle-card` | `bundles` ✨ | ✅ Both |
+| `check_bundle_access` | `bundle-card` | `bundles` ✨ | ✅ Both |
+| `get_my_purchases` | `bundle-card` | `bundles` ✨ | ✅ Both |
 
 ### X402 DYNAMIC (16 tools)
 | Tool | ChatGPT Widget | dexter-agents | Status |
@@ -179,20 +179,20 @@ Tools that need widgets, ordered by priority:
 | wallet | 4 | 4 | 0 | 0 | 0 |
 | solana | 5 | 5 | 0 | 0 | 0 |
 | codex | 3 | 3 | 0 | 0 | 0 |
-| stream | 2 | 0 | **2** ✨ | 0 | 0 |
-| markets | 1 | 0 | **1** ✨ | 0 | 0 |
+| stream | 2 | 0 | 2 | 0 | 0 |
+| markets | 1 | 1 | 0 | 0 | 0 |
 | onchain | 2 | 2 | 0 | 0 | 0 |
 | pokedexter | 9 | 9 | 0 | 0 | 0 |
 | hyperliquid | 5 | 5 | 0 | 0 | 0 |
 | studio | 7 | 7 | 0 | 0 | 0 |
-| identity | 7 | 0 | **7** ✨ | 0 | 0 |
-| bundles | 10 | 0 | 10 | 0 | 0 |
-| x402 | 16 | 3 | **12** ✨ | 0 | **1** (test) |
-| **TOTAL** | **74** | **40** | **32** | **1** | **1** |
+| identity | 7 | **7** ✨ | 0 | 0 | 0 |
+| bundles | 10 | **10** ✨ | 0 | 0 | 0 |
+| x402 | 16 | 3 | 12 | 0 | **1** (test) |
+| **TOTAL** | **74** | **57** | **14** | **1** | **1** |
 
 ### Key Stats (Updated)
-- **54%** of tools have renderers in both platforms
-- **43%** have ChatGPT widget only (+21% from previous)
+- **77%** of tools have renderers in both platforms (+23%)
+- **19%** have ChatGPT widget only
 - **1%** have dexter-agents renderer only
 - **1%** have no renderer (v2-test only, intentionally)
 
@@ -217,7 +217,14 @@ Tools that need widgets, ordered by priority:
 
 ## Changelog
 
-### 2026-02-04
+### 2026-02-04 (Part 2)
+- Added 17 new dexter-agents renderers for identity and bundle tools:
+  - `identity.tsx`: 7 tools (check_identity, get_my_identity, mint_identity, get_identity_stats, get_agent_reputation, get_reputation_leaderboard, submit_feedback)
+  - `bundles.tsx`: 10 tools (list_bundles, get_bundle, get_my_bundles, create_bundle, update_bundle, publish_bundle, add_bundle_item, remove_bundle_item, check_bundle_access, get_my_purchases)
+- Both platforms coverage: 40 → 57 tools (54% → 77%)
+- dexter-agents renderers: 20 → 37
+
+### 2026-02-04 (Part 1)
 - Added 10 new ChatGPT widgets covering P0, P1, P2, and P3 tools
 - P0: `solscan-trending`, `jupiter-quote`, `slippage-sentinel`, `ohlcv`
 - P1: `x402-stats`, `stream-shout`
