@@ -258,3 +258,95 @@
   font-size: 14px;
 }
 
+/* Action Buttons */
+.token-lookup-card__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.token-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11px;
+  font-weight: 600;
+  color: #e5e5e5;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.token-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.token-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.token-action-btn--primary {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: transparent;
+  color: #fff;
+}
+
+.token-action-btn--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+}
+
+/* Link Buttons */
+.token-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #525252;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.token-link-btn:hover {
+  color: #fff;
+}
+
+/* Theme Support */
+[data-theme="light"] .token-lookup-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .token-lookup-card__name,
+[data-theme="light"] .token-lookup-card__price {
+  color: #171717;
+}
+
+[data-theme="light"] .token-lookup-card__metric {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .token-lookup-icon {
+  background: #f5f5f5;
+}
+
+[data-theme="light"] .token-action-btn {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #262626;
+}
+
+[data-theme="light"] .token-action-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+}
+

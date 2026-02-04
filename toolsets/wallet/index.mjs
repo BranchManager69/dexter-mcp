@@ -267,6 +267,9 @@ export function registerWalletToolset(server) {
   server.registerTool('resolve_wallet', {
     title: 'Resolve Wallet',
     description: 'Resolve the effective managed wallet for this caller (session override, resolver default, or env fallback).',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'wallets',
       access: 'guest',
@@ -302,6 +305,9 @@ export function registerWalletToolset(server) {
   server.registerTool('list_my_wallets', {
     title: 'List My Wallets',
     description: 'List wallets linked to the authenticated Dexter account.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'wallets',
       access: 'guest',
@@ -340,6 +346,9 @@ export function registerWalletToolset(server) {
   server.registerTool('set_session_wallet_override', {
     title: 'Set Session Wallet Override',
     description: 'Override the wallet used for this MCP session (until cleared).',
+    annotations: {
+      idempotentHint: true,
+    },
     _meta: {
       category: 'wallets',
       access: 'member',
@@ -376,6 +385,9 @@ export function registerWalletToolset(server) {
   server.registerTool('auth_info', {
     title: 'Auth Info',
     description: 'Diagnostics for wallet resolution, session overrides, and Dexter token state.',
+    annotations: {
+      readOnlyHint: true,
+    },
     _meta: {
       category: 'wallets',
       access: 'internal',

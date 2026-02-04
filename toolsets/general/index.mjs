@@ -87,6 +87,10 @@ export function registerGeneralToolset(server) {
     {
       title: 'Search the Web',
       description: 'Find up-to-date information from across the web.',
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: true,
+      },
       _meta: {
         category: 'knowledge-base',
         access: 'guest',
@@ -161,6 +165,10 @@ export function registerGeneralToolset(server) {
     {
       title: 'Fetch Web Page',
       description: 'Retrieve and summarize a web page by URL.',
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: true,
+      },
       _meta: {
         category: 'knowledge-base',
         access: 'guest',

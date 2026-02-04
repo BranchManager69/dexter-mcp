@@ -4,7 +4,7 @@ import '../styles/widgets/solana-swap.css';
 
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
-import { useOpenAIGlobal } from '../sdk';
+import { useOpenAIGlobal, useCallTool, useSendFollowUp, useTheme } from '../sdk';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -168,11 +168,46 @@ function SwapFlow({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Action Button Component
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ActionButton({ 
+  onClick, 
+  label, 
+  loadingLabel, 
+  isLoading, 
+  disabled,
+  variant = 'secondary' 
+}: { 
+  onClick: () => void; 
+  label: string; 
+  loadingLabel?: string;
+  isLoading?: boolean;
+  disabled?: boolean;
+  variant?: 'primary' | 'secondary';
+}) {
+  return (
+    <button 
+      className={`swap-action-btn swap-action-btn--${variant}`}
+      onClick={onClick}
+      disabled={isLoading || disabled}
+    >
+      {isLoading ? (loadingLabel || 'Loading...') : label}
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
 function SolanaSwapPreview() {
   const toolOutput = useOpenAIGlobal('toolOutput') as SwapPreviewPayload | null;
+  const theme = useTheme();
+  const { callTool, isLoading: isExecuting } = useCallTool();
+  const sendFollowUp = useSendFollowUp();
+  const [actionState, setActionState] = useState<'idle' | 'success' | 'error'>('idle');
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   // Normalize quote from various payload shapes
   const quote: SwapQuote | null = toolOutput
@@ -182,7 +217,7 @@ function SolanaSwapPreview() {
   // Loading
   if (!quote) {
     return (
-      <div className="swap-container">
+      <div className="swap-container" data-theme={theme}>
         <div className="swap-loading">
           <div className="swap-loading__spinner" />
           <span>Building swap quote...</span>
@@ -210,8 +245,52 @@ function SolanaSwapPreview() {
   const highImpact = priceImpact !== undefined && priceImpact > 1;
   const impactIsNegative = priceImpact !== undefined && priceImpact < 0;
 
+  // Action handlers
+  const handleExecuteSwap = async () => {
+    if (!inputMint || !outputMint) return;
+    setActionState('idle');
+    setActionMessage(null);
+    
+    const result = await callTool('solana_swap_execute', {
+      inputMint,
+      outputMint,
+      amount: amountIn,
+      slippageBps: slippageBps || 100,
+    });
+    
+    if (result) {
+      setActionState('success');
+      setActionMessage('Swap executed successfully!');
+    } else {
+      setActionState('error');
+      setActionMessage('Failed to execute swap');
+    }
+  };
+
+  const handleCheckSlippage = async () => {
+    if (!outputMint) return;
+    await callTool('slippage_sentinel', {
+      token_out: outputMint,
+      token_in: inputMint,
+      amount_in_ui: amountIn,
+    });
+  };
+
+  const handleLearnMore = async () => {
+    await sendFollowUp(`Tell me more about ${outputSymbol} (${outputMint})`);
+  };
+
+  const handleRefreshQuote = async () => {
+    if (!inputMint || !outputMint) return;
+    await callTool('solana_swap_preview', {
+      inputMint,
+      outputMint,
+      amount: amountIn,
+    });
+  };
+
   return (
-    <div className="swap-container">
+    <div className="swap-container" data-theme={theme}>
       <div className="swap-card">
         {/* Header */}
         <div className="swap-card__header">
@@ -261,6 +340,36 @@ function SolanaSwapPreview() {
               <span className="swap-card__warning-title">High Price Impact</span>
               <span className="swap-card__warning-text">Consider using a smaller amount to reduce slippage.</span>
             </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="swap-card__actions">
+          <ActionButton
+            variant="primary"
+            onClick={handleExecuteSwap}
+            label="Execute Swap"
+            loadingLabel="Executing..."
+            isLoading={isExecuting}
+          />
+          <ActionButton
+            onClick={handleRefreshQuote}
+            label="Refresh Quote"
+          />
+          <ActionButton
+            onClick={handleCheckSlippage}
+            label="Check Slippage"
+          />
+          <ActionButton
+            onClick={handleLearnMore}
+            label={`About ${outputSymbol}`}
+          />
+        </div>
+
+        {/* Action Result */}
+        {actionMessage && (
+          <div className={`swap-card__action-result swap-card__action-result--${actionState}`}>
+            {actionMessage}
           </div>
         )}
 

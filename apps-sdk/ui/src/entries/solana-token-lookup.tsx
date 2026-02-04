@@ -4,7 +4,7 @@ import '../styles/widgets/solana-token-lookup.css';
 
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
-import { useOpenAIGlobal } from '../sdk';
+import { useOpenAIGlobal, useCallTool, useSendFollowUp, useOpenExternal, useTheme } from '../sdk';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -126,6 +126,11 @@ function TokenIcon({ symbol, imageUrl, size = 64 }: { symbol: string; imageUrl?:
 // ─────────────────────────────────────────────────────────────────────────────
 
 function TokenCard({ token }: { token: TokenMeta }) {
+  const { callTool } = useCallTool();
+  const sendFollowUp = useSendFollowUp();
+  const openExternal = useOpenExternal();
+  const [isQuoting, setIsQuoting] = useState(false);
+
   const info = token.info;
   const address = pickString(token.address, token.mint);
   const symbol = pickString(token.symbol, info?.symbol) ?? 'UNKNOWN';
@@ -155,6 +160,28 @@ function TokenCard({ token }: { token: TokenMeta }) {
 
   const liquidityRaw = pickNumber(token.liquidityUsd, token.liquidity_usd);
   const liquidity = liquidityRaw !== undefined ? formatUsdCompact(liquidityRaw) : undefined;
+
+  // Action handlers
+  const handleGetQuote = async () => {
+    if (!address) return;
+    setIsQuoting(true);
+    await callTool('solana_swap_preview', {
+      outputMint: address,
+      amount: 1,
+    });
+    setIsQuoting(false);
+  };
+
+  const handleCheckSlippage = async () => {
+    if (!address) return;
+    await callTool('slippage_sentinel', {
+      token_out: address,
+    });
+  };
+
+  const handleAnalyze = async () => {
+    await sendFollowUp(`Give me a detailed analysis of ${symbol} (${address})`);
+  };
 
   return (
     <div className={`token-lookup-card ${isPositive ? 'token-lookup-card--positive' : 'token-lookup-card--negative'}`}>
@@ -203,6 +230,19 @@ function TokenCard({ token }: { token: TokenMeta }) {
           )}
         </div>
 
+        {/* Action Buttons */}
+        <div className="token-lookup-card__actions">
+          <button className="token-action-btn token-action-btn--primary" onClick={handleGetQuote} disabled={isQuoting}>
+            {isQuoting ? 'Getting Quote...' : 'Get Swap Quote'}
+          </button>
+          <button className="token-action-btn" onClick={handleCheckSlippage}>
+            Check Slippage
+          </button>
+          <button className="token-action-btn" onClick={handleAnalyze}>
+            Deep Analysis
+          </button>
+        </div>
+
         {/* Footer */}
         <div className="token-lookup-card__footer">
           {address && (
@@ -213,9 +253,9 @@ function TokenCard({ token }: { token: TokenMeta }) {
           <div className="token-lookup-card__links">
             {address && (
               <>
-                <a href={`https://solscan.io/token/${address}`} target="_blank" rel="noreferrer">Solscan</a>
-                <a href={`https://birdeye.so/token/${address}`} target="_blank" rel="noreferrer">Birdeye</a>
-                <a href={`https://dexscreener.com/solana/${address}`} target="_blank" rel="noreferrer">Dexscreener</a>
+                <button className="token-link-btn" onClick={() => openExternal(`https://solscan.io/token/${address}`)}>Solscan</button>
+                <button className="token-link-btn" onClick={() => openExternal(`https://birdeye.so/token/${address}`)}>Birdeye</button>
+                <button className="token-link-btn" onClick={() => openExternal(`https://dexscreener.com/solana/${address}`)}>Chart</button>
               </>
             )}
           </div>
@@ -231,11 +271,12 @@ function TokenCard({ token }: { token: TokenMeta }) {
 
 function SolanaTokenLookup() {
   const toolOutput = useOpenAIGlobal('toolOutput') as TokenLookupPayload | null;
+  const theme = useTheme();
 
   // Loading
   if (!toolOutput) {
     return (
-      <div className="token-lookup-container">
+      <div className="token-lookup-container" data-theme={theme}>
         <div className="token-lookup-loading">
           <div className="token-lookup-loading__skeleton" />
           <div className="token-lookup-loading__skeleton token-lookup-loading__skeleton--small" />
@@ -260,7 +301,7 @@ function SolanaTokenLookup() {
   // Empty state
   if (tokens.length === 0) {
     return (
-      <div className="token-lookup-container">
+      <div className="token-lookup-container" data-theme={theme}>
         <div className="token-lookup-empty">No tokens found.</div>
       </div>
     );
@@ -270,7 +311,7 @@ function SolanaTokenLookup() {
   const visibleTokens = tokens.slice(0, 3);
 
   return (
-    <div className="token-lookup-container">
+    <div className="token-lookup-container" data-theme={theme}>
       <div className="token-lookup-header">
         <span className="token-lookup-title">Token Analysis</span>
       </div>

@@ -5,3 +5,11 @@ export * from './use-display-mode';
 export * from './use-max-height';
 export * from './use-request-display-mode';
 export * from './use-is-chatgpt-app';
+// New interactive hooks
+export * from './use-call-tool';
+export * from './use-send-followup';
+export * from './use-widget-state';
+export * from './use-theme';
+export * from './use-tool-input';
+export * from './use-open-external';
+export * from './use-user-agent';
