@@ -1,0 +1,1 @@
+import{r as e}from"./use-openai-global-C-kWgFLb.js";function r(){return e.useCallback(n=>{if(typeof window>"u"||!window.openai?.openExternal){window?.open(n,"_blank","noopener,noreferrer");return}window.openai.openExternal({href:n})},[])}export{r as u};
