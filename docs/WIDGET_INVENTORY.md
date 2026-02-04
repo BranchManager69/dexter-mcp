@@ -1,8 +1,8 @@
 # Widget/Renderer Inventory
 
-> **Last Updated:** 2026-02-03  
+> **Last Updated:** 2026-02-04  
 > **Total Tools:** 74  
-> **ChatGPT Widgets:** 22  
+> **ChatGPT Widgets:** 32 (+10 new)  
 > **dexter-agents Renderers:** 20
 
 ## Priority Queue (Missing Renderers)
@@ -12,27 +12,27 @@ Tools that need widgets, ordered by priority:
 | Priority | Tool | Category | Notes |
 |----------|------|----------|-------|
 | **P0 - Critical** | | | |
-| [ ] | `solscan_trending_tokens` | x402 | High-usage, no renderer anywhere |
-| [ ] | `jupiter_quote_preview` | x402 | Core trading flow |
-| [ ] | `slippage_sentinel` | x402 | Risk management |
-| [ ] | `markets_fetch_ohlcv` | markets | Chart data, no renderer |
+| [x] | `solscan_trending_tokens` | x402 | ✅ `solscan-trending` |
+| [x] | `jupiter_quote_preview` | x402 | ✅ `jupiter-quote` |
+| [x] | `slippage_sentinel` | x402 | ✅ `slippage-sentinel` |
+| [x] | `markets_fetch_ohlcv` | markets | ✅ `ohlcv` |
 | **P1 - High** | | | |
-| [ ] | `tools_solscan_trending_pro` | x402 | Pro version of trending |
-| [ ] | `jupiter_quote_pro` | x402 | Pro quote |
-| [ ] | `x402_scan_stats` | x402 | Network diagnostics |
-| [ ] | `stream_public_shout` | stream | Engagement feature |
-| [ ] | `stream_shout_feed` | stream | Feed display |
+| [x] | `tools_solscan_trending_pro` | x402 | ✅ Uses `solscan-trending` |
+| [x] | `jupiter_quote_pro` | x402 | ✅ Uses `jupiter-quote` |
+| [x] | `x402_scan_stats` | x402 | ✅ `x402-stats` |
+| [x] | `stream_public_shout` | stream | ✅ `stream-shout` |
+| [x] | `stream_shout_feed` | stream | ✅ `stream-shout` |
 | **P2 - Medium** | | | |
-| [ ] | `shield_create` | x402 | Protection feature |
-| [ ] | `tools_spaces_jobs` | x402 | Spaces integration |
-| [ ] | `tools_code-interpreter_jobs` | x402 | Code execution |
-| [ ] | `tools_deep-research_jobs` | x402 | Research jobs |
-| [ ] | `submit_feedback` | identity | Feedback submission |
-| **P3 - Low** | | | |
-| [ ] | `games_king_state` | x402 | Game state |
-| [ ] | `games_story_read` | x402 | Story game |
-| [ ] | `v2-test` | x402 | Test endpoint |
-| [ ] | `fetch` | general | Only missing in ChatGPT |
+| [x] | `shield_create` | x402 | ✅ `shield` |
+| [x] | `tools_spaces_jobs` | x402 | ✅ `async-job` |
+| [x] | `tools_code-interpreter_jobs` | x402 | ✅ `async-job` |
+| [x] | `tools_deep-research_jobs` | x402 | ✅ `async-job` |
+| [x] | `submit_feedback` | identity | ✅ `feedback` |
+| **P3 - Low (Stubs)** | | | |
+| [x] | `games_king_state` | x402 | ✅ `game-state` (stub) |
+| [x] | `games_story_read` | x402 | ✅ `game-state` (stub) |
+| [~] | `v2-test` | x402 | Test endpoint, no widget needed |
+| [ ] | `fetch` | general | Only missing in ChatGPT (low priority) |
 
 ---
 
@@ -76,13 +76,13 @@ Tools that need widgets, ordered by priority:
 ### STREAM (2 tools)
 | Tool | ChatGPT Widget | dexter-agents | Status |
 |------|----------------|---------------|--------|
-| `stream_public_shout` | ❌ | ❌ | ❌ **MISSING** |
-| `stream_shout_feed` | ❌ | ❌ | ❌ **MISSING** |
+| `stream_public_shout` | `stream-shout` ✨ | ❌ | ⚠️ agents missing |
+| `stream_shout_feed` | `stream-shout` ✨ | ❌ | ⚠️ agents missing |
 
 ### MARKETS (1 tool)
 | Tool | ChatGPT Widget | dexter-agents | Status |
 |------|----------------|---------------|--------|
-| `markets_fetch_ohlcv` | ❌ | ❌ | ❌ **MISSING** |
+| `markets_fetch_ohlcv` | `ohlcv` ✨ | ❌ | ⚠️ agents missing |
 
 ### ONCHAIN (2 tools)
 | Tool | ChatGPT Widget | dexter-agents | Status |
@@ -131,7 +131,7 @@ Tools that need widgets, ordered by priority:
 | `mint_identity` | `identity-status` | ❌ | ⚠️ agents missing |
 | `get_agent_reputation` | `reputation-badge` | ❌ | ⚠️ agents missing |
 | `get_reputation_leaderboard` | `reputation-badge` | ❌ | ⚠️ agents missing |
-| `submit_feedback` | ❌ | ❌ | ❌ **MISSING** |
+| `submit_feedback` | `feedback` ✨ | ❌ | ⚠️ agents missing |
 | `get_identity_stats` | `identity-status` | ❌ | ⚠️ agents missing |
 
 ### BUNDLES (10 tools)
@@ -151,22 +151,22 @@ Tools that need widgets, ordered by priority:
 ### X402 DYNAMIC (16 tools)
 | Tool | ChatGPT Widget | dexter-agents | Status |
 |------|----------------|---------------|--------|
-| `solscan_trending_tokens` | ❌ | ❌ | ❌ **MISSING** |
-| `tools_solscan_trending_pro` | ❌ | ❌ | ❌ **MISSING** |
-| `jupiter_quote_preview` | ❌ | ❌ | ❌ **MISSING** |
-| `jupiter_quote_pro` | ❌ | ❌ | ❌ **MISSING** |
-| `slippage_sentinel` | ❌ | ❌ | ❌ **MISSING** |
+| `solscan_trending_tokens` | `solscan-trending` ✨ | ❌ | ⚠️ agents missing |
+| `tools_solscan_trending_pro` | `solscan-trending` ✨ | ❌ | ⚠️ agents missing |
+| `jupiter_quote_preview` | `jupiter-quote` ✨ | ❌ | ⚠️ agents missing |
+| `jupiter_quote_pro` | `jupiter-quote` ✨ | ❌ | ⚠️ agents missing |
+| `slippage_sentinel` | `slippage-sentinel` ✨ | ❌ | ⚠️ agents missing |
 | `twitter_topic_analysis` | `twitter-search` | `twitterSearch` | ✅ Both |
 | `sora_video_job` | `media-jobs` | `mediaJobs` | ✅ Both |
 | `meme_generator_job` | `media-jobs` | `mediaJobs` | ✅ Both |
-| `x402_scan_stats` | ❌ | ❌ | ❌ **MISSING** |
-| `shield_create` | ❌ | ❌ | ❌ **MISSING** |
-| `tools_spaces_jobs` | ❌ | ❌ | ❌ **MISSING** |
-| `tools_code-interpreter_jobs` | ❌ | ❌ | ❌ **MISSING** |
-| `tools_deep-research_jobs` | ❌ | ❌ | ❌ **MISSING** |
-| `games_king_state` | ❌ | ❌ | ❌ **MISSING** |
-| `games_story_read` | ❌ | ❌ | ❌ **MISSING** |
-| `v2-test` | ❌ | ❌ | ❌ **MISSING** |
+| `x402_scan_stats` | `x402-stats` ✨ | ❌ | ⚠️ agents missing |
+| `shield_create` | `shield` ✨ | ❌ | ⚠️ agents missing |
+| `tools_spaces_jobs` | `async-job` ✨ | ❌ | ⚠️ agents missing |
+| `tools_code-interpreter_jobs` | `async-job` ✨ | ❌ | ⚠️ agents missing |
+| `tools_deep-research_jobs` | `async-job` ✨ | ❌ | ⚠️ agents missing |
+| `games_king_state` | `game-state` ✨ (stub) | ❌ | ⚠️ stub only |
+| `games_story_read` | `game-state` ✨ (stub) | ❌ | ⚠️ stub only |
+| `v2-test` | — | — | Test endpoint |
 
 ---
 
@@ -179,26 +179,52 @@ Tools that need widgets, ordered by priority:
 | wallet | 4 | 4 | 0 | 0 | 0 |
 | solana | 5 | 5 | 0 | 0 | 0 |
 | codex | 3 | 3 | 0 | 0 | 0 |
-| stream | 2 | 0 | 0 | 0 | **2** |
-| markets | 1 | 0 | 0 | 0 | **1** |
+| stream | 2 | 0 | **2** ✨ | 0 | 0 |
+| markets | 1 | 0 | **1** ✨ | 0 | 0 |
 | onchain | 2 | 2 | 0 | 0 | 0 |
 | pokedexter | 9 | 9 | 0 | 0 | 0 |
 | hyperliquid | 5 | 5 | 0 | 0 | 0 |
 | studio | 7 | 7 | 0 | 0 | 0 |
-| identity | 7 | 0 | 6 | 0 | **1** |
+| identity | 7 | 0 | **7** ✨ | 0 | 0 |
 | bundles | 10 | 0 | 10 | 0 | 0 |
-| x402 | 16 | 3 | 0 | 0 | **13** |
-| **TOTAL** | **74** | **40** | **16** | **1** | **17** |
+| x402 | 16 | 3 | **12** ✨ | 0 | **1** (test) |
+| **TOTAL** | **74** | **40** | **32** | **1** | **1** |
 
-### Key Stats
+### Key Stats (Updated)
 - **54%** of tools have renderers in both platforms
-- **22%** have ChatGPT widget only  
+- **43%** have ChatGPT widget only (+21% from previous)
 - **1%** have dexter-agents renderer only
-- **23%** have NO renderer anywhere (17 tools)
+- **1%** have no renderer (v2-test only, intentionally)
+
+---
+
+## New Widgets Added (2026-02-04)
+
+| Widget | File | Tools Covered |
+|--------|------|---------------|
+| `solscan-trending` | solscan-trending.tsx | `solscan_trending_tokens`, `tools_solscan_trending_pro` |
+| `jupiter-quote` | jupiter-quote.tsx | `jupiter_quote_preview`, `jupiter_quote_pro` |
+| `slippage-sentinel` | slippage-sentinel.tsx | `slippage_sentinel` |
+| `ohlcv` | ohlcv.tsx | `markets_fetch_ohlcv` |
+| `x402-stats` | x402-stats.tsx | `x402_scan_stats` |
+| `stream-shout` | stream-shout.tsx | `stream_public_shout`, `stream_shout_feed` |
+| `shield` | shield.tsx | `shield_create` |
+| `async-job` | async-job.tsx | `tools_spaces_jobs`, `tools_code-interpreter_jobs`, `tools_deep-research_jobs` |
+| `feedback` | feedback.tsx | `submit_feedback` |
+| `game-state` | game-state.tsx | `games_king_state`, `games_story_read` (stub) |
 
 ---
 
 ## Changelog
+
+### 2026-02-04
+- Added 10 new ChatGPT widgets covering P0, P1, P2, and P3 tools
+- P0: `solscan-trending`, `jupiter-quote`, `slippage-sentinel`, `ohlcv`
+- P1: `x402-stats`, `stream-shout`
+- P2: `shield`, `async-job`, `feedback`
+- P3: `game-state` (stub)
+- ChatGPT widget count: 22 → 32
+- Tools with no renderer: 17 → 1 (only `v2-test` test endpoint)
 
 ### 2026-02-03
 - Initial inventory created

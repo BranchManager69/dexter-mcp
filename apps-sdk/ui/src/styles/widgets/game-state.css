@@ -1,0 +1,132 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   GAME STATE WIDGET (P3 Stub)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.game-container {
+  padding: 16px;
+  max-width: 440px;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.game-card {
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 10, 10, 0.95);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.game-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-icon { font-size: 18px; }
+.game-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #737373; }
+
+.game-badge {
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: rgba(107, 114, 128, 0.1);
+  border: 1px solid rgba(107, 114, 128, 0.2);
+  font-size: 9px;
+  font-weight: 700;
+  color: #6b7280;
+}
+
+.game-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.game-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.game-field__label {
+  font-size: 11px;
+  color: #737373;
+}
+
+.game-field__value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e5e5e5;
+}
+
+.game-story {
+  padding: 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.game-story p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #d4d4d4;
+}
+
+.game-raw {
+  padding: 12px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow: auto;
+}
+
+.game-raw pre {
+  margin: 0;
+  font-size: 10px;
+  font-family: "Fira Code", monospace;
+  color: #a3a3a3;
+  white-space: pre-wrap;
+}
+
+.game-stub-notice {
+  padding: 10px;
+  border-radius: 4px;
+  background: rgba(251, 191, 36, 0.05);
+  border: 1px dashed rgba(251, 191, 36, 0.2);
+  font-size: 11px;
+  color: #fbbf24;
+  text-align: center;
+}
+
+.game-loading, .game-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 10, 10, 0.9);
+  color: #a3a3a3;
+  font-size: 14px;
+}
+
+.game-error { color: #fb7185; border-color: rgba(251, 113, 133, 0.2); background: rgba(251, 113, 133, 0.05); }
+
+.game-loading__spinner {
+  width: 20px; height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #fbbf24;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
