@@ -10,8 +10,14 @@ import { useOpenAIGlobal } from '../sdk';
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-type WalletBalance = {
+type WalletRecord = {
+  // From list_my_wallets tool (actual API response)
   address?: string;
+  public_key?: string;
+  label?: string;
+  is_default?: boolean;
+  status?: string;
+  // Optional balance fields (if enriched)
   chain?: string;
   sol?: number;
   usdc?: number;
@@ -21,7 +27,8 @@ type WalletBalance = {
 };
 
 type PortfolioPayload = {
-  wallets?: WalletBalance[];
+  user?: { id?: string; email?: string } | null;
+  wallets?: WalletRecord[];
   totalUsd?: string | number;
   updatedAt?: number;
 };
@@ -97,17 +104,21 @@ function SolanaIcon({ size = 16 }: { size?: number }) {
 // Wallet Card Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-function WalletCard({ wallet, index }: { wallet: WalletBalance; index: number }) {
+function WalletCard({ wallet, index }: { wallet: WalletRecord; index: number }) {
   const [expanded, setExpanded] = useState(false);
-  const address = wallet.address ?? `Wallet ${index + 1}`;
+  const address = wallet.address || wallet.public_key || `Wallet ${index + 1}`;
+  const label = wallet.label;
   const chain = wallet.chain ?? 'Solana';
-  const verified = wallet.verified ?? false;
-  const totalUsd = formatUsd(wallet.totalUsd);
+  const isDefault = wallet.is_default ?? false;
+  const status = wallet.status;
+  const hasBalances = wallet.sol !== undefined || wallet.usdc !== undefined || wallet.usdt !== undefined;
+  const totalUsd = wallet.totalUsd !== undefined ? formatUsd(wallet.totalUsd) : null;
 
   return (
     <div 
-      className={`portfolio-wallet ${verified ? 'portfolio-wallet--verified' : ''}`}
-      onClick={() => setExpanded(!expanded)}
+      className={`portfolio-wallet ${isDefault ? 'portfolio-wallet--default' : ''}`}
+      onClick={() => hasBalances && setExpanded(!expanded)}
+      style={{ cursor: hasBalances ? 'pointer' : 'default' }}
     >
       <div className="portfolio-wallet__header">
         <div className="portfolio-wallet__info">
@@ -116,16 +127,22 @@ function WalletCard({ wallet, index }: { wallet: WalletBalance; index: number })
           </div>
           <div className="portfolio-wallet__details">
             <span className="portfolio-wallet__address">{abbreviate(address)}</span>
-            <span className="portfolio-wallet__chain">{chain}</span>
+            <span className="portfolio-wallet__chain">
+              {label || chain}
+              {isDefault && <span className="portfolio-wallet__default-badge">Default</span>}
+            </span>
           </div>
         </div>
         <div className="portfolio-wallet__value">
-          <span className="portfolio-wallet__total">{totalUsd}</span>
-          {verified && <span className="portfolio-wallet__verified-badge">✓</span>}
+          {totalUsd ? (
+            <span className="portfolio-wallet__total">{totalUsd}</span>
+          ) : status ? (
+            <span className={`portfolio-wallet__status portfolio-wallet__status--${status}`}>{status}</span>
+          ) : null}
         </div>
       </div>
 
-      {expanded && (
+      {expanded && hasBalances && (
         <div className="portfolio-wallet__balances">
           {wallet.sol !== undefined && (
             <div className="portfolio-wallet__balance">
@@ -171,9 +188,10 @@ function PortfolioStatus() {
   }
 
   const wallets = Array.isArray(toolOutput.wallets) ? toolOutput.wallets : [];
-  const totalUsd = formatUsd(toolOutput.totalUsd);
+  const totalUsd = toolOutput.totalUsd !== undefined ? formatUsd(toolOutput.totalUsd) : null;
   const updatedAt = toolOutput.updatedAt;
-  const hasUnverified = wallets.some(w => !w.verified);
+  const defaultWallet = wallets.find(w => w.is_default);
+  const hasBalanceData = wallets.some(w => w.totalUsd !== undefined || w.sol !== undefined);
 
   // Empty state
   if (wallets.length === 0) {
@@ -199,26 +217,24 @@ function PortfolioStatus() {
         {/* Header with Total */}
         <div className="portfolio-card__header">
           <div className="portfolio-card__title-row">
-            <span className="portfolio-card__title">Portfolio Overview</span>
+            <span className="portfolio-card__title">Linked Wallets</span>
             {updatedAt && (
               <span className="portfolio-card__time">Updated {formatTimestamp(updatedAt)}</span>
             )}
           </div>
-          <div className="portfolio-card__total-row">
-            <span className="portfolio-card__total-label">Total Value</span>
-            <span className="portfolio-card__total-value">{totalUsd}</span>
-          </div>
+          {hasBalanceData && totalUsd && (
+            <div className="portfolio-card__total-row">
+              <span className="portfolio-card__total-label">Total Value</span>
+              <span className="portfolio-card__total-value">{totalUsd}</span>
+            </div>
+          )}
+          {defaultWallet && !hasBalanceData && (
+            <div className="portfolio-card__default-info">
+              <span className="portfolio-card__default-label">Active Wallet</span>
+              <span className="portfolio-card__default-address">{abbreviate(defaultWallet.address || defaultWallet.public_key || '')}</span>
+            </div>
+          )}
         </div>
-
-        {/* Warning for unverified */}
-        {hasUnverified && (
-          <div className="portfolio-card__warning">
-            <span className="portfolio-card__warning-icon">⚠</span>
-            <span className="portfolio-card__warning-text">
-              Some wallets are not verified. Deposits may fail until verified.
-            </span>
-          </div>
-        )}
 
         {/* Wallet List */}
         <div className="portfolio-wallets">

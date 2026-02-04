@@ -33,12 +33,14 @@ type TokenMeta = {
   price_usd?: number;
   marketCap?: number;
   market_cap?: number;
+  fdvUsd?: number;           // API returns this for market cap
   volume24h?: number;
   volume24hUsd?: number;
   liquidityUsd?: number;
   liquidity_usd?: number;
   priceChange24h?: number;
   price_change_24h?: number;
+  priceChange24hPct?: number; // API returns this for price change
 };
 
 type TokenLookupPayload = {
@@ -148,11 +150,11 @@ function TokenCard({ token }: { token: TokenMeta }) {
   const priceRaw = pickNumber(token.priceUsd, token.price_usd);
   const price = priceRaw !== undefined ? formatUsdPrecise(priceRaw) : undefined;
 
-  const priceChangeRaw = pickNumber(token.priceChange24h, token.price_change_24h);
+  const priceChangeRaw = pickNumber(token.priceChange24h, token.price_change_24h, token.priceChange24hPct);
   const priceChange = priceChangeRaw !== undefined ? formatPercent(priceChangeRaw) : undefined;
   const isPositive = priceChangeRaw !== undefined && priceChangeRaw >= 0;
 
-  const marketCapRaw = pickNumber(token.marketCap, token.market_cap);
+  const marketCapRaw = pickNumber(token.marketCap, token.market_cap, token.fdvUsd);
   const marketCap = marketCapRaw !== undefined ? formatUsdCompact(marketCapRaw) : undefined;
 
   const volumeRaw = pickNumber(token.volume24hUsd, token.volume24h);
