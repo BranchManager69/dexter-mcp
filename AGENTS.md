@@ -18,6 +18,38 @@
 
 _Next additions:_ flesh out the specific MCP packaging steps (tool naming, auth hints) and any manual overrides we still support.
 
+## Apps SDK Build & Deploy
+
+Widget UI components live in `apps-sdk/ui/` and are served to ChatGPT via MCP `resources/read`.
+
+### Build Commands
+```bash
+npm run build:apps-sdk   # Build + auto-deploy to production path
+npm run deploy:apps-sdk  # Deploy only (if already built)
+npm run deploy:mcp       # Build + deploy + restart MCP server
+```
+
+### Architecture
+```
+apps-sdk/ui/src/          # Widget source (React/TSX)
+        ↓ vite build
+public/apps-sdk/          # Local build output (HTML + hashed JS/CSS)
+        ↓ rsync (automatic)
+dexter-fe/public/mcp/app-assets/   # Production path (nginx-served)
+```
+
+**Why two locations?** Nginx serves `/mcp/app-assets/` from `dexter-fe`, not `dexter-mcp`. The deploy script syncs automatically after each build.
+
+### How Widget Loading Works
+1. ChatGPT calls MCP `resources/read` → `register.mjs` reads HTML from `public/apps-sdk/`
+2. `register.mjs` injects bootstrap script and rewrites asset URLs to `https://dexter.cash/mcp/app-assets/`
+3. ChatGPT iframe renders HTML, fetches JS/CSS from nginx-served `dexter-fe` path
+
+### Common Issues
+- **Blank widgets:** Usually means assets weren't deployed (file hash mismatch). Run `npm run build:apps-sdk`.
+- **CSP errors:** Check `bootstrap.js` for any dynamic DOM manipulation that ChatGPT's sandbox blocks.
+- **Widget not updating:** ChatGPT may cache widget HTML. Start a new conversation to force refresh.
+
 ---
 
 ## Toolset Overview

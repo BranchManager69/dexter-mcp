@@ -12,6 +12,7 @@ import { useOpenAIGlobal } from '../sdk';
 type ResolvedWallet = {
   address?: string;
   walletAddress?: string;
+  wallet_address?: string;  // API returns snake_case
   chain?: string;
   source?: string;
   resolvedVia?: string;
@@ -112,7 +113,7 @@ function ResolveWallet() {
 
   // Normalize data
   const resolved = toolOutput.result ?? toolOutput;
-  const address = pickString(resolved.address, resolved.walletAddress);
+  const address = pickString(resolved.address, resolved.walletAddress, resolved.wallet_address);
   const chain = pickString(resolved.chain) ?? 'solana';
   const source = pickString(resolved.source, resolved.resolvedVia) ?? 'unknown';
   const verified = resolved.verified ?? false;

@@ -30,19 +30,9 @@ const BOOTSTRAP_TEMPLATE = (baseUrl) => `
         return;
       }
 
-      // Ensure <base> tag exists so relative URLs resolve to our host.
-      var existingBase = document.querySelector('base');
-      if (!existingBase) {
-        var baseEl = document.createElement('base');
-        baseEl.setAttribute('href', normalizedBase);
-        if (document.head.firstChild) {
-          document.head.insertBefore(baseEl, document.head.firstChild);
-        } else {
-          document.head.appendChild(baseEl);
-        }
-      } else if (!existingBase.getAttribute('href')) {
-        existingBase.setAttribute('href', normalizedBase);
-      }
+      // NOTE: We do NOT create a <base> element because ChatGPT's CSP blocks
+      // base-uri to external domains. Asset URLs are already absolute.
+      // Just store the base URL for use by fetch rewriting below.
 
       window.innerBaseUrl = normalizedBase;
       window.__isChatGptApp = typeof window.openai !== 'undefined';

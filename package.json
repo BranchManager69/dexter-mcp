@@ -11,7 +11,9 @@
     "mcp:sessions": "node scripts/mcp-sessions.mjs",
     "mcp:sessions:json": "node scripts/mcp-sessions.mjs --json",
     "test:pumpstream": "node scripts/run-pumpstream-harness.js",
-    "build:apps-sdk": "vite build --config apps-sdk/vite.config.ts"
+    "build:apps-sdk": "vite build --config apps-sdk/vite.config.ts && npm run deploy:apps-sdk",
+    "deploy:apps-sdk": "node scripts/deploy-apps-sdk.mjs",
+    "deploy:mcp": "npm run build:apps-sdk && pm2 restart dexter-mcp && echo '✓ MCP server restarted'"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.6",

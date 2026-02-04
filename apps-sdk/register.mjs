@@ -106,14 +106,16 @@ function buildWidgetCsp(assetBase) {
 
 function injectBootstrap(html, baseHref) {
   const normalizedBase = baseHref.endsWith('/') ? baseHref : `${baseHref}/`;
-  const baseTag = `<base href="${normalizedBase}">`;
+  // NOTE: We do NOT inject a <base> tag because ChatGPT's CSP blocks base-uri
+  // to external domains. Asset URLs are already rewritten to absolute paths
+  // by rewriteHtmlForAssets(), so the base tag is unnecessary.
   const bootstrapScript = buildWidgetBootstrapScript(normalizedBase);
 
   if (html.includes('<head>')) {
-    return html.replace('<head>', `<head>\n${baseTag}\n${bootstrapScript}\n`);
+    return html.replace('<head>', `<head>\n${bootstrapScript}\n`);
   }
 
-  return `${baseTag}\n${bootstrapScript}\n${html}`;
+  return `${bootstrapScript}\n${html}`;
 }
 
 export function registerAppsSdkResources(server) {
