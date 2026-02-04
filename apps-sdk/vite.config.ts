@@ -46,6 +46,7 @@ export default defineConfig({
         'async-job': path.resolve(rootDir, 'async-job.html'),
         'feedback': path.resolve(rootDir, 'feedback.html'),
         'game-state': path.resolve(rootDir, 'game-state.html'),
+        'web-fetch': path.resolve(rootDir, 'web-fetch.html'),
       },
     },
   },

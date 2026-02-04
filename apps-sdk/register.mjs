@@ -457,6 +457,16 @@ export function registerAppsSdkResources(server) {
       invoking: 'Loading game…',
       invoked: 'Game loaded',
     },
+    {
+      name: 'dexter_web_fetch',
+      templateUri: 'ui://dexter/web-fetch',
+      file: 'web-fetch.html',
+      title: 'Dexter Web Fetch widget',
+      description: 'Displays fetched web page content with title, images, and text.',
+      widgetDescription: 'Shows fetched page title, URL, images, and extracted content.',
+      invoking: 'Fetching page…',
+      invoked: 'Page loaded',
+    },
   ];
 
   for (const entry of entries) {

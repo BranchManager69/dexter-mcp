@@ -2,8 +2,8 @@
 
 > **Last Updated:** 2026-02-04  
 > **Total Tools:** 74  
-> **ChatGPT Widgets:** 32  
-> **dexter-agents Renderers:** 48 (+11 x402 dynamic)
+> **ChatGPT Widgets:** 33 (+1 web-fetch)  
+> **dexter-agents Renderers:** 48
 
 ## Priority Queue (Missing Renderers)
 
@@ -42,7 +42,7 @@ Tools that need widgets, ordered by priority:
 | Tool | ChatGPT Widget | dexter-agents | Status |
 |------|----------------|---------------|--------|
 | `search` | `search` | `search` | ✅ Both |
-| `fetch` | ❌ | `fetch` | ⚠️ ChatGPT missing |
+| `fetch` | `web-fetch` ✨ | `fetch` | ✅ Both |
 
 ### PUMPSTREAM (1 tool)
 | Tool | ChatGPT Widget | dexter-agents | Status |
@@ -174,7 +174,7 @@ Tools that need widgets, ordered by priority:
 
 | Category | Tools | Both Platforms | ChatGPT Only | agents Only | Neither |
 |----------|-------|----------------|--------------|-------------|---------|
-| general | 2 | 1 | 0 | 1 | 0 |
+| general | 2 | 2 | 0 | 0 | 0 |
 | pumpstream | 1 | 1 | 0 | 0 | 0 |
 | wallet | 4 | 4 | 0 | 0 | 0 |
 | solana | 5 | 5 | 0 | 0 | 0 |
@@ -188,13 +188,13 @@ Tools that need widgets, ordered by priority:
 | identity | 7 | 7 | 0 | 0 | 0 |
 | bundles | 10 | 10 | 0 | 0 | 0 |
 | x402 | 16 | **15** ✨ | 0 | 0 | **1** (test) |
-| **TOTAL** | **74** | **72** | **0** | **1** | **1** |
+| **TOTAL** | **74** | **73** | **0** | **0** | **1** |
 
 ### Key Stats (Final)
-- **97%** of tools have renderers in both platforms
+- **99%** of tools have renderers in both platforms (73 of 74)
 - **0%** have ChatGPT widget only
-- **1%** have dexter-agents renderer only (`fetch`)
-- **1%** have no renderer (`v2-test` - test endpoint)
+- **0%** have dexter-agents renderer only
+- **1%** have no renderer (`v2-test` - test endpoint, intentional)
 
 ---
 
@@ -216,6 +216,11 @@ Tools that need widgets, ordered by priority:
 ---
 
 ## Changelog
+
+### 2026-02-04 (Part 4)
+- Added `web-fetch` ChatGPT widget for `fetch` tool
+- Both platforms coverage: 97% → **99%** (73 of 74 tools)
+- Only `v2-test` remains uncovered (intentionally - test endpoint)
 
 ### 2026-02-04 (Part 3)
 - Added 11 new dexter-agents renderers for x402 dynamic tools in `x402Dynamic.tsx`:

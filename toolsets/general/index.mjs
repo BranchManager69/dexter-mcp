@@ -10,6 +10,14 @@ const SEARCH_WIDGET_META = createWidgetMeta({
   invoked: 'Search complete',
   widgetDescription: 'Shows search results with site icons, descriptions, and optional AI answer.',
 });
+
+const FETCH_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/web-fetch',
+  invoking: 'Fetching page…',
+  invoked: 'Page loaded',
+  widgetDescription: 'Shows fetched page title, URL, images, and extracted content.',
+});
+
 const MAX_SEARCH_RESULTS = 10;
 
 let cachedClient = null;
@@ -157,6 +165,7 @@ export function registerGeneralToolset(server) {
         category: 'knowledge-base',
         access: 'guest',
         tags: ['web', 'fetch', 'tavily'],
+        ...FETCH_WIDGET_META,
       },
       inputSchema: {
         url: z.string().url().describe('URL returned by the search tool.'),
