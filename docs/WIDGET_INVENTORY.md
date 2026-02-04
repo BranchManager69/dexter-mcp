@@ -3,7 +3,7 @@
 > **Last Updated:** 2026-02-04  
 > **Total Tools:** 74  
 > **ChatGPT Widgets:** 32  
-> **dexter-agents Renderers:** 37 (+17 new)
+> **dexter-agents Renderers:** 48 (+11 x402 dynamic)
 
 ## Priority Queue (Missing Renderers)
 
@@ -151,21 +151,21 @@ Tools that need widgets, ordered by priority:
 ### X402 DYNAMIC (16 tools)
 | Tool | ChatGPT Widget | dexter-agents | Status |
 |------|----------------|---------------|--------|
-| `solscan_trending_tokens` | `solscan-trending` ✨ | ❌ | ⚠️ agents missing |
-| `tools_solscan_trending_pro` | `solscan-trending` ✨ | ❌ | ⚠️ agents missing |
-| `jupiter_quote_preview` | `jupiter-quote` ✨ | ❌ | ⚠️ agents missing |
-| `jupiter_quote_pro` | `jupiter-quote` ✨ | ❌ | ⚠️ agents missing |
-| `slippage_sentinel` | `slippage-sentinel` ✨ | ❌ | ⚠️ agents missing |
+| `solscan_trending_tokens` | `solscan-trending` | `x402Dynamic` ✨ | ✅ Both |
+| `tools_solscan_trending_pro` | `solscan-trending` | `x402Dynamic` ✨ | ✅ Both |
+| `jupiter_quote_preview` | `jupiter-quote` | `x402Dynamic` ✨ | ✅ Both |
+| `jupiter_quote_pro` | `jupiter-quote` | `x402Dynamic` ✨ | ✅ Both |
+| `slippage_sentinel` | `slippage-sentinel` | `trading` | ✅ Both |
 | `twitter_topic_analysis` | `twitter-search` | `twitterSearch` | ✅ Both |
 | `sora_video_job` | `media-jobs` | `mediaJobs` | ✅ Both |
 | `meme_generator_job` | `media-jobs` | `mediaJobs` | ✅ Both |
-| `x402_scan_stats` | `x402-stats` ✨ | ❌ | ⚠️ agents missing |
-| `shield_create` | `shield` ✨ | ❌ | ⚠️ agents missing |
-| `tools_spaces_jobs` | `async-job` ✨ | ❌ | ⚠️ agents missing |
-| `tools_code-interpreter_jobs` | `async-job` ✨ | ❌ | ⚠️ agents missing |
-| `tools_deep-research_jobs` | `async-job` ✨ | ❌ | ⚠️ agents missing |
-| `games_king_state` | `game-state` ✨ (stub) | ❌ | ⚠️ stub only |
-| `games_story_read` | `game-state` ✨ (stub) | ❌ | ⚠️ stub only |
+| `x402_scan_stats` | `x402-stats` | `x402Dynamic` ✨ | ✅ Both |
+| `shield_create` | `shield` | `x402Dynamic` ✨ | ✅ Both |
+| `tools_spaces_jobs` | `async-job` | `x402Dynamic` ✨ | ✅ Both |
+| `tools_code-interpreter_jobs` | `async-job` | `x402Dynamic` ✨ | ✅ Both |
+| `tools_deep-research_jobs` | `async-job` | `x402Dynamic` ✨ | ✅ Both |
+| `games_king_state` | `game-state` (stub) | `x402Dynamic` ✨ (stub) | ✅ Both (stubs) |
+| `games_story_read` | `game-state` (stub) | `x402Dynamic` ✨ (stub) | ✅ Both (stubs) |
 | `v2-test` | — | — | Test endpoint |
 
 ---
@@ -179,22 +179,22 @@ Tools that need widgets, ordered by priority:
 | wallet | 4 | 4 | 0 | 0 | 0 |
 | solana | 5 | 5 | 0 | 0 | 0 |
 | codex | 3 | 3 | 0 | 0 | 0 |
-| stream | 2 | 0 | 2 | 0 | 0 |
+| stream | 2 | 2 | 0 | 0 | 0 |
 | markets | 1 | 1 | 0 | 0 | 0 |
 | onchain | 2 | 2 | 0 | 0 | 0 |
 | pokedexter | 9 | 9 | 0 | 0 | 0 |
 | hyperliquid | 5 | 5 | 0 | 0 | 0 |
 | studio | 7 | 7 | 0 | 0 | 0 |
-| identity | 7 | **7** ✨ | 0 | 0 | 0 |
-| bundles | 10 | **10** ✨ | 0 | 0 | 0 |
-| x402 | 16 | 3 | 12 | 0 | **1** (test) |
-| **TOTAL** | **74** | **57** | **14** | **1** | **1** |
+| identity | 7 | 7 | 0 | 0 | 0 |
+| bundles | 10 | 10 | 0 | 0 | 0 |
+| x402 | 16 | **15** ✨ | 0 | 0 | **1** (test) |
+| **TOTAL** | **74** | **72** | **0** | **1** | **1** |
 
-### Key Stats (Updated)
-- **77%** of tools have renderers in both platforms (+23%)
-- **19%** have ChatGPT widget only
-- **1%** have dexter-agents renderer only
-- **1%** have no renderer (v2-test only, intentionally)
+### Key Stats (Final)
+- **97%** of tools have renderers in both platforms
+- **0%** have ChatGPT widget only
+- **1%** have dexter-agents renderer only (`fetch`)
+- **1%** have no renderer (`v2-test` - test endpoint)
 
 ---
 
@@ -216,6 +216,17 @@ Tools that need widgets, ordered by priority:
 ---
 
 ## Changelog
+
+### 2026-02-04 (Part 3)
+- Added 11 new dexter-agents renderers for x402 dynamic tools in `x402Dynamic.tsx`:
+  - `solscanTrendingRenderer`: solscan_trending_tokens, tools_solscan_trending_pro
+  - `jupiterQuoteRenderer`: jupiter_quote_preview, jupiter_quote_pro
+  - `x402StatsRenderer`: x402_scan_stats
+  - `shieldRenderer`: shield_create
+  - `asyncJobRenderer`: tools_spaces_jobs, tools_code-interpreter_jobs, tools_deep-research_jobs
+  - `gameStateRenderer`: games_king_state, games_story_read (stub)
+- Both platforms coverage: 77% → **97%** (72 of 74 tools)
+- Only `fetch` (agents only) and `v2-test` (intentionally none) remain uncovered in ChatGPT
 
 ### 2026-02-04 (Part 2)
 - Added 17 new dexter-agents renderers for identity and bundle tools:
