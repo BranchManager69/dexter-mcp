@@ -5,6 +5,7 @@ import '../styles/widgets/solana-swap.css';
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
 import { useOpenAIGlobal } from '../sdk';
+import { getTokenLogoUrl } from '../components/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -14,6 +15,7 @@ type TokenMeta = {
   symbol?: string;
   name?: string;
   imageUrl?: string;
+  logoUri?: string;
 };
 
 type SwapExecution = {
@@ -64,15 +66,10 @@ function pickNumber(...values: (number | string | null | undefined)[]): number |
   return undefined;
 }
 
-const WELL_KNOWN: Record<string, string> = {
-  So11111111111111111111111111111111111111112: 'SOL',
-  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: 'USDC',
-  Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: 'USDT',
-};
-
 function symbolFromMint(mint?: string): string {
   if (!mint) return 'TOKEN';
-  return WELL_KNOWN[mint] ?? mint.slice(0, 4).toUpperCase();
+  // No hardcoded lookup - use truncated mint as fallback
+  return mint.slice(0, 4).toUpperCase();
 }
 
 function formatAmount(value?: number): string {
@@ -216,8 +213,19 @@ function SolanaSwapExecute() {
   const outputMint = pickString(execution.outputMint);
   const inputSymbol = pickString(execution.inputToken?.symbol) ?? symbolFromMint(inputMint);
   const outputSymbol = pickString(execution.outputToken?.symbol) ?? symbolFromMint(outputMint);
-  const inputImage = pickString(execution.inputToken?.imageUrl, execution.inputLogo);
-  const outputImage = pickString(execution.outputToken?.imageUrl, execution.outputLogo);
+  // Get images from API response, fall back to DexScreener CDN for any token
+  const inputImage = pickString(
+    execution.inputToken?.imageUrl,
+    execution.inputToken?.logoUri,
+    execution.inputLogo,
+    inputMint ? getTokenLogoUrl(inputMint) : undefined
+  );
+  const outputImage = pickString(
+    execution.outputToken?.imageUrl,
+    execution.outputToken?.logoUri,
+    execution.outputLogo,
+    outputMint ? getTokenLogoUrl(outputMint) : undefined
+  );
   
   const amountIn = pickNumber(execution.amountUi);
   const amountOut = pickNumber(execution.outputAmountUi, execution.expectedOutputUi);

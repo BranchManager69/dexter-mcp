@@ -5,6 +5,7 @@ import '../styles/widgets/solana-balances.css';
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
 import { useOpenAIGlobal } from '../sdk';
+import { getTokenLogoUrl } from '../components/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -14,6 +15,7 @@ type TokenMeta = {
   symbol?: string;
   name?: string;
   imageUrl?: string;
+  logoUri?: string;           // MCP normalised field
   headerImageUrl?: string;
   openGraphImageUrl?: string;
   priceUsd?: number;
@@ -68,14 +70,10 @@ function pickNumber(...values: (number | string | null | undefined)[]): number |
   return undefined;
 }
 
-const WELL_KNOWN: Record<string, string> = {
-  So11111111111111111111111111111111111111112: 'SOL',
-  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: 'USDC',
-};
-
 function symbolFromMint(mint?: string): string | undefined {
   if (!mint) return undefined;
-  return WELL_KNOWN[mint] ?? mint.slice(0, 4).toUpperCase();
+  // No hardcoded lookup - use truncated mint as fallback
+  return mint.slice(0, 4).toUpperCase();
 }
 
 function formatUsdCompact(value: number): string {
@@ -180,7 +178,14 @@ function TokenCard({
   
   const symbol = pickString(tokenMeta?.symbol) ?? symbolFromMint(mint) ?? `Token ${index + 1}`;
   const name = pickString(tokenMeta?.name) ?? symbol;
-  const iconUrl = pickString(tokenMeta?.imageUrl, entry.icon, entry.logo);
+  // Get images from API response, fall back to DexScreener CDN for any token
+  const iconUrl = pickString(
+    tokenMeta?.imageUrl,
+    tokenMeta?.logoUri,
+    entry.icon,
+    entry.logo,
+    mint ? getTokenLogoUrl(mint) : undefined
+  );
   const bannerUrl = pickString(tokenMeta?.headerImageUrl, tokenMeta?.openGraphImageUrl);
 
   const amountUi = pickNumber(entry.amountUi, entry.amount_ui);

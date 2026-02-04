@@ -57,17 +57,11 @@ function pickNumber(...values: (number | string | null | undefined)[]): number |
   return undefined;
 }
 
-const WELL_KNOWN: Record<string, string> = {
-  'native:SOL': 'SOL',
-  So11111111111111111111111111111111111111112: 'SOL',
-  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: 'USDC',
-  Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: 'USDT',
-};
-
 function resolveSymbol(mint?: string): string {
   if (!mint) return 'TOKEN';
   if (mint.toLowerCase().includes('sol') || mint === 'native:SOL') return 'SOL';
-  return WELL_KNOWN[mint] ?? mint.slice(0, 4).toUpperCase();
+  // No hardcoded lookup - use truncated mint as fallback
+  return mint.slice(0, 4).toUpperCase();
 }
 
 function formatAmount(value?: number, decimals?: number): string {

@@ -164,14 +164,25 @@ export function registerSolanaToolset(server) {
       priceUsd: resolvedPriceUsd,
       priceChange24hPct: priceChange.h24 ?? result.priceChange24h ?? null,
       volume24hUsd: result.volume24hUsd ?? primaryPair?.volume?.h24 ?? null,
-      logoUri: info.imageUrl || info.logo || primaryPair?.info?.imageUrl || null,
+      // Token logo (square)
+      logoUri: info.imageUrl || info.logo || jupiter?.icon || primaryPair?.info?.imageUrl || null,
+      imageUrl: info.imageUrl || info.logo || jupiter?.icon || primaryPair?.info?.imageUrl || null,
+      // Banner images (1500x500 header, OG image)
+      headerImageUrl: info.headerImageUrl || primaryPair?.info?.header || null,
+      openGraphImageUrl: info.openGraphImageUrl || primaryPair?.info?.openGraph || null,
+      // Links
       websiteUrl: websites.find((site) => site?.url)?.url || null,
       twitterUrl: socials.find((social) => social?.type === 'twitter')?.url || null,
+      telegramUrl: socials.find((social) => social?.type === 'telegram')?.url || null,
+      discordUrl: socials.find((social) => social?.type === 'discord')?.url || null,
       pairUrl: primaryPair?.url || null,
+      // Jupiter verification & metrics
       organicScore: jupiter && typeof jupiter.organicScore === 'number' ? jupiter.organicScore : null,
       organicScoreLabel: jupiter?.organicScoreLabel ?? null,
       isVerified: jupiter?.isVerified ?? null,
       jupiterTags: jupiter?.tags ?? null,
+      holderCount: jupiter?.holderCount ?? null,
+      // Security audit
       audit: jupiter?.audit ?? null,
       raw: result,
     };

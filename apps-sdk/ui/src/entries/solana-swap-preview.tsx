@@ -14,6 +14,7 @@ type TokenMeta = {
   symbol?: string;
   name?: string;
   imageUrl?: string;
+  logoUri?: string;
   priceUsd?: number;
   priceChange24h?: number;
 };
@@ -65,15 +66,11 @@ function pickNumber(...values: (number | string | null | undefined)[]): number |
   return undefined;
 }
 
-const WELL_KNOWN: Record<string, string> = {
-  So11111111111111111111111111111111111111112: 'SOL',
-  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: 'USDC',
-  Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: 'USDT',
-};
+import { getTokenLogoUrl, getTokenSymbol } from '../components/utils';
 
 function symbolFromMint(mint?: string): string {
   if (!mint) return 'TOKEN';
-  return WELL_KNOWN[mint] ?? mint.slice(0, 4).toUpperCase();
+  return mint.slice(0, 4).toUpperCase();
 }
 
 function formatAmount(value?: number): string {
@@ -231,8 +228,19 @@ function SolanaSwapPreview() {
   const outputMint = pickString(quote.outputMint);
   const inputSymbol = pickString(quote.inputToken?.symbol) ?? symbolFromMint(inputMint);
   const outputSymbol = pickString(quote.outputToken?.symbol) ?? symbolFromMint(outputMint);
-  const inputImage = pickString(quote.inputToken?.imageUrl, quote.inputLogo);
-  const outputImage = pickString(quote.outputToken?.imageUrl, quote.outputLogo);
+  // Get images from API response, fall back to Jupiter CDN for any token
+  const inputImage = pickString(
+    quote.inputToken?.imageUrl,
+    quote.inputToken?.logoUri,
+    quote.inputLogo,
+    inputMint ? getTokenLogoUrl(inputMint) : undefined
+  );
+  const outputImage = pickString(
+    quote.outputToken?.imageUrl,
+    quote.outputToken?.logoUri,
+    quote.outputLogo,
+    outputMint ? getTokenLogoUrl(outputMint) : undefined
+  );
   
   const amountIn = pickNumber(quote.amountUi, quote.inAmountUi);
   const amountOut = pickNumber(quote.expectedOutputUi, quote.outAmountUi);
