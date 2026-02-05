@@ -1,6 +1,14 @@
 import { z } from 'zod';
 
 import { fetchOhlcvRange } from '../../integrations/birdeye.mjs';
+import { createWidgetMeta } from '../widgetMeta.mjs';
+
+const OHLCV_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/ohlcv',
+  widgetDescription: 'Displays OHLCV candlestick data with price chart and summary metrics.',
+  invoking: 'Fetching price data…',
+  invoked: 'Price data ready',
+});
 
 const INPUT_SCHEMA = z.object({
   mint_address: z.string().min(1).describe('Token mint address (Base58).').optional(),
@@ -93,6 +101,7 @@ export function registerMarketsToolset(server) {
         category: 'markets.analytics',
         access: 'guest',
         tags: ['ohlcv', 'birdeye', 'markets'],
+        ...OHLCV_WIDGET_META,
       },
       inputSchema: INPUT_SCHEMA.shape,
       outputSchema: {
@@ -157,12 +166,14 @@ export function registerMarketsToolset(server) {
               text: JSON.stringify(textPayload),
             },
           ],
+          _meta: { ...OHLCV_WIDGET_META },
         };
       } catch (error) {
         const message = error?.message || 'ohlcv_fetch_failed';
         return {
           content: [{ type: 'text', text: JSON.stringify({ error: message }) }],
           isError: true,
+          _meta: { ...OHLCV_WIDGET_META },
         };
       }
     },
