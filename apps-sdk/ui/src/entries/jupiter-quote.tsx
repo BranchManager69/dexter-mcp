@@ -3,7 +3,9 @@ import '../styles/components.css';
 import '../styles/widgets/jupiter-quote.css';
 
 import { createRoot } from 'react-dom/client';
+import { useState } from 'react';
 import { useOpenAIGlobal } from '../sdk';
+import { getTokenLogoUrl } from '../components/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -66,6 +68,32 @@ function shortenMint(mint?: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Token Icon
+// ─────────────────────────────────────────────────────────────────────────────
+
+function TokenIcon({ symbol, mint, size = 32 }: { symbol: string; mint?: string; size?: number }) {
+  const [error, setError] = useState(false);
+  
+  const imageUrl = mint ? getTokenLogoUrl(mint) : undefined;
+  const showImage = imageUrl && !error;
+  
+  return (
+    <div className="quote-token-icon" style={{ width: size, height: size }}>
+      {showImage ? (
+        <img
+          src={imageUrl}
+          alt={symbol}
+          onError={() => setError(true)}
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <span className="quote-token-icon__fallback">{symbol.slice(0, 2)}</span>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -121,15 +149,21 @@ function JupiterQuote() {
         {/* Swap Summary */}
         <div className="quote-swap">
           <div className="quote-swap__from">
-            <span className="quote-swap__label">From</span>
-            <span className="quote-swap__amount">{formatAmount(inAmount, inputDecimals)}</span>
-            <span className="quote-swap__symbol">{inputSymbol}</span>
+            <TokenIcon symbol={inputSymbol} mint={inputMint} size={36} />
+            <div className="quote-swap__info">
+              <span className="quote-swap__label">From</span>
+              <span className="quote-swap__amount">{formatAmount(inAmount, inputDecimals)}</span>
+              <span className="quote-swap__symbol">{inputSymbol}</span>
+            </div>
           </div>
           <div className="quote-swap__arrow">→</div>
           <div className="quote-swap__to">
-            <span className="quote-swap__label">To</span>
-            <span className="quote-swap__amount">{formatAmount(outAmount, outputDecimals)}</span>
-            <span className="quote-swap__symbol">{outputSymbol}</span>
+            <TokenIcon symbol={outputSymbol} mint={outputMint} size={36} />
+            <div className="quote-swap__info">
+              <span className="quote-swap__label">To</span>
+              <span className="quote-swap__amount">{formatAmount(outAmount, outputDecimals)}</span>
+              <span className="quote-swap__symbol">{outputSymbol}</span>
+            </div>
           </div>
         </div>
 

@@ -3,7 +3,9 @@ import '../styles/components.css';
 import '../styles/widgets/ohlcv.css';
 
 import { createRoot } from 'react-dom/client';
+import { useState } from 'react';
 import { useOpenAIGlobal } from '../sdk';
+import { getTokenLogoUrl } from '../components/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -68,6 +70,30 @@ function shortenAddress(addr?: string): string {
   if (!addr) return '—';
   if (addr.length <= 12) return addr;
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Token Icon
+// ─────────────────────────────────────────────────────────────────────────────
+
+function TokenIcon({ mint, size = 32 }: { mint?: string; size?: number }) {
+  const [error, setError] = useState(false);
+  
+  const imageUrl = mint ? getTokenLogoUrl(mint) : undefined;
+  const showImage = imageUrl && !error;
+  
+  if (!showImage) return null;
+  
+  return (
+    <div className="ohlcv-token-icon" style={{ width: size, height: size }}>
+      <img
+        src={imageUrl}
+        alt="Token"
+        onError={() => setError(true)}
+        referrerPolicy="no-referrer"
+      />
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,15 +190,18 @@ function Ohlcv() {
         {/* Token Info */}
         {summary?.mint_address && (
           <div className="ohlcv-token">
-            <span className="ohlcv-token__label">Token</span>
-            <a
-              href={`https://solscan.io/token/${summary.mint_address}`}
-              target="_blank"
-              rel="noreferrer"
-              className="ohlcv-token__address"
-            >
-              {shortenAddress(summary.mint_address)}
-            </a>
+            <TokenIcon mint={summary.mint_address} size={32} />
+            <div className="ohlcv-token__info">
+              <span className="ohlcv-token__label">Token</span>
+              <a
+                href={`https://solscan.io/token/${summary.mint_address}`}
+                target="_blank"
+                rel="noreferrer"
+                className="ohlcv-token__address"
+              >
+                {shortenAddress(summary.mint_address)}
+              </a>
+            </div>
           </div>
         )}
 

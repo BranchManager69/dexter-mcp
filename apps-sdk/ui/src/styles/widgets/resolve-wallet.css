@@ -39,10 +39,7 @@
   opacity: 0.15;
   filter: blur(50px);
   pointer-events: none;
-}
-
-.wallet-card__glow--verified {
-  background: #10b981;
+  background: linear-gradient(135deg, #10b981, #06b6d4);
 }
 
 .wallet-card__header {

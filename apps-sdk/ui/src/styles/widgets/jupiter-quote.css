@@ -56,11 +56,47 @@
 
 .quote-swap__from, .quote-swap__to {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 12px;
 }
 
-.quote-swap__to { text-align: right; }
+.quote-swap__to { 
+  flex-direction: row-reverse;
+}
+
+.quote-swap__to .quote-swap__info {
+  text-align: right;
+}
+
+.quote-swap__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Token Icon */
+.quote-token-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: #262626;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.quote-token-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.quote-token-icon__fallback {
+  font-size: 14px;
+  font-weight: 700;
+  color: #a3a3a3;
+  text-transform: uppercase;
+}
 
 .quote-swap__label {
   font-size: 9px;

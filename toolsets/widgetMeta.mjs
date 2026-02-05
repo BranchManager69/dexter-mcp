@@ -21,6 +21,20 @@ function resolveWidgetDomain() {
 }
 
 /**
+ * Default resource domains allowed in widget CSP for loading external images/assets.
+ * These domains are added to the iframe's img-src CSP directive.
+ */
+const DEFAULT_RESOURCE_DOMAINS = [
+  'https://cdn.dexscreener.com',      // Token logos
+  'https://raw.githubusercontent.com', // Token metadata images
+  'https://arweave.net',              // Decentralized storage
+  'https://ipfs.io',                  // IPFS gateway
+  'https://cloudflare-ipfs.com',      // Cloudflare IPFS gateway
+  'https://metadata.jup.ag',          // Jupiter token metadata
+  'https://tokens.jup.ag',            // Jupiter token list images
+];
+
+/**
  * Creates OpenAI Apps SDK _meta object for tool definitions.
  * This metadata tells ChatGPT how to render the widget for tool responses.
  *
@@ -32,6 +46,7 @@ function resolveWidgetDomain() {
  * @param {string} [options.invoked] - Status text shown after tool completes (max 64 chars)
  * @param {string} [options.widgetDescription] - Human-readable widget description
  * @param {string} [options.widgetDomain] - HTTPS origin for the widget (defaults to resolved domain)
+ * @param {string[]} [options.resourceDomains] - Additional domains to allow in CSP for images/assets
  * @param {Object} [options.extra] - Additional _meta fields to merge
  * @returns {Object} _meta object for tool definition
  */
@@ -41,6 +56,7 @@ export function createWidgetMeta({
   invoked,
   widgetDescription,
   widgetDomain,
+  resourceDomains = [],
   extra = {},
 } = {}) {
   if (!templateUri) {
@@ -48,6 +64,9 @@ export function createWidgetMeta({
   }
 
   const domain = widgetDomain || resolveWidgetDomain();
+  
+  // Merge default resource domains with any custom ones
+  const allResourceDomains = [...new Set([...DEFAULT_RESOURCE_DOMAINS, ...resourceDomains])];
 
   const meta = {
     'openai/outputTemplate': templateUri,
@@ -55,6 +74,9 @@ export function createWidgetMeta({
     'openai/widgetAccessible': true,
     'openai/widgetDomain': domain,
     'openai/widgetPrefersBorder': true,
+    'openai/widgetCSP': {
+      resource_domains: allResourceDomains,
+    },
     ...extra,
   };
 

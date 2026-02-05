@@ -5,6 +5,7 @@ import '../styles/widgets/solana-send.css';
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
 import { useOpenAIGlobal } from '../sdk';
+import { getTokenLogoUrl } from '../components/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -111,13 +112,30 @@ function SolanaIcon({ size = 24 }: { size?: number }) {
 // Token Icon
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TokenIcon({ symbol, size = 24 }: { symbol: string; size?: number }) {
+function TokenIcon({ symbol, mint, size = 24 }: { symbol: string; mint?: string; size?: number }) {
+  const [error, setError] = useState(false);
+  
   if (symbol === 'SOL') {
     return <SolanaIcon size={size} />;
   }
+  
+  // Try to load token image from DexScreener
+  const imageUrl = mint ? getTokenLogoUrl(mint) : undefined;
+  const showImage = imageUrl && !error;
+  
   return (
     <div className="send-token-icon" style={{ width: size, height: size }}>
-      <span style={{ fontSize: size * 0.4 }}>{symbol.slice(0, 2)}</span>
+      {showImage ? (
+        <img
+          src={imageUrl}
+          alt={symbol}
+          onError={() => setError(true)}
+          referrerPolicy="no-referrer"
+          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }}
+        />
+      ) : (
+        <span style={{ fontSize: size * 0.4 }}>{symbol.slice(0, 2)}</span>
+      )}
     </div>
   );
 }
@@ -152,6 +170,7 @@ function TransferFlow({
   to,
   amount,
   symbol,
+  mint,
   valueUsd,
   recipientHandle,
 }: {
@@ -159,6 +178,7 @@ function TransferFlow({
   to: string;
   amount: string;
   symbol: string;
+  mint?: string;
   valueUsd?: string;
   recipientHandle?: string;
 }) {
@@ -175,7 +195,7 @@ function TransferFlow({
       {/* Amount Display with Animation */}
       <div className="send-flow__center">
         <div className="send-flow__amount-box">
-          <TokenIcon symbol={symbol} size={28} />
+          <TokenIcon symbol={symbol} mint={mint} size={28} />
           <div className="send-flow__amount-info">
             <span className="send-flow__amount">{amount} <span className="send-flow__symbol">{symbol}</span></span>
             {valueUsd && <span className="send-flow__value-usd">{valueUsd}</span>}
@@ -283,6 +303,7 @@ function SolanaSend() {
             to={destination}
             amount={amount}
             symbol={symbol}
+            mint={transfer.mint}
             valueUsd={valueUsd !== '—' ? valueUsd : undefined}
             recipientHandle={recipientHandle}
           />

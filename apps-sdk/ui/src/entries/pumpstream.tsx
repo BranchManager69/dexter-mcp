@@ -5,6 +5,7 @@ import '../styles/widgets/pumpstream.css';
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
 import { useOpenAIGlobal } from '../sdk';
+import { getTokenLogoUrl } from '../components/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -73,10 +74,26 @@ function formatMomentum(value?: number): string {
 // Token Icon
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TokenIcon({ symbol, size = 48 }: { symbol: string; size?: number }) {
+function TokenIcon({ symbol, mint, size = 48 }: { symbol: string; mint?: string; size?: number }) {
+  const [error, setError] = useState(false);
+  
+  // Try to load token image from DexScreener
+  const imageUrl = mint ? getTokenLogoUrl(mint) : undefined;
+  const showImage = imageUrl && !error;
+  
   return (
     <div className="pumpstream-token-icon" style={{ width: size, height: size }}>
-      <span style={{ fontSize: size * 0.35 }}>{symbol.slice(0, 2).toUpperCase()}</span>
+      {showImage ? (
+        <img
+          src={imageUrl}
+          alt={symbol}
+          onError={() => setError(true)}
+          referrerPolicy="no-referrer"
+          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }}
+        />
+      ) : (
+        <span style={{ fontSize: size * 0.35 }}>{symbol.slice(0, 2).toUpperCase()}</span>
+      )}
     </div>
   );
 }
@@ -115,7 +132,7 @@ function StreamCard({ stream, index }: { stream: StreamEntry; index: number }) {
           />
         ) : (
           <div className="pumpstream-card__thumbnail-fallback">
-            <TokenIcon symbol={title} size={48} />
+            <TokenIcon symbol={title} mint={stream.mintId} size={48} />
           </div>
         )}
         

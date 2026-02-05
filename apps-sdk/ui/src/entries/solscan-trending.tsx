@@ -5,6 +5,7 @@ import '../styles/widgets/solscan-trending.css';
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
 import { useOpenAIGlobal } from '../sdk';
+import { getTokenLogoUrl } from '../components/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -70,6 +71,139 @@ function shortenAddress(addr?: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Token Icon Component
+// ─────────────────────────────────────────────────────────────────────────────
+
+function TokenIcon({ symbol, imageUrl, size = 42 }: { symbol: string; imageUrl?: string; size?: number }) {
+  const [error, setError] = useState(false);
+  const showImage = imageUrl && !error;
+
+  return (
+    <div className="trending-token-icon" style={{ width: size, height: size }}>
+      {showImage ? (
+        <img
+          src={imageUrl}
+          alt={symbol}
+          onError={() => setError(true)}
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <span className="trending-token-icon__fallback">{(symbol || '?').slice(0, 2)}</span>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Token Card Component
+// ─────────────────────────────────────────────────────────────────────────────
+
+function TokenCard({
+  token,
+  rank,
+  isExpanded,
+  onToggle,
+}: {
+  token: TrendingToken;
+  rank: number;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const change = formatChange(token.priceChange24h || token.price_change_24h);
+  const volume = token.volume24h || token.volume_24h;
+  const mcap = token.marketCap || token.market_cap;
+  const address = token.mint || token.address;
+  // Try API-provided logo first, fall back to DexScreener CDN
+  const logo = token.logoUrl || token.logo_url || token.image || (address ? getTokenLogoUrl(address) : undefined);
+
+  return (
+    <div
+      className={`trending-card ${isExpanded ? 'trending-card--expanded' : ''} ${change.isPositive ? 'trending-card--positive' : 'trending-card--negative'}`}
+      onClick={onToggle}
+    >
+      {/* Glow effect */}
+      <div className={`trending-card__glow ${change.isPositive ? 'trending-card__glow--positive' : 'trending-card__glow--negative'}`} />
+
+      <div className="trending-card__content">
+        {/* Header */}
+        <div className="trending-card__header">
+          <div className="trending-card__token">
+            <div className="trending-card__rank-badge">#{rank}</div>
+            <TokenIcon symbol={token.symbol || '?'} imageUrl={logo} size={isExpanded ? 56 : 42} />
+            <div className="trending-card__token-info">
+              <span className={`trending-card__symbol ${isExpanded ? 'trending-card__symbol--large' : ''}`}>
+                {token.symbol || 'Unknown'}
+              </span>
+              <span className="trending-card__name">{token.name || '—'}</span>
+            </div>
+          </div>
+          <div className="trending-card__value">
+            <span className={`trending-card__price ${isExpanded ? 'trending-card__price--large' : ''}`}>
+              {formatPrice(token.price)}
+            </span>
+            <span className={`trending-card__change ${change.isPositive ? 'trending-card__change--positive' : 'trending-card__change--negative'}`}>
+              {change.text}
+            </span>
+          </div>
+        </div>
+
+        <div className="trending-card__divider" />
+
+        {/* Compact footer (when collapsed) */}
+        {!isExpanded && (
+          <div className="trending-card__footer">
+            <div className="trending-card__stats">
+              {mcap && <span className="trending-card__stat">MC {formatLargeNumber(mcap)}</span>}
+              {volume && <span className="trending-card__stat">VOL {formatLargeNumber(volume)}</span>}
+            </div>
+          </div>
+        )}
+
+        {/* Expanded details */}
+        {isExpanded && (
+          <div className="trending-card__details">
+            <div className="trending-card__metrics">
+              <div className="trending-card__metric">
+                <span className="trending-card__metric-label">MARKET CAP</span>
+                <span className="trending-card__metric-value">{formatLargeNumber(mcap)}</span>
+              </div>
+              <div className="trending-card__metric">
+                <span className="trending-card__metric-label">VOL (24H)</span>
+                <span className="trending-card__metric-value">{formatLargeNumber(volume)}</span>
+              </div>
+              {token.holders && (
+                <div className="trending-card__metric">
+                  <span className="trending-card__metric-label">HOLDERS</span>
+                  <span className="trending-card__metric-value">{token.holders.toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Links */}
+            <div className="trending-card__links">
+              {address && (
+                <span className="trending-card__mint" title={address}>
+                  {shortenAddress(address)}
+                </span>
+              )}
+              <div className="trending-card__external-links">
+                {address && (
+                  <>
+                    <a href={`https://solscan.io/token/${address}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>Solscan</a>
+                    <a href={`https://birdeye.so/token/${address}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>Birdeye</a>
+                    <a href={`https://dexscreener.com/solana/${address}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>Dexscreener</a>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -111,95 +245,34 @@ function SolscanTrending() {
     <div className="trending-container">
       {/* Header */}
       <div className="trending-header">
-        <div className="trending-header-left">
-          <span className="trending-icon">🔥</span>
-          <span className="trending-title">Solscan Trending</span>
+        <div className="trending-header__gradient" />
+        <div className="trending-header__content">
+          <div className="trending-header__left">
+            <span className="trending-header__icon">🔥</span>
+            <div className="trending-header__text">
+              <span className="trending-header__label">Solscan</span>
+              <span className="trending-header__title">Trending Tokens</span>
+            </div>
+          </div>
+          {fetchedAt && (
+            <span className="trending-header__timestamp">
+              {new Date(fetchedAt).toLocaleTimeString()}
+            </span>
+          )}
         </div>
-        {fetchedAt && (
-          <span className="trending-timestamp">
-            {new Date(fetchedAt).toLocaleTimeString()}
-          </span>
-        )}
       </div>
 
-      {/* Token List */}
-      <div className="trending-list">
-        {tokens.map((token, idx) => {
-          const change = formatChange(token.priceChange24h || token.price_change_24h);
-          const volume = token.volume24h || token.volume_24h;
-          const mcap = token.marketCap || token.market_cap;
-          const logo = token.logoUrl || token.logo_url || token.image;
-          const address = token.mint || token.address;
-          const isExpanded = expandedIdx === idx;
-
-          return (
-            <div
-              key={address || idx}
-              className={`trending-card ${isExpanded ? 'trending-card--expanded' : ''}`}
-              onClick={() => setExpandedIdx(isExpanded ? null : idx)}
-            >
-              {/* Rank Badge */}
-              <div className="trending-card__rank">#{token.rank || idx + 1}</div>
-
-              {/* Token Info */}
-              <div className="trending-card__main">
-                <div className="trending-card__token">
-                  {logo ? (
-                    <img src={logo} alt={token.symbol} className="trending-card__logo" />
-                  ) : (
-                    <div className="trending-card__logo-placeholder">
-                      {(token.symbol || '?').slice(0, 2)}
-                    </div>
-                  )}
-                  <div className="trending-card__info">
-                    <span className="trending-card__symbol">{token.symbol || 'Unknown'}</span>
-                    <span className="trending-card__name">{token.name || '—'}</span>
-                  </div>
-                </div>
-
-                <div className="trending-card__price-section">
-                  <span className="trending-card__price">{formatPrice(token.price)}</span>
-                  <span className={`trending-card__change ${change.isPositive ? 'trending-card__change--positive' : 'trending-card__change--negative'}`}>
-                    {change.text}
-                  </span>
-                </div>
-              </div>
-
-              {/* Expanded Details */}
-              {isExpanded && (
-                <div className="trending-card__details">
-                  <div className="trending-card__metrics">
-                    <div className="trending-card__metric">
-                      <span className="trending-card__metric-label">Volume 24h</span>
-                      <span className="trending-card__metric-value">{formatLargeNumber(volume)}</span>
-                    </div>
-                    <div className="trending-card__metric">
-                      <span className="trending-card__metric-label">Market Cap</span>
-                      <span className="trending-card__metric-value">{formatLargeNumber(mcap)}</span>
-                    </div>
-                    {token.holders && (
-                      <div className="trending-card__metric">
-                        <span className="trending-card__metric-label">Holders</span>
-                        <span className="trending-card__metric-value">{token.holders.toLocaleString()}</span>
-                      </div>
-                    )}
-                  </div>
-                  {address && (
-                    <a
-                      href={`https://solscan.io/token/${address}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="trending-card__link"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      View on Solscan ↗
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+      {/* Token Grid */}
+      <div className="trending-grid">
+        {tokens.map((token, idx) => (
+          <TokenCard
+            key={token.mint || token.address || idx}
+            token={token}
+            rank={token.rank || idx + 1}
+            isExpanded={expandedIdx === idx}
+            onToggle={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
+          />
+        ))}
       </div>
     </div>
   );
