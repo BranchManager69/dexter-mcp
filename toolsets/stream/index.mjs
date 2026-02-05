@@ -2,6 +2,14 @@ import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 
 import { fetchWithX402Json } from '../../clients/x402Client.mjs';
+import { createWidgetMeta } from '../widgetMeta.mjs';
+
+const STREAM_SHOUT_WIDGET_META = createWidgetMeta({
+  templateUri: 'ui://dexter/stream-shout',
+  widgetDescription: 'Displays stream shout-out confirmation and feed.',
+  invoking: 'Sending shout…',
+  invoked: 'Shout sent',
+});
 
 console.log('[stream-toolset] init', {
   jwtSecretLen: getMcpJwtSecret().length,
@@ -287,6 +295,7 @@ export function registerStreamToolset(server) {
         category: 'stream.engagement',
         access: 'member',
         tags: ['stream', 'shout', 'engagement', 'x402'],
+        ...STREAM_SHOUT_WIDGET_META,
       },
       inputSchema: shoutInputSchema.shape,
     },
@@ -319,6 +328,7 @@ export function registerStreamToolset(server) {
             text: JSON.stringify(summary),
           },
         ],
+        _meta: { ...STREAM_SHOUT_WIDGET_META },
       };
     }
   );
@@ -335,6 +345,7 @@ export function registerStreamToolset(server) {
         category: 'stream.engagement',
         access: 'member',
         tags: ['stream', 'shout', 'feed'],
+        ...STREAM_SHOUT_WIDGET_META,
       },
       inputSchema: shoutFeedSchema.shape,
     },
@@ -363,6 +374,7 @@ export function registerStreamToolset(server) {
             text: JSON.stringify(summary),
           },
         ],
+        _meta: { ...STREAM_SHOUT_WIDGET_META },
       };
     }
   );
