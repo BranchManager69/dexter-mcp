@@ -1,0 +1,17 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   OPENAI APPS SDK UI STYLES
+   Import this for widgets using @openai/apps-sdk-ui components
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import "tailwindcss";
+@import "@openai/apps-sdk-ui/css";
+
+/* Required for Tailwind to find class references in Apps SDK UI components */
+@source "../../../../node_modules/@openai/apps-sdk-ui";
+
+/* Custom overrides if needed */
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}

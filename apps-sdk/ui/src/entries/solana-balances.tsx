@@ -1,9 +1,11 @@
-import '../styles/base.css';
-import '../styles/components.css';
-import '../styles/widgets/solana-balances.css';
+import '../styles/sdk.css';
 
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
+import { Badge } from '@openai/apps-sdk-ui/components/Badge';
+import { Button } from '@openai/apps-sdk-ui/components/Button';
+import { EmptyMessage } from '@openai/apps-sdk-ui/components/EmptyMessage';
+import { ChevronDown, ChevronUp, ExternalLink, CreditCard, Trending } from '@openai/apps-sdk-ui/components/Icon';
 import { useOpenAIGlobal } from '../sdk';
 import { getTokenLogoUrl } from '../components/utils';
 
@@ -15,7 +17,7 @@ type TokenMeta = {
   symbol?: string;
   name?: string;
   imageUrl?: string;
-  logoUri?: string;           // MCP normalised field
+  logoUri?: string;
   headerImageUrl?: string;
   openGraphImageUrl?: string;
   priceUsd?: number;
@@ -72,7 +74,6 @@ function pickNumber(...values: (number | string | null | undefined)[]): number |
 
 function symbolFromMint(mint?: string): string | undefined {
   if (!mint) return undefined;
-  // No hardcoded lookup - use truncated mint as fallback
   return mint.slice(0, 4).toUpperCase();
 }
 
@@ -98,7 +99,6 @@ function formatUsdNoCents(value: number): string {
 }
 
 function formatPercent(value: number): string {
-  // API returns percentage * 100, so divide by 100
   const corrected = value / 100;
   return `${corrected >= 0 ? '+' : ''}${corrected.toFixed(2)}%`;
 }
@@ -115,21 +115,21 @@ function abbreviate(value: string, prefix = 4, suffix = 4): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Solana Icon SVG
+// Solana Icon (custom)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SolanaIcon({ size = 14 }: { size?: number }) {
+function SolanaIcon({ className }: { className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 128 128" fill="none">
+    <svg viewBox="0 0 128 128" fill="none" className={className}>
       <defs>
-        <linearGradient id="sol-grad" x1="90%" y1="0%" x2="10%" y2="100%">
+        <linearGradient id="sol-bal-grad" x1="90%" y1="0%" x2="10%" y2="100%">
           <stop offset="0%" stopColor="#00FFA3" />
           <stop offset="100%" stopColor="#DC1FFF" />
         </linearGradient>
       </defs>
-      <path d="M25.3 93.5c0.9-0.9 2.2-1.5 3.5-1.5h97.1c2.2 0 3.4 2.7 1.8 4.3l-24.2 24.2c-0.9 0.9-2.2 1.5-3.5 1.5H2.9c-2.2 0-3.4-2.7-1.8-4.3L25.3 93.5z" fill="url(#sol-grad)" />
-      <path d="M25.3 2.5c1-1 2.3-1.5 3.5-1.5h97.1c2.2 0 3.4 2.7 1.8 4.3L103.5 29.5c-0.9 0.9-2.2 1.5-3.5 1.5H2.9c-2.2 0-3.4-2.7-1.8-4.3L25.3 2.5z" fill="url(#sol-grad)" />
-      <path d="M102.7 47.3c-0.9-0.9-2.2-1.5-3.5-1.5H2.1c-2.2 0-3.4 2.7-1.8 4.3l24.2 24.2c0.9 0.9 2.2 1.5 3.5 1.5h97.1c2.2 0 3.4-2.7 1.8-4.3L102.7 47.3z" fill="url(#sol-grad)" />
+      <path d="M25.3 93.5c0.9-0.9 2.2-1.5 3.5-1.5h97.1c2.2 0 3.4 2.7 1.8 4.3l-24.2 24.2c-0.9 0.9-2.2 1.5-3.5 1.5H2.9c-2.2 0-3.4-2.7-1.8-4.3L25.3 93.5z" fill="url(#sol-bal-grad)" />
+      <path d="M25.3 2.5c1-1 2.3-1.5 3.5-1.5h97.1c2.2 0 3.4 2.7 1.8 4.3L103.5 29.5c-0.9 0.9-2.2 1.5-3.5 1.5H2.9c-2.2 0-3.4-2.7-1.8-4.3L25.3 2.5z" fill="url(#sol-bal-grad)" />
+      <path d="M102.7 47.3c-0.9-0.9-2.2-1.5-3.5-1.5H2.1c-2.2 0-3.4 2.7-1.8 4.3l24.2 24.2c0.9 0.9 2.2 1.5 3.5 1.5h97.1c2.2 0 3.4-2.7 1.8-4.3L102.7 47.3z" fill="url(#sol-bal-grad)" />
     </svg>
   );
 }
@@ -138,21 +138,28 @@ function SolanaIcon({ size = 14 }: { size?: number }) {
 // Token Icon Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TokenIcon({ symbol, imageUrl, size = 42 }: { symbol: string; imageUrl?: string; size?: number }) {
+function TokenIcon({ symbol, imageUrl, size = 'md' }: { symbol: string; imageUrl?: string; size?: 'sm' | 'md' | 'lg' }) {
   const [error, setError] = useState(false);
   const showImage = imageUrl && !error;
+  
+  const sizeClasses = {
+    sm: 'size-8',
+    md: 'size-10',
+    lg: 'size-14',
+  };
 
   return (
-    <div className="balances-token-icon" style={{ width: size, height: size }}>
+    <div className={`${sizeClasses[size]} rounded-xl overflow-hidden bg-surface-secondary flex items-center justify-center flex-shrink-0`}>
       {showImage ? (
         <img
           src={imageUrl}
           alt={symbol}
           onError={() => setError(true)}
           referrerPolicy="no-referrer"
+          className="w-full h-full object-cover"
         />
       ) : (
-        <span className="balances-token-icon__fallback">{symbol.slice(0, 2)}</span>
+        <span className="text-sm font-bold text-secondary">{symbol.slice(0, 2)}</span>
       )}
     </div>
   );
@@ -178,7 +185,6 @@ function TokenCard({
   
   const symbol = pickString(tokenMeta?.symbol) ?? symbolFromMint(mint) ?? `Token ${index + 1}`;
   const name = pickString(tokenMeta?.name) ?? symbol;
-  // Get images from API response, fall back to DexScreener CDN for any token
   const iconUrl = pickString(
     tokenMeta?.imageUrl,
     tokenMeta?.logoUri,
@@ -186,7 +192,6 @@ function TokenCard({
     entry.logo,
     mint ? getTokenLogoUrl(mint) : undefined
   );
-  const bannerUrl = pickString(tokenMeta?.headerImageUrl, tokenMeta?.openGraphImageUrl);
 
   const amountUi = pickNumber(entry.amountUi, entry.amount_ui);
   const amountDisplay = formatAmount(amountUi, entry.decimals);
@@ -213,102 +218,120 @@ function TokenCard({
 
   return (
     <div
-      className={`balances-card ${isExpanded ? 'balances-card--expanded' : ''} ${isPositive ? 'balances-card--positive' : 'balances-card--negative'}`}
+      className={`rounded-xl border p-4 cursor-pointer transition-all hover:border-default-strong ${
+        isExpanded ? 'border-accent/30 bg-accent/5' : 'border-default bg-surface'
+      }`}
       onClick={onToggle}
     >
-      {/* Banner backdrop */}
-      {bannerUrl && (
-        <div className="balances-card__banner" style={{ backgroundImage: `url(${bannerUrl})` }} />
-      )}
-      
-      {/* Glow effect */}
-      <div className={`balances-card__glow ${isPositive ? 'balances-card__glow--positive' : 'balances-card__glow--negative'}`} />
-
-      <div className="balances-card__content">
-        {/* Header */}
-        <div className="balances-card__header">
-          <div className="balances-card__token">
-            <TokenIcon symbol={symbol} imageUrl={iconUrl} size={isExpanded ? 56 : 42} />
-            <div className="balances-card__token-info">
-              <span className={`balances-card__symbol ${isExpanded ? 'balances-card__symbol--large' : ''}`}>{symbol}</span>
-              <span className="balances-card__name">{name}</span>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <TokenIcon symbol={symbol} imageUrl={iconUrl} size={isExpanded ? 'lg' : 'md'} />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className={`font-semibold text-primary ${isExpanded ? 'text-lg' : 'text-sm'}`}>{symbol}</span>
+              {priceChange && (
+                <Badge 
+                  color={isPositive ? 'success' : 'danger'} 
+                  size="sm" 
+                  variant="soft"
+                >
+                  {priceChange}
+                </Badge>
+              )}
             </div>
-          </div>
-          <div className="balances-card__value">
-            <span className={`balances-card__holding ${isExpanded ? 'balances-card__holding--large' : ''}`}>{holdingUsd ?? '—'}</span>
-            <span className="balances-card__amount">{amountDisplay}</span>
+            <div className="text-xs text-tertiary truncate">{name}</div>
           </div>
         </div>
-
-        <div className="balances-card__divider" />
-
-        {/* Compact footer (when collapsed) */}
-        {!isExpanded && (
-          <div className="balances-card__footer">
-            <div className="balances-card__price-row">
-              <span className="balances-card__price">{priceUsd ?? '—'}</span>
-              <span className={`balances-card__change ${isPositive ? 'balances-card__change--positive' : 'balances-card__change--negative'}`}>
-                {priceChange ?? '—'}
-              </span>
-            </div>
-            {volume && <span className="balances-card__volume">VOL {volume}</span>}
+        
+        <div className="flex items-center gap-2 text-right">
+          <div>
+            <div className={`font-semibold text-primary ${isExpanded ? 'text-lg' : 'text-sm'}`}>{holdingUsd ?? '—'}</div>
+            <div className="text-xs text-tertiary">{amountDisplay}</div>
           </div>
-        )}
-
-        {/* Expanded details */}
-        {isExpanded && (
-          <div className="balances-card__details">
-            <div className="balances-card__metrics">
-              <div className="balances-card__metric">
-                <span className="balances-card__metric-label">PRICE</span>
-                <span className="balances-card__metric-value">{priceUsd ?? '—'}</span>
-              </div>
-              <div className="balances-card__metric">
-                <span className="balances-card__metric-label">24H CHANGE</span>
-                <span className={`balances-card__metric-value ${isPositive ? 'balances-card__change--positive' : 'balances-card__change--negative'}`}>
-                  {priceChange ?? '—'}
-                </span>
-              </div>
-              {marketCap && (
-                <div className="balances-card__metric">
-                  <span className="balances-card__metric-label">MCAP</span>
-                  <span className="balances-card__metric-value">{marketCap}</span>
-                </div>
-              )}
-              {volume && (
-                <div className="balances-card__metric">
-                  <span className="balances-card__metric-label">VOL (24H)</span>
-                  <span className="balances-card__metric-value">{volume}</span>
-                </div>
-              )}
-              {liquidity && (
-                <div className="balances-card__metric">
-                  <span className="balances-card__metric-label">LIQUIDITY</span>
-                  <span className="balances-card__metric-value">{liquidity}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Links */}
-            <div className="balances-card__links">
-              {mint && (
-                <span className="balances-card__mint" title={mint}>
-                  {abbreviate(mint)}
-                </span>
-              )}
-              <div className="balances-card__external-links">
-                {mint && (
-                  <>
-                    <a href={`https://solscan.io/token/${mint}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>Solscan</a>
-                    <a href={`https://birdeye.so/token/${mint}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>Birdeye</a>
-                    <a href={`https://dexscreener.com/solana/${mint}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>Dexscreener</a>
-                  </>
-                )}
-              </div>
-            </div>
+          <div className="text-tertiary">
+            {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
           </div>
-        )}
+        </div>
       </div>
+
+      {/* Collapsed footer */}
+      {!isExpanded && (
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-subtle">
+          <span className="text-xs text-tertiary">{priceUsd ?? '—'}</span>
+          {volume && <span className="text-xs text-tertiary">VOL {volume}</span>}
+        </div>
+      )}
+
+      {/* Expanded details */}
+      {isExpanded && (
+        <div className="mt-4 pt-4 border-t border-subtle space-y-4">
+          {/* Metrics Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-xs text-tertiary uppercase tracking-wide">Price</div>
+              <div className="text-sm font-medium text-primary mt-0.5">{priceUsd ?? '—'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-tertiary uppercase tracking-wide">24h Change</div>
+              <div className={`text-sm font-medium mt-0.5 ${isPositive ? 'text-success' : 'text-danger'}`}>
+                {priceChange ?? '—'}
+              </div>
+            </div>
+            {marketCap && (
+              <div>
+                <div className="text-xs text-tertiary uppercase tracking-wide">Market Cap</div>
+                <div className="text-sm font-medium text-primary mt-0.5">{marketCap}</div>
+              </div>
+            )}
+            {volume && (
+              <div>
+                <div className="text-xs text-tertiary uppercase tracking-wide">Volume 24h</div>
+                <div className="text-sm font-medium text-primary mt-0.5">{volume}</div>
+              </div>
+            )}
+            {liquidity && (
+              <div>
+                <div className="text-xs text-tertiary uppercase tracking-wide">Liquidity</div>
+                <div className="text-sm font-medium text-primary mt-0.5">{liquidity}</div>
+              </div>
+            )}
+          </div>
+
+          {/* Links */}
+          {mint && (
+            <div className="flex items-center justify-between gap-2">
+              <code className="text-xs text-tertiary font-mono">{abbreviate(mint, 6, 4)}</code>
+              <div className="flex items-center gap-2">
+                <a href={`https://solscan.io/token/${mint}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                  <Button color="secondary" variant="ghost" size="xs">
+                    <span className="flex items-center gap-1">
+                      Solscan
+                      <ExternalLink className="size-3" />
+                    </span>
+                  </Button>
+                </a>
+                <a href={`https://birdeye.so/token/${mint}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                  <Button color="secondary" variant="ghost" size="xs">
+                    <span className="flex items-center gap-1">
+                      Birdeye
+                      <ExternalLink className="size-3" />
+                    </span>
+                  </Button>
+                </a>
+                <a href={`https://dexscreener.com/solana/${mint}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                  <Button color="secondary" variant="ghost" size="xs">
+                    <span className="flex items-center gap-1">
+                      DEX
+                      <ExternalLink className="size-3" />
+                    </span>
+                  </Button>
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -322,7 +345,6 @@ function SolanaBalances() {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  // Parse balances from various formats
   const balances: BalanceEntry[] = Array.isArray(toolOutput)
     ? toolOutput
     : Array.isArray((toolOutput as BalancesPayload)?.balances)
@@ -332,10 +354,10 @@ function SolanaBalances() {
   // Loading
   if (!toolOutput) {
     return (
-      <div className="balances-container">
-        <div className="balances-loading">
-          <div className="balances-loading__spinner" />
-          <span>Loading balances...</span>
+      <div className="p-4">
+        <div className="flex items-center justify-center gap-3 py-8">
+          <div className="size-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <span className="text-secondary text-sm">Loading balances...</span>
         </div>
       </div>
     );
@@ -344,8 +366,16 @@ function SolanaBalances() {
   // Empty
   if (balances.length === 0) {
     return (
-      <div className="balances-container">
-        <div className="balances-empty">No balances detected for this wallet.</div>
+      <div className="p-4">
+        <EmptyMessage fill="none">
+          <EmptyMessage.Icon>
+            <CreditCard className="size-8" />
+          </EmptyMessage.Icon>
+          <EmptyMessage.Title>No Balances Found</EmptyMessage.Title>
+          <EmptyMessage.Description>
+            No token balances detected for this wallet.
+          </EmptyMessage.Description>
+        </EmptyMessage>
       </div>
     );
   }
@@ -389,24 +419,24 @@ function SolanaBalances() {
   const hiddenCount = showAll ? 0 : Math.max(0, valuedBalances.length - 6) + unvaluedBalances.length;
 
   return (
-    <div className="balances-container">
+    <div className="p-4 space-y-4">
       {/* Total Portfolio Header */}
-      <div className="balances-total">
-        <div className="balances-total__gradient" />
-        <div className="balances-total__content">
-          <span className="balances-total__label">Total Portfolio</span>
-          <span className="balances-total__value">{formatUsdNoCents(totalUsd)}</span>
-          {totalSol !== undefined && (
-            <span className="balances-total__sol">
-              <SolanaIcon size={14} />
-              <span>{totalSol.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
-            </span>
-          )}
+      <div className="rounded-xl border border-accent/30 bg-gradient-to-br from-accent/10 to-transparent p-4">
+        <div className="flex items-center gap-2 text-tertiary text-xs uppercase tracking-wide mb-1">
+          <Trending className="size-4" />
+          Total Portfolio
         </div>
+        <div className="text-3xl font-bold text-primary">{formatUsdNoCents(totalUsd)}</div>
+        {totalSol !== undefined && (
+          <div className="flex items-center gap-1.5 mt-2 text-sm text-secondary">
+            <SolanaIcon className="size-4" />
+            <span>{totalSol.toLocaleString('en-US', { maximumFractionDigits: 0 })} SOL</span>
+          </div>
+        )}
       </div>
 
-      {/* Token Grid */}
-      <div className="balances-grid">
+      {/* Token List */}
+      <div className="space-y-3">
         {visibleBalances.map((entry, index) => (
           <TokenCard
             key={`${index}-${entry.mint || entry.ata || 'unknown'}`}
@@ -420,9 +450,15 @@ function SolanaBalances() {
 
       {/* Show More Button */}
       {hiddenCount > 0 && (
-        <button className="balances-show-more" onClick={() => setShowAll(!showAll)}>
+        <Button 
+          color="secondary" 
+          variant="soft" 
+          size="sm"
+          onClick={() => setShowAll(!showAll)}
+          className="w-full"
+        >
           {showAll ? 'Collapse List' : `Show ${hiddenCount} more assets`}
-        </button>
+        </Button>
       )}
     </div>
   );

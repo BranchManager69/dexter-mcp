@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/postcss';
 
 const rootDir = path.resolve(__dirname, 'ui');
 
@@ -8,6 +9,11 @@ export default defineConfig({
   root: rootDir,
   base: './',
   plugins: [react()],
+  css: {
+    postcss: {
+      plugins: [tailwindcss()],
+    },
+  },
   build: {
     outDir: path.resolve(__dirname, '../public/apps-sdk'),
     emptyOutDir: true,

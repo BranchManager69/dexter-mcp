@@ -1,8 +1,12 @@
-import '../styles/base.css';
-import '../styles/components.css';
-import '../styles/widgets/resolve-wallet.css';
+import '../styles/sdk.css';
 
 import { createRoot } from 'react-dom/client';
+import { useState } from 'react';
+import { Badge } from '@openai/apps-sdk-ui/components/Badge';
+import { Button } from '@openai/apps-sdk-ui/components/Button';
+import { Alert } from '@openai/apps-sdk-ui/components/Alert';
+import { EmptyMessage } from '@openai/apps-sdk-ui/components/EmptyMessage';
+import { Check, Warning, ExternalLink, Copy, CreditCard } from '@openai/apps-sdk-ui/components/Icon';
 import { useOpenAIGlobal } from '../sdk';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -12,7 +16,7 @@ import { useOpenAIGlobal } from '../sdk';
 type ResolvedWallet = {
   address?: string;
   walletAddress?: string;
-  wallet_address?: string;  // API returns snake_case
+  wallet_address?: string;
   chain?: string;
   source?: string;
   resolvedVia?: string;
@@ -54,21 +58,21 @@ function formatTimestamp(value?: string | number): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Solana Icon
+// Solana Icon (custom)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SolanaIcon({ size = 32 }: { size?: number }) {
+function SolanaIcon({ className }: { className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 128 128" fill="none">
+    <svg viewBox="0 0 128 128" fill="none" className={className}>
       <defs>
-        <linearGradient id="sol-wallet-grad" x1="90%" y1="0%" x2="10%" y2="100%">
+        <linearGradient id="sol-resolve-grad" x1="90%" y1="0%" x2="10%" y2="100%">
           <stop offset="0%" stopColor="#00FFA3" />
           <stop offset="100%" stopColor="#DC1FFF" />
         </linearGradient>
       </defs>
-      <path d="M25.3 93.5c0.9-0.9 2.2-1.5 3.5-1.5h97.1c2.2 0 3.4 2.7 1.8 4.3l-24.2 24.2c-0.9 0.9-2.2 1.5-3.5 1.5H2.9c-2.2 0-3.4-2.7-1.8-4.3L25.3 93.5z" fill="url(#sol-wallet-grad)" />
-      <path d="M25.3 2.5c1-1 2.3-1.5 3.5-1.5h97.1c2.2 0 3.4 2.7 1.8 4.3L103.5 29.5c-0.9 0.9-2.2 1.5-3.5 1.5H2.9c-2.2 0-3.4-2.7-1.8-4.3L25.3 2.5z" fill="url(#sol-wallet-grad)" />
-      <path d="M102.7 47.3c-0.9-0.9-2.2-1.5-3.5-1.5H2.1c-2.2 0-3.4 2.7-1.8 4.3l24.2 24.2c0.9 0.9 2.2 1.5 3.5 1.5h97.1c2.2 0 3.4-2.7 1.8-4.3L102.7 47.3z" fill="url(#sol-wallet-grad)" />
+      <path d="M25.3 93.5c0.9-0.9 2.2-1.5 3.5-1.5h97.1c2.2 0 3.4 2.7 1.8 4.3l-24.2 24.2c-0.9 0.9-2.2 1.5-3.5 1.5H2.9c-2.2 0-3.4-2.7-1.8-4.3L25.3 93.5z" fill="url(#sol-resolve-grad)" />
+      <path d="M25.3 2.5c1-1 2.3-1.5 3.5-1.5h97.1c2.2 0 3.4 2.7 1.8 4.3L103.5 29.5c-0.9 0.9-2.2 1.5-3.5 1.5H2.9c-2.2 0-3.4-2.7-1.8-4.3L25.3 2.5z" fill="url(#sol-resolve-grad)" />
+      <path d="M102.7 47.3c-0.9-0.9-2.2-1.5-3.5-1.5H2.1c-2.2 0-3.4 2.7-1.8 4.3l24.2 24.2c0.9 0.9 2.2 1.5 3.5 1.5h97.1c2.2 0 3.4-2.7 1.8-4.3L102.7 47.3z" fill="url(#sol-resolve-grad)" />
     </svg>
   );
 }
@@ -77,18 +81,50 @@ function SolanaIcon({ size = 32 }: { size?: number }) {
 // Chain Icon
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ChainIcon({ chain, size = 40 }: { chain: string; size?: number }) {
+function ChainIcon({ chain, className }: { chain: string; className?: string }) {
   const chainLower = chain.toLowerCase();
   
   if (chainLower === 'solana' || chainLower === 'sol') {
-    return <SolanaIcon size={size} />;
+    return <SolanaIcon className={className} />;
   }
   
   // Fallback for other chains
   return (
-    <div className="wallet-chain-icon" style={{ width: size, height: size }}>
-      <span style={{ fontSize: size * 0.4 }}>{chain.slice(0, 2).toUpperCase()}</span>
+    <div className={`flex items-center justify-center rounded-lg bg-surface-secondary ${className}`}>
+      <span className="text-sm font-bold text-secondary">{chain.slice(0, 2).toUpperCase()}</span>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Copy Button
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <Button color="secondary" variant="ghost" size="xs" onClick={handleCopy} uniform>
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+    </Button>
   );
 }
 
@@ -99,13 +135,13 @@ function ChainIcon({ chain, size = 40 }: { chain: string; size?: number }) {
 function ResolveWallet() {
   const toolOutput = useOpenAIGlobal('toolOutput') as ResolveWalletPayload | null;
 
-  // Loading
+  // Loading state
   if (!toolOutput) {
     return (
-      <div className="wallet-container">
-        <div className="wallet-loading">
-          <div className="wallet-loading__spinner" />
-          <span>Resolving wallet...</span>
+      <div className="p-4">
+        <div className="flex items-center justify-center gap-3 py-8">
+          <div className="size-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <span className="text-secondary text-sm">Resolving wallet...</span>
         </div>
       </div>
     );
@@ -120,86 +156,129 @@ function ResolveWallet() {
   const linkedAt = resolved.linkedAt;
   const handle = pickString(resolved.handle, resolved.twitter);
 
-  // No address found
+  // Not found state
   if (!address) {
     return (
-      <div className="wallet-container">
-        <div className="wallet-card wallet-card--error">
-          <div className="wallet-card__header">
-            <span className="wallet-card__title">Wallet Resolution</span>
-            <span className="wallet-status-badge wallet-status-badge--error">
-              <span className="wallet-status-badge__icon">✕</span>
-              Not Found
-            </span>
-          </div>
-          <div className="wallet-card__empty">No wallet address could be resolved.</div>
-        </div>
+      <div className="p-4">
+        <EmptyMessage fill="none">
+          <EmptyMessage.Icon>
+            <CreditCard className="size-8" />
+          </EmptyMessage.Icon>
+          <EmptyMessage.Title>Wallet Not Found</EmptyMessage.Title>
+          <EmptyMessage.Description>
+            No wallet address could be resolved for this request.
+          </EmptyMessage.Description>
+        </EmptyMessage>
       </div>
     );
   }
 
+  const chainName = chain.charAt(0).toUpperCase() + chain.slice(1);
   const explorerUrl = chain.toLowerCase() === 'solana' 
     ? `https://solscan.io/account/${address}` 
     : null;
 
   return (
-    <div className="wallet-container">
-      <div className={`wallet-card ${verified ? 'wallet-card--verified' : 'wallet-card--unverified'}`}>
-        {/* Glow effect for verified */}
-        {verified && <div className="wallet-card__glow wallet-card__glow--verified" />}
-
+    <div className="p-4 space-y-4">
+      {/* Main Card */}
+      <div className={`rounded-xl border p-4 ${
+        verified 
+          ? 'border-success/30 bg-success/5' 
+          : 'border-warning/30 bg-warning/5'
+      }`}>
         {/* Header */}
-        <div className="wallet-card__header">
-          <span className="wallet-card__title">Wallet Resolution</span>
-          <span className={`wallet-status-badge ${verified ? 'wallet-status-badge--success' : 'wallet-status-badge--warning'}`}>
-            <span className="wallet-status-badge__icon">{verified ? '✓' : '?'}</span>
-            {verified ? 'Verified' : 'Unverified'}
-          </span>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-base text-primary">Wallet Resolution</h2>
+          <Badge 
+            color={verified ? 'success' : 'warning'} 
+            size="sm" 
+            variant="soft"
+          >
+            {verified ? (
+              <span className="flex items-center gap-1">
+                <Check className="size-3" />
+                Verified
+              </span>
+            ) : (
+              <span className="flex items-center gap-1">
+                <Warning className="size-3" />
+                Unverified
+              </span>
+            )}
+          </Badge>
         </div>
 
-        {/* Main Content */}
-        <div className="wallet-card__main">
-          <ChainIcon chain={chain} size={48} />
+        {/* Wallet Info */}
+        <div className="flex items-start gap-4">
+          <div className="flex-shrink-0 size-12 rounded-xl bg-surface-tertiary flex items-center justify-center overflow-hidden">
+            <ChainIcon chain={chain} className="size-8" />
+          </div>
           
-          <div className="wallet-card__info">
-            <div className="wallet-card__address-row">
-              <span className="wallet-card__address">{abbreviate(address, 8, 6)}</span>
-              {handle && <span className="wallet-card__handle">@{handle.replace('@', '')}</span>}
+          <div className="flex-1 min-w-0">
+            {/* Address Row */}
+            <div className="flex items-center gap-2">
+              <code className="font-mono text-sm font-medium text-primary">
+                {abbreviate(address, 8, 6)}
+              </code>
+              <CopyButton text={address} />
             </div>
-            <div className="wallet-card__meta">
-              <span className="wallet-card__chain">{chain.charAt(0).toUpperCase() + chain.slice(1)}</span>
-              <span className="wallet-card__separator">•</span>
-              <span className="wallet-card__source">via {source}</span>
+
+            {/* Handle if present */}
+            {handle && (
+              <div className="mt-1">
+                <span className="text-sm text-accent">@{handle.replace('@', '')}</span>
+              </div>
+            )}
+
+            {/* Meta row */}
+            <div className="flex items-center gap-2 mt-2 text-xs text-tertiary">
+              <span className="font-medium">{chainName}</span>
+              <span>•</span>
+              <span>via {source}</span>
               {linkedAt && (
                 <>
-                  <span className="wallet-card__separator">•</span>
-                  <span className="wallet-card__date">{formatTimestamp(linkedAt)}</span>
+                  <span>•</span>
+                  <span>{formatTimestamp(linkedAt)}</span>
                 </>
               )}
             </div>
           </div>
         </div>
 
-        {/* Warning for unverified */}
-        {!verified && (
-          <div className="wallet-card__warning">
-            <span className="wallet-card__warning-icon">⚠</span>
-            <span className="wallet-card__warning-text">
-              This wallet is not verified. Consider verifying ownership before proceeding.
-            </span>
+        {/* Full Address */}
+        <div className="mt-4 pt-4 border-t border-subtle">
+          <div className="flex items-center justify-between gap-2">
+            <code className="text-xs text-tertiary font-mono truncate flex-1" title={address}>
+              {address}
+            </code>
+            {explorerUrl && (
+              <a 
+                href={explorerUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex-shrink-0"
+              >
+                <Button color="secondary" variant="soft" size="xs">
+                  <span className="flex items-center gap-1.5">
+                    Solscan
+                    <ExternalLink className="size-3" />
+                  </span>
+                </Button>
+              </a>
+            )}
           </div>
-        )}
-
-        {/* Footer */}
-        <div className="wallet-card__footer">
-          <span className="wallet-card__full-address" title={address}>{address}</span>
-          {explorerUrl && (
-            <a href={explorerUrl} target="_blank" rel="noreferrer" className="wallet-card__link">
-              View on Solscan ↗
-            </a>
-          )}
         </div>
       </div>
+
+      {/* Warning for unverified */}
+      {!verified && (
+        <Alert
+          color="warning"
+          variant="soft"
+          title="Unverified Wallet"
+          description="This wallet has not been verified. Consider confirming ownership before proceeding with transactions."
+        />
+      )}
     </div>
   );
 }

@@ -623,8 +623,6 @@
 
 [data-theme="light"] .token-organic-score__bar {
   background: rgba(0, 0, 0, 0.05);
-}
-
-[data-theme="light"] .token-organic-score__value {
+}[data-theme="light"] .token-organic-score__value {
   color: #171717;
 }

@@ -1,9 +1,11 @@
-import '../styles/base.css';
-import '../styles/components.css';
-import '../styles/widgets/portfolio-status.css';
+import '../styles/sdk.css';
 
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
+import { Badge } from '@openai/apps-sdk-ui/components/Badge';
+import { Button } from '@openai/apps-sdk-ui/components/Button';
+import { EmptyMessage } from '@openai/apps-sdk-ui/components/EmptyMessage';
+import { CreditCard, ChevronDown, ChevronUp, Copy, Check } from '@openai/apps-sdk-ui/components/Icon';
 import { useOpenAIGlobal } from '../sdk';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -11,13 +13,11 @@ import { useOpenAIGlobal } from '../sdk';
 // ─────────────────────────────────────────────────────────────────────────────
 
 type WalletRecord = {
-  // From list_my_wallets tool (actual API response)
   address?: string;
   public_key?: string;
   label?: string;
   is_default?: boolean;
   status?: string;
-  // Optional balance fields (if enriched)
   chain?: string;
   sol?: number;
   usdc?: number;
@@ -81,12 +81,12 @@ function formatTimestamp(value?: number): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Solana Icon
+// Solana Icon (custom, not in SDK)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SolanaIcon({ size = 16 }: { size?: number }) {
+function SolanaIcon({ className }: { className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 128 128" fill="none">
+    <svg viewBox="0 0 128 128" fill="none" className={className}>
       <defs>
         <linearGradient id="sol-port-grad" x1="90%" y1="0%" x2="10%" y2="100%">
           <stop offset="0%" stopColor="#00FFA3" />
@@ -97,6 +97,45 @@ function SolanaIcon({ size = 16 }: { size?: number }) {
       <path d="M25.3 2.5c1-1 2.3-1.5 3.5-1.5h97.1c2.2 0 3.4 2.7 1.8 4.3L103.5 29.5c-0.9 0.9-2.2 1.5-3.5 1.5H2.9c-2.2 0-3.4-2.7-1.8-4.3L25.3 2.5z" fill="url(#sol-port-grad)" />
       <path d="M102.7 47.3c-0.9-0.9-2.2-1.5-3.5-1.5H2.1c-2.2 0-3.4 2.7-1.8 4.3l24.2 24.2c0.9 0.9 2.2 1.5 3.5 1.5h97.1c2.2 0 3.4-2.7 1.8-4.3L102.7 47.3z" fill="url(#sol-port-grad)" />
     </svg>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Copy Button Component
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CopyAddressButton({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback
+      const textarea = document.createElement('textarea');
+      textarea.value = address;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <Button
+      color="secondary"
+      variant="ghost"
+      size="xs"
+      onClick={handleCopy}
+      uniform
+    >
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+    </Button>
   );
 }
 
@@ -115,51 +154,70 @@ function WalletCard({ wallet, index }: { wallet: WalletRecord; index: number }) 
   const totalUsd = wallet.totalUsd !== undefined ? formatUsd(wallet.totalUsd) : null;
 
   return (
-    <div 
-      className={`portfolio-wallet ${isDefault ? 'portfolio-wallet--default' : ''}`}
+    <div
+      className={`rounded-xl border p-4 transition-all ${
+        isDefault 
+          ? 'border-success/30 bg-success/5' 
+          : 'border-default bg-surface'
+      } ${hasBalances ? 'cursor-pointer hover:border-default-strong' : ''}`}
       onClick={() => hasBalances && setExpanded(!expanded)}
-      style={{ cursor: hasBalances ? 'pointer' : 'default' }}
     >
-      <div className="portfolio-wallet__header">
-        <div className="portfolio-wallet__info">
-          <div className="portfolio-wallet__chain-icon">
-            <SolanaIcon size={20} />
+      {/* Header Row */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex-shrink-0 size-10 rounded-lg bg-surface-tertiary flex items-center justify-center">
+            <SolanaIcon className="size-5" />
           </div>
-          <div className="portfolio-wallet__details">
-            <span className="portfolio-wallet__address">{abbreviate(address)}</span>
-            <span className="portfolio-wallet__chain">
-              {label || chain}
-              {isDefault && <span className="portfolio-wallet__default-badge">Default</span>}
-            </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm text-primary truncate">
+                {abbreviate(address)}
+              </span>
+              <CopyAddressButton address={address} />
+            </div>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-xs text-tertiary">{label || chain}</span>
+              {isDefault && (
+                <Badge color="success" size="sm" variant="soft">Default</Badge>
+              )}
+              {status && (
+                <span className={`size-2 rounded-full ${status === 'active' ? 'bg-success' : 'bg-secondary'}`} />
+              )}
+            </div>
           </div>
         </div>
-        <div className="portfolio-wallet__value">
-          {totalUsd ? (
-            <span className="portfolio-wallet__total">{totalUsd}</span>
-          ) : status ? (
-            <span className={`portfolio-wallet__status portfolio-wallet__status--${status}`}>{status}</span>
-          ) : null}
+        
+        <div className="flex items-center gap-2">
+          {totalUsd && (
+            <span className="font-semibold text-sm text-primary">{totalUsd}</span>
+          )}
+          {hasBalances && (
+            <div className="text-tertiary">
+              {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Expanded Balances */}
       {expanded && hasBalances && (
-        <div className="portfolio-wallet__balances">
+        <div className="mt-4 pt-4 border-t border-subtle grid grid-cols-3 gap-4">
           {wallet.sol !== undefined && (
-            <div className="portfolio-wallet__balance">
-              <span className="portfolio-wallet__balance-label">SOL</span>
-              <span className="portfolio-wallet__balance-value">{formatToken(wallet.sol)}</span>
+            <div>
+              <div className="text-xs text-tertiary uppercase tracking-wide">SOL</div>
+              <div className="text-sm font-medium text-primary mt-0.5">{formatToken(wallet.sol)}</div>
             </div>
           )}
           {wallet.usdc !== undefined && (
-            <div className="portfolio-wallet__balance">
-              <span className="portfolio-wallet__balance-label">USDC</span>
-              <span className="portfolio-wallet__balance-value">{formatToken(wallet.usdc)}</span>
+            <div>
+              <div className="text-xs text-tertiary uppercase tracking-wide">USDC</div>
+              <div className="text-sm font-medium text-primary mt-0.5">{formatToken(wallet.usdc)}</div>
             </div>
           )}
           {wallet.usdt !== undefined && (
-            <div className="portfolio-wallet__balance">
-              <span className="portfolio-wallet__balance-label">USDT</span>
-              <span className="portfolio-wallet__balance-value">{formatToken(wallet.usdt)}</span>
+            <div>
+              <div className="text-xs text-tertiary uppercase tracking-wide">USDT</div>
+              <div className="text-sm font-medium text-primary mt-0.5">{formatToken(wallet.usdt)}</div>
             </div>
           )}
         </div>
@@ -175,13 +233,13 @@ function WalletCard({ wallet, index }: { wallet: WalletRecord; index: number }) 
 function PortfolioStatus() {
   const toolOutput = useOpenAIGlobal('toolOutput') as PortfolioPayload | null;
 
-  // Loading
+  // Loading state
   if (!toolOutput) {
     return (
-      <div className="portfolio-container">
-        <div className="portfolio-loading">
-          <div className="portfolio-loading__spinner" />
-          <span>Loading portfolio...</span>
+      <div className="p-4">
+        <div className="flex items-center justify-center gap-3 py-8">
+          <div className="size-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <span className="text-secondary text-sm">Loading portfolio...</span>
         </div>
       </div>
     );
@@ -196,57 +254,64 @@ function PortfolioStatus() {
   // Empty state
   if (wallets.length === 0) {
     return (
-      <div className="portfolio-container">
-        <div className="portfolio-card">
-          <div className="portfolio-card__header">
-            <span className="portfolio-card__title">Portfolio Overview</span>
-          </div>
-          <div className="portfolio-empty">
-            <span className="portfolio-empty__icon">📭</span>
-            <span className="portfolio-empty__text">No wallets linked</span>
-            <span className="portfolio-empty__hint">Link a wallet to see your portfolio</span>
-          </div>
-        </div>
+      <div className="p-4">
+        <EmptyMessage fill="none">
+          <EmptyMessage.Icon>
+            <CreditCard className="size-8" />
+          </EmptyMessage.Icon>
+          <EmptyMessage.Title>No wallets linked</EmptyMessage.Title>
+          <EmptyMessage.Description>
+            Link a wallet to see your portfolio and start trading.
+          </EmptyMessage.Description>
+        </EmptyMessage>
       </div>
     );
   }
 
   return (
-    <div className="portfolio-container">
-      <div className="portfolio-card">
-        {/* Header with Total */}
-        <div className="portfolio-card__header">
-          <div className="portfolio-card__title-row">
-            <span className="portfolio-card__title">Linked Wallets</span>
-            {updatedAt && (
-              <span className="portfolio-card__time">Updated {formatTimestamp(updatedAt)}</span>
-            )}
+    <div className="p-4 space-y-4">
+      {/* Header Card */}
+      <div className="rounded-xl border border-default bg-surface p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CreditCard className="size-5 text-secondary" />
+            <h2 className="font-semibold text-base text-primary">Linked Wallets</h2>
+            <Badge color="secondary" size="sm" variant="soft">
+              {wallets.length}
+            </Badge>
           </div>
-          {hasBalanceData && totalUsd && (
-            <div className="portfolio-card__total-row">
-              <span className="portfolio-card__total-label">Total Value</span>
-              <span className="portfolio-card__total-value">{totalUsd}</span>
-            </div>
-          )}
-          {defaultWallet && !hasBalanceData && (
-            <div className="portfolio-card__default-info">
-              <span className="portfolio-card__default-label">Active Wallet</span>
-              <span className="portfolio-card__default-address">{abbreviate(defaultWallet.address || defaultWallet.public_key || '')}</span>
-            </div>
+          {updatedAt && (
+            <span className="text-xs text-tertiary">
+              Updated {formatTimestamp(updatedAt)}
+            </span>
           )}
         </div>
 
-        {/* Wallet List */}
-        <div className="portfolio-wallets">
-          {wallets.map((wallet, index) => (
-            <WalletCard key={wallet.address || index} wallet={wallet} index={index} />
-          ))}
-        </div>
+        {/* Total Value */}
+        {hasBalanceData && totalUsd && (
+          <div className="mt-4 pt-4 border-t border-subtle">
+            <div className="text-xs text-tertiary uppercase tracking-wide">Total Value</div>
+            <div className="text-2xl font-bold text-primary mt-1">{totalUsd}</div>
+          </div>
+        )}
 
-        {/* Footer */}
-        <div className="portfolio-card__footer">
-          <span className="portfolio-card__count">{wallets.length} wallet{wallets.length !== 1 ? 's' : ''}</span>
-        </div>
+        {/* Default Wallet Quick Info */}
+        {defaultWallet && !hasBalanceData && (
+          <div className="mt-4 pt-4 border-t border-subtle flex items-center gap-2">
+            <span className="size-2 rounded-full bg-success" />
+            <span className="text-sm text-secondary">Active:</span>
+            <code className="text-xs text-primary bg-surface-secondary px-2 py-0.5 rounded">
+              {abbreviate(defaultWallet.address || defaultWallet.public_key || '')}
+            </code>
+          </div>
+        )}
+      </div>
+
+      {/* Wallet List */}
+      <div className="space-y-3">
+        {wallets.map((wallet, index) => (
+          <WalletCard key={wallet.address || index} wallet={wallet} index={index} />
+        ))}
       </div>
     </div>
   );
