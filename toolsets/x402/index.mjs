@@ -24,7 +24,9 @@ const WIDGET_META_BY_TOOL = new Map([
   ['onchain_entity_insight', createWidgetMeta({ templateUri: 'ui://dexter/onchain-activity', invoking: 'Loading…', invoked: 'Insight loaded' })],
   // Game widgets
   ['games_king_state', createWidgetMeta({ templateUri: 'ui://dexter/game-state', invoking: 'Loading game…', invoked: 'Game loaded' })],
+  ['games_king_usurp', createWidgetMeta({ templateUri: 'ui://dexter/game-state', invoking: 'Attempting usurp…', invoked: 'Usurp complete' })],
   ['games_story_read', createWidgetMeta({ templateUri: 'ui://dexter/game-state', invoking: 'Reading story…', invoked: 'Story loaded' })],
+  ['games_story_append', createWidgetMeta({ templateUri: 'ui://dexter/game-state', invoking: 'Appending to story…', invoked: 'Story updated' })],
   // Shield widget
   ['shield_create', createWidgetMeta({ templateUri: 'ui://dexter/shield', invoking: 'Creating shield…', invoked: 'Shield created' })],
   // Async job widgets
