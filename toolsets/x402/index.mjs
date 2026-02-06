@@ -22,6 +22,15 @@ const WIDGET_META_BY_TOOL = new Map([
   ['stream_public_shout', createWidgetMeta({ templateUri: 'ui://dexter/stream-shout', invoking: 'Sending…', invoked: 'Shout sent' })],
   ['onchain_activity_overview', createWidgetMeta({ templateUri: 'ui://dexter/onchain-activity', invoking: 'Loading…', invoked: 'Activity loaded' })],
   ['onchain_entity_insight', createWidgetMeta({ templateUri: 'ui://dexter/onchain-activity', invoking: 'Loading…', invoked: 'Insight loaded' })],
+  // Game widgets
+  ['games_king_state', createWidgetMeta({ templateUri: 'ui://dexter/game-state', invoking: 'Loading game…', invoked: 'Game loaded' })],
+  ['games_story_read', createWidgetMeta({ templateUri: 'ui://dexter/game-state', invoking: 'Reading story…', invoked: 'Story loaded' })],
+  // Shield widget
+  ['shield_create', createWidgetMeta({ templateUri: 'ui://dexter/shield', invoking: 'Creating shield…', invoked: 'Shield created' })],
+  // Async job widgets
+  ['tools_spaces_jobs', createWidgetMeta({ templateUri: 'ui://dexter/async-job', invoking: 'Transcribing…', invoked: 'Transcription queued' })],
+  ['tools_code-interpreter_jobs', createWidgetMeta({ templateUri: 'ui://dexter/async-job', invoking: 'Starting interpreter…', invoked: 'Session ready' })],
+  ['tools_deep-research_jobs', createWidgetMeta({ templateUri: 'ui://dexter/async-job', invoking: 'Starting research…', invoked: 'Research queued' })],
 ]);
 
 const PATH_OVERRIDES = new Map([
@@ -139,16 +148,6 @@ const PATH_OVERRIDES = new Map([
       access: 'member',
       tags: ['x402', 'diagnostics', 'network', 'stats', 'facilitators', 'agents', 'servers'],
       promptSlug: 'agent.concierge.tool.x402_scan_stats',
-    },
-  ],
-  [
-    '/api/payments/x402/access/gmgn',
-    {
-      name: 'gmgn_snapshot_access',
-      title: 'Unlock GMGN Snapshot Access',
-      category: 'gmgn.analytics',
-      access: 'member',
-      tags: ['gmgn', 'access'],
     },
   ],
   // === POKEDEXTER GAME ===

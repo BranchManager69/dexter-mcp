@@ -14,12 +14,8 @@ const RESOLVE_WALLET_WIDGET_META = createWidgetMeta({
   invoked: 'Wallet resolved',
 });
 
-const PORTFOLIO_WIDGET_META = createWidgetMeta({
-  templateUri: 'ui://dexter/portfolio-status',
-  widgetDescription: 'Shows the wallets linked to the current Dexter session.',
-  invoking: 'Loading wallet overview…',
-  invoked: 'Wallet overview ready',
-});
+// NOTE: portfolio-status widget exists but is reserved for future use
+// (e.g., a dedicated portfolio overview tool with balances + total value)
 
 const WALLET_LIST_WIDGET_META = createWidgetMeta({
   templateUri: 'ui://dexter/wallet-list',
@@ -331,7 +327,7 @@ export function registerWalletToolset(server) {
         content: [{ type: 'text', text: 'resolver_unavailable' }],
         status: 'failed',
         isError: true,
-        _meta: { ...PORTFOLIO_WIDGET_META },
+        _meta: { ...WALLET_LIST_WIDGET_META },
       };
     }
     const wallets = sanitizeWalletList(context.wallets);
@@ -339,7 +335,7 @@ export function registerWalletToolset(server) {
       structuredContent: { user: context.user || null, wallets },
       content: [{ type: 'text', text: JSON.stringify({ count: wallets.length }) }],
       status: 'completed',
-      _meta: { ...PORTFOLIO_WIDGET_META },
+      _meta: { ...WALLET_LIST_WIDGET_META },
     };
   });
 
