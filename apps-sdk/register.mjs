@@ -90,9 +90,12 @@ function buildWidgetCsp(assetBase) {
     } catch {}
   }
 
-  // Production API fallback
-  if (!connectDomains.some(d => d.includes('dexter.cash'))) {
+  // Production API fallback - ensure both domains are allowed for CSP
+  if (!connectDomains.some(d => d.includes('api.dexter.cash'))) {
     connectDomains.push('https://api.dexter.cash');
+  }
+  if (!connectDomains.some(d => d.includes('x402.dexter.cash'))) {
+    connectDomains.push('https://x402.dexter.cash');
   }
 
   // OpenAI's CDN for static assets (fonts, etc.)
