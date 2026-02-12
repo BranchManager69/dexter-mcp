@@ -19,7 +19,6 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.6",
     "@modelcontextprotocol/sdk": "^1.17.4",
     "@openai/apps-sdk-ui": "^0.2.1",
-    "@sentry/node": "^10.38.0",
     "@supabase/supabase-js": "^2.90.1",
     "@tailwindcss/postcss": "^4.1.18",
     "@tavily/core": "^0.5.12",

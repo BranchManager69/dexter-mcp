@@ -1,9 +1,6 @@
 #!/usr/bin/env node
 // MCP Streamable HTTP server with OAuth support (Generic OIDC)
 
-// Sentry instrumentation (must be before all other imports)
-import './instrument.mjs';
-
 import http from 'node:http';
 import https from 'node:https';
 import { randomUUID, createPrivateKey, createPublicKey, createHmac } from 'node:crypto';
@@ -1593,22 +1590,25 @@ const server = http.createServer(async (req, res) => {
     },
     enableDnsRebindingProtection: false,
   });
-  const originalWriteSSEEvent = transport.writeSSEEvent.bind(transport);
-  transport.writeSSEEvent = function patchedWriteSSEEvent(res, message, eventId) {
-    try {
-      const messageId = message && typeof message === 'object' ? message.id : undefined;
-      if (messageId !== undefined) {
-        const meta = pendingToolsListRequests.get(String(messageId));
-        if (meta) {
-          logToolsListResponseSummary(meta.sid, message, 'sse');
-          pendingToolsListRequests.delete(String(messageId));
+  // Guard: writeSSEEvent was removed in MCP SDK 1.26+ (monkey-patch is logging-only)
+  if (typeof transport.writeSSEEvent === 'function') {
+    const originalWriteSSEEvent = transport.writeSSEEvent.bind(transport);
+    transport.writeSSEEvent = function patchedWriteSSEEvent(res, message, eventId) {
+      try {
+        const messageId = message && typeof message === 'object' ? message.id : undefined;
+        if (messageId !== undefined) {
+          const meta = pendingToolsListRequests.get(String(messageId));
+          if (meta) {
+            logToolsListResponseSummary(meta.sid, message, 'sse');
+            pendingToolsListRequests.delete(String(messageId));
+          }
         }
+      } catch (error) {
+        console.warn('[mcp] tools_list_response_log_failed', error?.message || error);
       }
-    } catch (error) {
-      console.warn('[mcp] tools_list_response_log_failed', error?.message || error);
-    }
-    return originalWriteSSEEvent(res, message, eventId);
-  };
+      return originalWriteSSEEvent(res, message, eventId);
+    };
+  }
       let includeToolsets = undefined;
       try {
         const tools = url.searchParams.get('tools');
