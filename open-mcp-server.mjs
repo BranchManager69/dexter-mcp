@@ -12,6 +12,9 @@
  *   PORT=3931 node open-mcp-server.mjs
  */
 
+// Sentry instrumentation (must be before all other imports)
+import './instrument.mjs';
+
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';

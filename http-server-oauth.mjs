@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 // MCP Streamable HTTP server with OAuth support (Generic OIDC)
 
+// Sentry instrumentation (must be before all other imports)
+import './instrument.mjs';
+
 import http from 'node:http';
 import https from 'node:https';
 import { randomUUID, createPrivateKey, createPublicKey, createHmac } from 'node:crypto';
