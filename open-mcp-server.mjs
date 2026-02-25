@@ -3,13 +3,13 @@
  *
  * Public, no-auth MCP server with two tools:
  *   - x402_search: Discover x402 resources in the Dexter marketplace
- *   - x402_pay:    Call any x402 resource with proper payment flow
+ *   - x402_pay:    Call any x402 resource with the payment flow
  *
- * This is completely separate from the authenticated MCP server
- * (http-server-oauth.mjs). It shares no state, no sessions, no auth.
+ * Completely separate from the authenticated MCP server (http-server-oauth.mjs).
+ * Shares no state, no sessions, no auth.
  *
  * Usage:
- *   PORT=3931 node open-mcp-server.mjs
+ *   OPEN_MCP_PORT=3931 node open-mcp-server.mjs
  */
 
 import http from 'node:http';
@@ -23,65 +23,72 @@ dotenv.config();
 dotenv.config({ path: '.env.local' });
 
 const PORT = parseInt(process.env.OPEN_MCP_PORT || '3931', 10);
-const DEXTER_API = process.env.DEXTER_API_URL || 'https://api.dexter.cash';
+const DEXTER_API = (process.env.X402_API_URL || 'https://x402.dexter.cash').replace(/\/+$/, '');
+const MARKETPLACE_PATH = '/api/facilitator/marketplace/resources';
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function formatPrice(r) {
+  if (r.priceLabel) return r.priceLabel;
+  if (r.priceUsdc != null) return `$${Number(r.priceUsdc).toFixed(2)}`;
+  return 'free';
+}
+
+function formatResource(r) {
+  return {
+    name: r.displayName || r.resourceUrl,
+    url: r.resourceUrl,
+    method: r.method || 'GET',
+    price: formatPrice(r),
+    network: r.priceNetwork || null,
+    description: r.description || '',
+    category: r.category || 'uncategorized',
+    qualityScore: r.qualityScore ?? null,
+    verified: r.verificationStatus === 'pass',
+    totalCalls: r.totalSettlements ?? 0,
+    totalVolume: r.totalVolumeUsdc != null ? `$${Number(r.totalVolumeUsdc).toLocaleString()}` : null,
+    seller: r.seller?.displayName || null,
+    sellerReputation: r.reputationScore ?? null,
+  };
+}
 
 // ─── Tool: x402_search ──────────────────────────────────────────────────────
 
-async function x402Search({ query, category, maxPriceUsdc, limit }) {
+async function x402Search({ query, category, network, maxPriceUsdc, verifiedOnly, sort, limit }) {
   const params = new URLSearchParams();
   if (query) params.set('search', query);
   if (category) params.set('category', category);
-  if (maxPriceUsdc) params.set('maxPrice', String(maxPriceUsdc));
-  params.set('limit', String(limit || 20));
-  params.set('sort', 'quality_score');
+  if (network) params.set('network', network);
+  if (maxPriceUsdc != null) params.set('maxPrice', String(maxPriceUsdc));
+  if (verifiedOnly) params.set('verified', 'true');
+  if (sort) params.set('sort', sort);
   params.set('order', 'desc');
+  params.set('limit', String(Math.min(limit || 20, 50)));
 
-  const url = `${DEXTER_API}/api/facilitator/marketplace/resources?${params}`;
-  const res = await fetch(url);
+  const url = `${DEXTER_API}${MARKETPLACE_PATH}?${params}`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+
   if (!res.ok) {
-    return { error: `Marketplace API returned ${res.status}`, results: [] };
+    throw new Error(`Marketplace returned ${res.status}: ${await res.text().catch(() => 'unknown')}`);
   }
 
   const data = await res.json();
-  const resources = (data.resources || []).map((r) => ({
-    name: r.displayName || r.resourceUrl,
-    description: r.description || '',
-    url: r.resourceUrl,
-    method: r.method || 'GET',
-    priceUsdc: r.priceUsdc,
-    priceLabel: r.priceLabel,
-    category: r.category || '',
-    qualityScore: r.qualityScore,
-    verificationStatus: r.verificationStatus,
-    totalSettlements: r.totalSettlements,
-    totalVolumeUsdc: r.totalVolumeUsdc,
-    payTo: r.payTo,
-    seller: r.seller?.displayName || null,
-    reputationScore: r.reputationScore,
-  }));
-
   return {
-    count: resources.length,
-    results: resources,
+    resources: (data.resources || []).map(formatResource),
+    total: data.resources?.length || 0,
   };
 }
 
 // ─── Tool: x402_pay ─────────────────────────────────────────────────────────
 
 async function x402Pay({ url, method, body, paymentSignature }) {
-  const headers = {
-    'Content-Type': 'application/json',
-  };
+  const headers = { 'Content-Type': 'application/json' };
 
-  // Phase 2: caller provided a signed payment — attach it and execute
   if (paymentSignature) {
-    headers['Payment-Signature'] = paymentSignature;
+    headers['X-PAYMENT'] = paymentSignature;
   }
 
-  const fetchOptions = {
-    method: method || 'GET',
-    headers,
-  };
+  const fetchOptions = { method: method || 'GET', headers };
 
   if (body && method && method.toUpperCase() !== 'GET') {
     fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
@@ -89,74 +96,61 @@ async function x402Pay({ url, method, body, paymentSignature }) {
 
   const res = await fetch(url, fetchOptions);
 
-  // Phase 1: resource returned 402 — extract payment requirements for the caller
+  // 402 → extract payment requirements for the caller to sign
   if (res.status === 402) {
-    const paymentRequired = res.headers.get('payment-required') || res.headers.get('PAYMENT-REQUIRED');
-    const xQuoteHash = res.headers.get('x-quote-hash');
-
     let requirements = null;
-    if (paymentRequired) {
-      try {
-        requirements = JSON.parse(atob(paymentRequired));
-      } catch {
-        // Try parsing as plain JSON
-        try {
-          requirements = JSON.parse(paymentRequired);
-        } catch {
-          requirements = { raw: paymentRequired };
-        }
-      }
-    }
-
-    // Also try reading requirements from response body
     let bodyData = null;
+
     try {
       bodyData = await res.json();
     } catch {
-      try {
-        bodyData = await res.text();
-      } catch {}
+      try { bodyData = await res.text(); } catch {}
+    }
+
+    // x402 v1/v2: requirements live in the response body under `accepts`
+    if (bodyData?.accepts && Array.isArray(bodyData.accepts)) {
+      requirements = {
+        accepts: bodyData.accepts,
+        x402Version: bodyData.x402Version ?? 1,
+      };
+    } else {
+      // Fallback: check header
+      const paymentRequired = res.headers.get('payment-required') || res.headers.get('PAYMENT-REQUIRED');
+      if (paymentRequired) {
+        try { requirements = JSON.parse(atob(paymentRequired)); } catch {
+          try { requirements = JSON.parse(paymentRequired); } catch {
+            requirements = { raw: paymentRequired };
+          }
+        }
+      }
     }
 
     return {
       status: 402,
       message: 'Payment required. Sign the payment with your wallet and call again with paymentSignature.',
       requirements,
-      quoteHash: xQuoteHash,
       body: bodyData,
     };
   }
 
-  // Success or other status — return the response
+  // Success or other status
   const paymentResponse = res.headers.get('payment-response') || res.headers.get('PAYMENT-RESPONSE');
   let settlement = null;
   if (paymentResponse) {
-    try {
-      settlement = JSON.parse(atob(paymentResponse));
-    } catch {
-      try {
-        settlement = JSON.parse(paymentResponse);
-      } catch {}
+    try { settlement = JSON.parse(atob(paymentResponse)); } catch {
+      try { settlement = JSON.parse(paymentResponse); } catch {}
     }
   }
 
   let responseData;
   const contentType = res.headers.get('content-type') || '';
   if (contentType.includes('json')) {
-    try {
-      responseData = await res.json();
-    } catch {
-      responseData = await res.text();
-    }
+    try { responseData = await res.json(); } catch { responseData = await res.text(); }
   } else {
     responseData = await res.text();
   }
 
-  return {
-    status: res.status,
-    data: responseData,
-    settlement,
-  };
+  return { status: res.status, data: responseData, settlement };
 }
 
 // ─── MCP Server Setup ───────────────────────────────────────────────────────
@@ -169,17 +163,35 @@ function createOpenMcpServer() {
 
   server.tool(
     'x402_search',
-    'Search the Dexter x402 marketplace for paid API resources. Returns available services with descriptions, prices, and URLs.',
+    'Search the Dexter x402 marketplace for paid API resources. ' +
+    'Returns services with pricing, quality scores, verification status, ' +
+    'settlement volume, and seller reputation. Use this to discover APIs ' +
+    'an agent can pay for and call with x402_pay.',
     {
-      query: z.string().describe('What are you looking for? e.g. "token analysis", "image generation", "sentiment"'),
-      category: z.string().optional().describe('Filter by category'),
+      query: z.string().optional().describe('What are you looking for? e.g. "token analysis", "image generation", "video"'),
+      category: z.string().optional().describe('Filter by category (e.g. "api", "games", "creative")'),
+      network: z.string().optional().describe('Filter by payment network: "solana", "base", "polygon"'),
       maxPriceUsdc: z.number().optional().describe('Maximum price per call in USDC'),
-      limit: z.number().optional().default(20).describe('Max results to return'),
+      verifiedOnly: z.boolean().optional().describe('Only return verified (quality-checked) endpoints'),
+      sort: z.enum(['relevance', 'quality_score', 'settlements', 'volume', 'recent']).optional()
+        .describe('Sort by (default: relevance when searching, settlements otherwise)'),
+      limit: z.number().optional().default(20).describe('Max results (default: 20, max: 50)'),
     },
-    async ({ query, category, maxPriceUsdc, limit }) => {
+    async (args) => {
       try {
-        const result = await x402Search({ query, category, maxPriceUsdc, limit });
-        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+        const result = await x402Search(args);
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              count: result.resources.length,
+              resources: result.resources,
+              source: 'Dexter x402 Marketplace (https://dexter.cash)',
+              tip: 'Use x402_pay to call any of these endpoints.',
+            }, null, 2),
+          }],
+        };
       } catch (err) {
         return { content: [{ type: 'text', text: JSON.stringify({ error: err.message }) }], isError: true };
       }
@@ -188,16 +200,19 @@ function createOpenMcpServer() {
 
   server.tool(
     'x402_pay',
-    'Call any x402 paid resource. First call without paymentSignature to get the price and payment requirements. Then sign the payment with your wallet and call again with paymentSignature to execute and get the result.',
+    'Call any x402-enabled paid API. Two-phase flow:\n' +
+    '1. Call without paymentSignature → returns payment requirements (price, network, payTo address).\n' +
+    '2. Sign the payment with your wallet, then call again with paymentSignature to execute.\n\n' +
+    'Use x402_search to discover available endpoints first.',
     {
       url: z.string().url().describe('The x402 resource URL to call'),
       method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).default('GET').describe('HTTP method'),
-      body: z.any().optional().describe('Request body (for POST/PUT)'),
+      body: z.any().optional().describe('Request body (for POST/PUT). Can be object or string.'),
       paymentSignature: z.string().optional().describe('Signed payment from your wallet. Omit on first call to get payment requirements.'),
     },
-    async ({ url, method, body, paymentSignature }) => {
+    async (args) => {
       try {
-        const result = await x402Pay({ url, method, body, paymentSignature });
+        const result = await x402Pay(args);
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
       } catch (err) {
         return { content: [{ type: 'text', text: JSON.stringify({ error: err.message }) }], isError: true };
@@ -238,6 +253,7 @@ const httpServer = http.createServer(async (req, res) => {
       name: 'Dexter x402 Gateway',
       tools: ['x402_search', 'x402_pay'],
       auth: false,
+      sessions: transports.size,
       timestamp: new Date().toISOString(),
     }));
     return;
@@ -248,9 +264,21 @@ const httpServer = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       name: 'Dexter x402 Gateway',
-      url: `https://open.dexter.cash/mcp`,
-      description: 'Public x402 gateway. Search and pay for any x402 resource through two MCP tools. No authentication required.',
+      url: 'https://open.dexter.cash/mcp',
+      description:
+        'Public x402 gateway. Search and pay for any x402 resource ' +
+        'through two MCP tools. No authentication required.',
       version: '1.0.0',
+      tools: [
+        {
+          name: 'x402_search',
+          description: 'Search the Dexter x402 marketplace for paid API resources.',
+        },
+        {
+          name: 'x402_pay',
+          description: 'Call any x402-enabled paid API with payment handling.',
+        },
+      ],
     }));
     return;
   }
@@ -262,7 +290,7 @@ const httpServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // ─── GET: SSE or session resume ────────────────────────────────────────
+  // ─── GET: SSE / session resume ──────────────────────────────────────
   if (req.method === 'GET') {
     const sessionId = req.headers['mcp-session-id'];
     if (!sessionId || !transports.has(sessionId)) {
@@ -275,23 +303,21 @@ const httpServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // ─── POST: MCP JSON-RPC ───────────────────────────────────────────────
+  // ─── POST: MCP JSON-RPC ────────────────────────────────────────────
   if (req.method === 'POST') {
     const sessionId = req.headers['mcp-session-id'];
 
     if (sessionId && transports.has(sessionId)) {
-      // Existing session
       const transport = transports.get(sessionId);
       await transport.handleRequest(req, res);
       return;
     }
 
-    // New session
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (sid) => {
         transports.set(sid, transport);
-        console.log(`[open-mcp] Session created: ${sid}`);
+        console.log(`[open-mcp] session created: ${sid} (active: ${transports.size})`);
       },
     });
 
@@ -299,7 +325,7 @@ const httpServer = http.createServer(async (req, res) => {
       const sid = transport.sessionId;
       if (sid) {
         transports.delete(sid);
-        console.log(`[open-mcp] Session closed: ${sid}`);
+        console.log(`[open-mcp] session closed: ${sid} (active: ${transports.size})`);
       }
     };
 
@@ -309,7 +335,7 @@ const httpServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // ─── DELETE: close session ─────────────────────────────────────────────
+  // ─── DELETE: close session ──────────────────────────────────────────
   if (req.method === 'DELETE') {
     const sessionId = req.headers['mcp-session-id'];
     if (sessionId && transports.has(sessionId)) {
@@ -327,8 +353,21 @@ const httpServer = http.createServer(async (req, res) => {
   res.end(JSON.stringify({ error: 'Method not allowed' }));
 });
 
+// Reap stale sessions every 10 minutes
+const SESSION_MAX_AGE_MS = 30 * 60 * 1000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [sid, transport] of transports) {
+    if (transport._lastActivity && now - transport._lastActivity > SESSION_MAX_AGE_MS) {
+      transports.delete(sid);
+      console.log(`[open-mcp] reaped stale session: ${sid}`);
+    }
+  }
+}, 10 * 60 * 1000);
+
 httpServer.listen(PORT, () => {
-  console.log(`[open-mcp] Dexter x402 Gateway listening on port ${PORT}`);
+  console.log(`[open-mcp] Dexter x402 Gateway listening on :${PORT}`);
   console.log(`[open-mcp] Tools: x402_search, x402_pay`);
   console.log(`[open-mcp] Auth: none (public)`);
+  console.log(`[open-mcp] Marketplace: ${DEXTER_API}${MARKETPLACE_PATH}`);
 });

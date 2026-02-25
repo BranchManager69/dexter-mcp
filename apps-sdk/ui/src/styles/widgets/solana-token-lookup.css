@@ -619,9 +619,7 @@
 [data-theme="light"] .token-social-btn:hover {
   background: rgba(0, 0, 0, 0.08);
   color: #171717;
-}
-
-[data-theme="light"] .token-organic-score__bar {
+}[data-theme="light"] .token-organic-score__bar {
   background: rgba(0, 0, 0, 0.05);
 }[data-theme="light"] .token-organic-score__value {
   color: #171717;

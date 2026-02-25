@@ -13,6 +13,7 @@ import { registerHyperliquidToolset } from './hyperliquid/index.mjs';
 import { registerStudioToolset } from './studio/index.mjs';
 import { registerIdentityToolset } from './identity/index.mjs';
 import { registerBundlesToolset } from './bundles/index.mjs';
+import { registerX402ClientToolset } from './x402-client/index.mjs';
 
 const passthrough = (value) => String(value);
 
@@ -125,6 +126,10 @@ const TOOLSET_REGISTRY = {
   bundles: {
     register: registerBundlesToolset,
     description: 'User bundle creation, discovery, and access management.',
+  },
+  'x402-client': {
+    register: registerX402ClientToolset,
+    description: 'Search and pay for any x402 resource in the Dexter marketplace.',
   },
 };
 
