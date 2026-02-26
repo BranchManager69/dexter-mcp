@@ -1,7 +1,7 @@
 const BOOTSTRAP_TEMPLATE = (baseUrl) => `
   (function () {
     try {
-      // Some browserified deps still reference Node's `global`.
+      // Some browserified deps still reference Node global.
       // Ensure it exists in the widget iframe before any module code runs.
       if (typeof globalThis !== 'undefined' && typeof globalThis.global === 'undefined') {
         globalThis.global = globalThis;
