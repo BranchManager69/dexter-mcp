@@ -1,6 +1,12 @@
 const BOOTSTRAP_TEMPLATE = (baseUrl) => `
   (function () {
     try {
+      // Some browserified deps still reference Node's `global`.
+      // Ensure it exists in the widget iframe before any module code runs.
+      if (typeof globalThis !== 'undefined' && typeof globalThis.global === 'undefined') {
+        globalThis.global = globalThis;
+      }
+
       var PROVIDED_BASE = ${JSON.stringify(baseUrl)};
       var normalizedBase = (typeof PROVIDED_BASE === 'string' && PROVIDED_BASE.trim().length)
         ? PROVIDED_BASE.trim()
