@@ -3,7 +3,7 @@ import '../styles/components.css';
 import '../styles/widgets/x402-pricing.css';
 
 import { createRoot } from 'react-dom/client';
-import { useOpenAIGlobal, useCallTool, useToolInput } from '../sdk';
+import { useOpenAIGlobal, useToolInput, useSendFollowUp, useMaxHeight } from '../sdk';
 
 type PaymentOption = {
   price: number;
@@ -25,17 +25,17 @@ type PricingPayload = {
   message?: string;
 };
 
-const CHAIN_MAP: Record<string, { name: string; icon: string }> = {
-  'solana': { name: 'Solana', icon: '◎' },
-  'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': { name: 'Solana', icon: '◎' },
-  'eip155:8453': { name: 'Base', icon: '🔵' },
-  'base': { name: 'Base', icon: '🔵' },
-  'eip155:137': { name: 'Polygon', icon: '🟣' },
-  'polygon': { name: 'Polygon', icon: '🟣' },
-  'eip155:42161': { name: 'Arbitrum', icon: '🔷' },
-  'eip155:10': { name: 'Optimism', icon: '🔴' },
-  'eip155:43114': { name: 'Avalanche', icon: '🔺' },
-  'eip155:2046399126': { name: 'SKALE', icon: '⬡' },
+const CHAIN_MAP: Record<string, { name: string; logo?: string }> = {
+  'solana': { name: 'Solana', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/sol.png' },
+  'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': { name: 'Solana', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/sol.png' },
+  'eip155:8453': { name: 'Base', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/base.png' },
+  'base': { name: 'Base', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/base.png' },
+  'eip155:137': { name: 'Polygon', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/matic.png' },
+  'polygon': { name: 'Polygon', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/matic.png' },
+  'eip155:42161': { name: 'Arbitrum', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/arb.png' },
+  'eip155:10': { name: 'Optimism', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/op.png' },
+  'eip155:43114': { name: 'Avalanche', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/avax.png' },
+  'eip155:2046399126': { name: 'SKALE', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/skl.png' },
 };
 
 function shortenAddress(addr: string): string {
@@ -45,16 +45,17 @@ function shortenAddress(addr: string): string {
 
 function PricingCheck() {
   const toolOutput = useOpenAIGlobal('toolOutput') as PricingPayload | null;
-  const toolInput = useToolInput() as { url?: string } | null;
-  const { callTool, isLoading } = useCallTool();
+  const toolInput = useToolInput() as { url?: string; method?: string } | null;
+  const sendFollowUp = useSendFollowUp();
+  const maxHeight = useMaxHeight();
 
   if (!toolOutput) {
-    return <div className="pricing"><div className="pricing-card"><span>Checking endpoint...</span></div></div>;
+    return <div className="pricing" style={{ maxHeight: maxHeight ?? undefined }}><div className="pricing-card"><span>Checking endpoint...</span></div></div>;
   }
 
   if (toolOutput.error) {
     return (
-      <div className="pricing">
+      <div className="pricing" style={{ maxHeight: maxHeight ?? undefined }}>
         <div className="pricing-card">
           <div className="pricing-header">
             <span className="pricing-header__title">Endpoint Check</span>
@@ -68,7 +69,7 @@ function PricingCheck() {
 
   if (toolOutput.free || (!toolOutput.requiresPayment && toolOutput.statusCode >= 200 && toolOutput.statusCode < 300)) {
     return (
-      <div className="pricing">
+      <div className="pricing" style={{ maxHeight: maxHeight ?? undefined }}>
         <div className="pricing-card">
           <div className="pricing-header">
             <span className="pricing-header__title">Endpoint Check</span>
@@ -85,13 +86,14 @@ function PricingCheck() {
 
   const options = toolOutput.paymentOptions || [];
 
-  const handleFetch = () => {
+  const handleFetch = async () => {
     if (!toolInput?.url) return;
-    callTool('x402_fetch', { url: toolInput.url, method: 'POST' });
+    const method = toolInput.method || 'GET';
+    await sendFollowUp(`Call x402_fetch with url "${toolInput.url}" and method "${method}".`);
   };
 
   return (
-    <div className="pricing">
+    <div className="pricing" style={{ maxHeight: maxHeight ?? undefined }}>
       <div className="pricing-card">
         <div className="pricing-header">
           <span className="pricing-header__title">Payment Required</span>
@@ -107,10 +109,12 @@ function PricingCheck() {
 
         <div className="pricing-options">
           {options.map((opt, i) => {
-            const chain = CHAIN_MAP[opt.network] || { name: opt.network, icon: '⬡' };
+            const chain = CHAIN_MAP[opt.network] || { name: opt.network };
             return (
               <div key={i} className="pricing-option">
-                <div className="pricing-option__chain">{chain.icon}</div>
+                <div className="pricing-option__chain">
+                  {chain.logo ? <img className="pricing-option__logo" src={chain.logo} alt={chain.name} /> : <span>⬡</span>}
+                </div>
                 <div className="pricing-option__info">
                   <span className="pricing-option__network">{chain.name}</span>
                   <span className="pricing-option__asset">USDC</span>
@@ -123,8 +127,8 @@ function PricingCheck() {
         </div>
 
         {toolInput?.url && (
-          <button className="pricing-fetch-btn" onClick={handleFetch} disabled={isLoading}>
-            {isLoading ? 'Paying...' : `Fetch & Pay${options[0] ? ` ${options[0].priceFormatted}` : ''}`}
+          <button className="pricing-fetch-btn" onClick={handleFetch}>
+            Fetch & Pay{options[0] ? ` ${options[0].priceFormatted}` : ''}
           </button>
         )}
       </div>

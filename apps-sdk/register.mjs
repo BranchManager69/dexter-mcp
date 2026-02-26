@@ -100,6 +100,12 @@ function buildWidgetCsp(assetBase) {
 
   // OpenAI's CDN for static assets (fonts, etc.)
   resourceDomains.push('https://*.oaistatic.com');
+  // External assets used by x402 widgets (chain logos + QR images)
+  resourceDomains.push('https://cdn.jsdelivr.net');
+  resourceDomains.push('https://cdn.dexscreener.com');
+  resourceDomains.push('https://raw.githubusercontent.com');
+  resourceDomains.push('https://metadata.jup.ag');
+  resourceDomains.push('https://api.qrserver.com');
 
   return {
     connect_domains: connectDomains,

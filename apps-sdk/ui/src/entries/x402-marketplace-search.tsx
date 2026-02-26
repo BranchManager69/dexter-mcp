@@ -3,7 +3,7 @@ import '../styles/components.css';
 import '../styles/widgets/x402-marketplace-search.css';
 
 import { createRoot } from 'react-dom/client';
-import { useOpenAIGlobal, useCallTool, useToolInput, useSendFollowUp } from '../sdk';
+import { useOpenAIGlobal, useToolInput, useSendFollowUp, useMaxHeight } from '../sdk';
 
 type Resource = {
   name: string;
@@ -27,13 +27,14 @@ type SearchPayload = {
   error?: string;
 };
 
-const CHAIN_ICONS: Record<string, string> = {
-  solana: '◎',
-  base: '🔵',
-  polygon: '🟣',
-  arbitrum: '🔷',
-  optimism: '🔴',
-  avalanche: '🔺',
+const CHAIN_LOGOS: Record<string, string> = {
+  solana: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/sol.png',
+  base: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/base.png',
+  polygon: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/matic.png',
+  arbitrum: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/arb.png',
+  optimism: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/op.png',
+  avalanche: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/avax.png',
+  skale: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/skl.png',
 };
 
 function formatCalls(n: number): string {
@@ -48,39 +49,26 @@ function getNetworkName(network: string | null): string {
   return clean.charAt(0).toUpperCase() + clean.slice(1);
 }
 
-function QualityRing({ score }: { score: number | null }) {
-  if (score === null) return null;
-  const r = 13;
-  const c = 2 * Math.PI * r;
-  const offset = c - (score / 100) * c;
-  const colorClass = score >= 80 ? 'mkt-quality__fill--green' : score >= 50 ? 'mkt-quality__fill--yellow' : 'mkt-quality__fill--red';
-
-  return (
-    <div className="mkt-quality">
-      <svg width="32" height="32" viewBox="0 0 32 32" className="mkt-quality__ring">
-        <circle cx="16" cy="16" r={r} className="mkt-quality__bg" />
-        <circle cx="16" cy="16" r={r} className={`mkt-quality__fill ${colorClass}`}
-          strokeDasharray={c} strokeDashoffset={offset} />
-      </svg>
-      <span className="mkt-quality__label">{score}</span>
-    </div>
-  );
+function getNetworkSlug(network: string | null): string {
+  if (!network) return '';
+  if (network.startsWith('solana:')) return 'solana';
+  if (network === 'eip155:8453') return 'base';
+  if (network === 'eip155:137') return 'polygon';
+  if (network === 'eip155:42161') return 'arbitrum';
+  if (network === 'eip155:10') return 'optimism';
+  if (network === 'eip155:43114') return 'avalanche';
+  if (network === 'eip155:2046399126') return 'skale';
+  return network.toLowerCase();
 }
 
 function ApiCard({ resource }: { resource: Resource }) {
-  const { callTool, isLoading } = useCallTool();
   const sendFollowUp = useSendFollowUp();
-  const chainIcon = resource.network ? CHAIN_ICONS[resource.network.split(':')[0]] || '⬡' : '';
+  const networkSlug = getNetworkSlug(resource.network);
+  const chainLogo = CHAIN_LOGOS[networkSlug];
 
   const handleFetch = async () => {
-    try {
-      const result = await callTool('x402_fetch', { url: resource.url, method: resource.method });
-      if (!result) {
-        sendFollowUp({ prompt: `Please call x402_fetch with url "${resource.url}" and method "${resource.method}"` });
-      }
-    } catch {
-      sendFollowUp({ prompt: `Please call x402_fetch with url "${resource.url}" and method "${resource.method}"` });
-    }
+    const method = resource.method || 'GET';
+    await sendFollowUp(`Call x402_fetch with url "${resource.url}" and method "${method}".`);
   };
 
   return (
@@ -91,8 +79,11 @@ function ApiCard({ resource }: { resource: Resource }) {
           {resource.seller && <span className="mkt-card__seller">by {resource.seller}</span>}
         </div>
         <div className="mkt-card__right">
-          <span className="mkt-price">{chainIcon} {resource.price}</span>
-          <QualityRing score={resource.qualityScore} />
+          <span className="mkt-price">
+            {chainLogo && <img className="mkt-chain-logo" src={chainLogo} alt={getNetworkName(resource.network)} />}
+            {resource.price}
+          </span>
+          {resource.qualityScore !== null && <span className="mkt-quality-badge">Quality {resource.qualityScore}</span>}
         </div>
       </div>
       {resource.description && <div className="mkt-card__desc">{resource.description}</div>}
@@ -105,8 +96,8 @@ function ApiCard({ resource }: { resource: Resource }) {
         {resource.totalCalls > 0 && <span className="mkt-calls">{formatCalls(resource.totalCalls)} calls</span>}
         {resource.network && <span className="mkt-tag">{getNetworkName(resource.network)}</span>}
       </div>
-      <button className="mkt-fetch-btn" onClick={handleFetch} disabled={isLoading}>
-        {isLoading ? 'Calling...' : `Fetch ${resource.price}`}
+      <button className="mkt-fetch-btn" onClick={handleFetch}>
+        Fetch {resource.price}
       </button>
     </div>
   );
@@ -115,18 +106,19 @@ function ApiCard({ resource }: { resource: Resource }) {
 function MarketplaceSearch() {
   const toolOutput = useOpenAIGlobal('toolOutput') as SearchPayload | null;
   const toolInput = useToolInput() as { query?: string } | null;
+  const maxHeight = useMaxHeight();
 
   if (!toolOutput) {
-    return <div className="mkt"><div className="mkt-empty">Loading results...</div></div>;
+    return <div className="mkt" style={{ maxHeight: maxHeight ?? undefined }}><div className="mkt-empty">Loading results...</div></div>;
   }
 
   if (toolOutput.error) {
-    return <div className="mkt"><div className="mkt-empty">{toolOutput.error}</div></div>;
+    return <div className="mkt" style={{ maxHeight: maxHeight ?? undefined }}><div className="mkt-empty">{toolOutput.error}</div></div>;
   }
 
   if (toolOutput.count === 0) {
     return (
-      <div className="mkt">
+      <div className="mkt" style={{ maxHeight: maxHeight ?? undefined }}>
         <div className="mkt-empty">
           No x402 APIs found{toolInput?.query ? ` for "${toolInput.query}"` : ''}. Try a broader search.
         </div>
@@ -135,7 +127,7 @@ function MarketplaceSearch() {
   }
 
   return (
-    <div className="mkt">
+    <div className="mkt" style={{ maxHeight: maxHeight ?? undefined }}>
       <div className="mkt-header">
         <span className="mkt-header__count">{toolOutput.count} result{toolOutput.count !== 1 ? 's' : ''}</span>
         {toolInput?.query && <span className="mkt-header__query">"{toolInput.query}"</span>}

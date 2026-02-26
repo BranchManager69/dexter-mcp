@@ -4,7 +4,7 @@ import '../styles/widgets/x402-fetch-result.css';
 
 import { createRoot } from 'react-dom/client';
 import { useState, useEffect } from 'react';
-import { useOpenAIGlobal, useOpenExternal } from '../sdk';
+import { useOpenAIGlobal, useOpenExternal, useMaxHeight } from '../sdk';
 
 type FetchPayload = {
   status: number;
@@ -119,7 +119,7 @@ function isImageUrl(data: unknown): string | null {
   return null;
 }
 
-function QrMode({ qr, pollUrl }: { qr: FetchPayload['qr']; pollUrl?: string }) {
+function QrMode({ qr }: { qr: FetchPayload['qr'] }) {
   const [timeLeft, setTimeLeft] = useState('');
 
   useEffect(() => {
@@ -142,7 +142,7 @@ function QrMode({ qr, pollUrl }: { qr: FetchPayload['qr']; pollUrl?: string }) {
     <div className="fetch-qr">
       {qrImageUrl && (
         <div className="fetch-qr__code">
-          <img src={qrImageUrl} alt="Solana Pay QR Code" width={200} height={200} style={{ borderRadius: 8 }} />
+          <img src={qrImageUrl} alt="Solana Pay QR code" width={200} height={200} style={{ borderRadius: 8 }} />
         </div>
       )}
       <span className="fetch-qr__instruction">Scan the QR code with Phantom or Solflare to pay</span>
@@ -158,20 +158,21 @@ function QrMode({ qr, pollUrl }: { qr: FetchPayload['qr']; pollUrl?: string }) {
 function FetchResult() {
   const toolOutput = useOpenAIGlobal('toolOutput') as FetchPayload | null;
   const openExternal = useOpenExternal();
+  const maxHeight = useMaxHeight();
 
   if (!toolOutput) {
-    return <div className="fetch"><div className="fetch-card"><span>Loading...</span></div></div>;
+    return <div className="fetch" style={{ maxHeight: maxHeight ?? undefined }}><div className="fetch-card"><span>Loading...</span></div></div>;
   }
 
   // QR mode
   if (toolOutput.mode === 'qr') {
     return (
-      <div className="fetch">
+      <div className="fetch" style={{ maxHeight: maxHeight ?? undefined }}>
         <div className="fetch-card">
           <div className="fetch-status">
             <span className="fetch-badge fetch-badge--qr">Payment Required</span>
           </div>
-          <QrMode qr={toolOutput.qr} pollUrl={toolOutput.pollUrl} />
+          <QrMode qr={toolOutput.qr} />
         </div>
       </div>
     );
@@ -180,7 +181,7 @@ function FetchResult() {
   // Error
   if (toolOutput.error) {
     return (
-      <div className="fetch">
+      <div className="fetch" style={{ maxHeight: maxHeight ?? undefined }}>
         <div className="fetch-card">
           <div className="fetch-status">
             <span className="fetch-badge fetch-badge--error">Error</span>
@@ -200,7 +201,7 @@ function FetchResult() {
   const imageUrl = isImageUrl(toolOutput.data);
 
   return (
-    <div className="fetch">
+    <div className="fetch" style={{ maxHeight: maxHeight ?? undefined }}>
       <div className="fetch-card">
         <div className="fetch-status">
           {settled ? (

@@ -1,6 +1,13 @@
 /* x402 Marketplace Search Widget */
 
-.mkt { padding: 18px; display: flex; flex-direction: column; gap: 14px; background: transparent; }
+.mkt {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: transparent;
+  overflow-y: auto;
+}
 
 .mkt-header { display: flex; justify-content: space-between; align-items: center; }
 .mkt-header__count { font-size: 13px; color: var(--text-tertiary); letter-spacing: 0.04em; }
@@ -9,13 +16,13 @@
 .mkt-grid { display: grid; gap: 12px; }
 
 .mkt-card {
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   border: 1px solid var(--surface-border);
   background: var(--surface);
-  padding: 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   transition: border-color 0.15s;
 }
 .mkt-card:hover { border-color: var(--accent); }
@@ -30,9 +37,15 @@
 
 .mkt-price {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 10px; border-radius: 999px;
+  padding: 4px 8px; border-radius: 999px;
   background: rgba(96, 165, 250, 0.12); color: #60a5fa;
-  font-size: 13px; font-weight: 600;
+  font-size: 12px; font-weight: 600;
+}
+
+.mkt-chain-logo {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
 }
 
 .mkt-card__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -47,30 +60,23 @@
 .mkt-verified { color: #34d399; }
 .mkt-unverified { color: var(--text-tertiary); opacity: 0.5; }
 
-.mkt-quality {
-  position: relative; width: 32px; height: 32px; flex-shrink: 0;
-}
-.mkt-quality__ring {
-  transform: rotate(-90deg);
-}
-.mkt-quality__bg { fill: none; stroke: rgba(148, 163, 184, 0.15); stroke-width: 3; }
-.mkt-quality__fill { fill: none; stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset 0.5s ease; }
-.mkt-quality__fill--green { stroke: #34d399; }
-.mkt-quality__fill--yellow { stroke: #fbbf24; }
-.mkt-quality__fill--red { stroke: #f87171; }
-.mkt-quality__label {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 9px; font-weight: 700; color: var(--text-primary);
+.mkt-quality-badge {
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
 .mkt-calls { font-size: 11px; color: var(--text-tertiary); }
 
 .mkt-fetch-btn {
-  all: unset; cursor: pointer;
+  all: unset;
+  cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 6px 14px; border-radius: 8px;
+  min-height: 44px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
   background: var(--accent); color: #0f172a;
-  font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.02em;
   transition: opacity 0.15s;
 }
 .mkt-fetch-btn:hover { opacity: 0.85; }
@@ -82,4 +88,29 @@
   background: var(--surface-muted);
   padding: 32px; text-align: center;
   font-size: 13px; color: var(--text-tertiary);
+}
+
+@media (max-width: 720px) {
+  .mkt {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .mkt-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .mkt-card__top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .mkt-card__right {
+    align-items: flex-start;
+    flex-direction: row;
+    justify-content: space-between;
+  }
 }

@@ -1,19 +1,26 @@
 /* x402 Wallet Dashboard Widget */
 
-.wallet { padding: 18px; display: flex; flex-direction: column; gap: 14px; background: transparent; }
+.wallet {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: transparent;
+  overflow-y: auto;
+}
 
 .wallet-card {
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   border: 1px solid var(--surface-border);
   background: var(--surface);
-  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.32);
-  padding: 20px;
+  box-shadow: none;
+  padding: 12px;
   display: flex; flex-direction: column; gap: 18px;
 }
 
 .wallet-header { display: flex; justify-content: space-between; align-items: center; }
 .wallet-header__title { font-size: 16px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
-.wallet-header__icon { font-size: 20px; }
+.wallet-header__logo { width: 20px; height: 20px; border-radius: 50%; }
 
 .wallet-network {
   display: inline-flex; align-items: center; gap: 4px;
@@ -33,7 +40,7 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .wallet-address__copy {
-  all: unset; cursor: pointer; padding: 4px 8px; border-radius: 6px;
+  all: unset; cursor: pointer; min-height: 32px; padding: 4px 8px; border-radius: 6px;
   background: var(--accent-soft); color: var(--accent);
   font-size: 11px; font-weight: 600; transition: opacity 0.15s;
 }
@@ -68,7 +75,7 @@
 .wallet-qr {
   display: flex; justify-content: center; padding: 8px;
 }
-.wallet-qr canvas, .wallet-qr svg {
+.wallet-qr img, .wallet-qr canvas, .wallet-qr svg {
   border-radius: var(--radius-md);
 }
 
@@ -87,3 +94,30 @@
   background: var(--accent-soft);
 }
 .wallet-setup__hint { font-size: 12px; color: var(--text-tertiary); }
+
+@media (max-width: 720px) {
+  .wallet {
+    padding: 10px;
+  }
+
+  .wallet-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .wallet-address {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .wallet-address__copy {
+    width: 100%;
+    text-align: center;
+  }
+
+  .wallet-balances {
+    grid-template-columns: 1fr;
+  }
+}
