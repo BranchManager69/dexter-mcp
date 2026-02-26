@@ -1,0 +1,60 @@
+{
+  "name": "@dexterai/mcp",
+  "version": "1.1.0",
+  "description": "x402 gateway for AI agents — search, pay, and call any x402 API through Dexter",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": "dist/index.js",
+  "files": [
+    "dist",
+    "assets",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build",
+    "release": "npm version patch && npm publish --access public"
+  },
+  "dependencies": {
+    "@dexterai/x402": "^1.4.0",
+    "@modelcontextprotocol/sdk": "^1.17.4",
+    "@solana/spl-token": "^0.4.9",
+    "@solana/web3.js": "^1.98.0",
+    "bs58": "^6.0.0",
+    "viem": "^2.0.0",
+    "yargs": "^17.7.2",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/yargs": "^17.0.33",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.2",
+    "vitest": "^4.0.18"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "x402",
+    "mcp",
+    "dexter",
+    "solana",
+    "base",
+    "evm",
+    "payments",
+    "ai-agents"
+  ],
+  "author": "Dexter",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Dexter-DAO/dexter-mcp"
+  },
+  "homepage": "https://dexter.cash/mcp"
+}
