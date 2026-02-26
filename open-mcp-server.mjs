@@ -372,7 +372,8 @@ function createOpenMcpServer() {
       const data = { success: true, count: result.resources.length, resources: result.resources, tip: 'Use x402_fetch to call any of these endpoints.' };
       return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }], structuredContent: data, _meta: SEARCH_META };
     } catch (err) {
-      return { content: [{ type: 'text', text: JSON.stringify({ error: err.message }) }], isError: true };
+      const data = { success: false, count: 0, resources: [], error: err?.message || String(err) };
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }], structuredContent: data, isError: true, _meta: SEARCH_META };
     }
   });
 
@@ -409,7 +410,8 @@ function createOpenMcpServer() {
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], structuredContent: result, _meta: FETCH_META };
     } catch (err) {
       const msg = err.cause?.code === 'ENOTFOUND' ? `Could not reach ${args.url}` : err.message || String(err);
-      return { content: [{ type: 'text', text: JSON.stringify({ error: msg }) }], isError: true };
+      const data = { status: 500, error: msg };
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }], structuredContent: data, isError: true, _meta: FETCH_META };
     }
   });
 
@@ -427,7 +429,8 @@ function createOpenMcpServer() {
       const result = await x402Check(args);
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], structuredContent: result, _meta: CHECK_META };
     } catch (err) {
-      return { content: [{ type: 'text', text: JSON.stringify({ error: err.message }) }], isError: true };
+      const data = { error: true, statusCode: 500, message: err?.message || String(err) };
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }], structuredContent: data, isError: true, _meta: CHECK_META };
     }
   });
 
@@ -441,7 +444,8 @@ function createOpenMcpServer() {
       const result = await x402Wallet();
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], structuredContent: result, _meta: WALLET_META };
     } catch (err) {
-      return { content: [{ type: 'text', text: JSON.stringify({ error: err.message }) }], isError: true };
+      const data = { error: err?.message || String(err) };
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }], structuredContent: data, isError: true, _meta: WALLET_META };
     }
   });
 

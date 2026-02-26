@@ -6,6 +6,8 @@ import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
 import { useOpenAIGlobal, useMaxHeight } from '../sdk';
 
+const X402_WIDGET_BUILD = '2026-02-26.1';
+
 type WalletPayload = {
   address?: string;
   network?: string;
@@ -100,6 +102,9 @@ function WalletDashboard() {
 }
 
 const root = document.getElementById('x402-wallet-root');
-if (root) createRoot(root).render(<WalletDashboard />);
+if (root) {
+  root.setAttribute('data-widget-build', X402_WIDGET_BUILD);
+  createRoot(root).render(<WalletDashboard />);
+}
 
 export default WalletDashboard;

@@ -4,6 +4,12 @@
  * 
  * The nginx config serves /mcp/app-assets/ from dexter-fe, not dexter-mcp.
  * This script syncs built assets to the correct location after each build.
+ *
+ * IMPORTANT:
+ * Do not hard-delete old hashed assets on deploy. ChatGPT/Cloudflare can briefly
+ * cache prior HTML that references older hash filenames; deleting those files
+ * causes transient black renderer frames (JS 404). We keep historical assets
+ * and only overwrite existing filenames.
  * 
  * Called automatically by `npm run build:apps-sdk`.
  * 
@@ -45,15 +51,11 @@ function main() {
     process.exit(1);
   }
 
-  // Get pre-deploy state for comparison
-  const preDeployAssets = existsSync(path.join(TARGET, 'assets')) 
-    ? new Set(readdirSync(path.join(TARGET, 'assets')))
-    : new Set();
-
-  // Sync with rsync (--delete removes stale files)
+  // Sync with rsync WITHOUT --delete to preserve older hashed bundles.
+  // This avoids cache-race outages where stale HTML references removed assets.
   try {
     const output = execSync(
-      `rsync -av --delete "${SOURCE}/" "${TARGET}/"`,
+      `rsync -av "${SOURCE}/" "${TARGET}/"`,
       { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
     );
 
@@ -77,8 +79,9 @@ function main() {
       if (added.length > 0) {
         console.log(`   ✅ ${added.length} file(s) added/updated`);
       }
+      // Should remain zero because we intentionally avoid --delete.
       if (deleted.length > 0) {
-        console.log(`   🗑️  ${deleted.length} stale file(s) removed`);
+        console.log(`   ⚠️  ${deleted.length} file(s) removed unexpectedly`);
       }
     } else {
       console.log('   ℹ️  No changes (already in sync)');

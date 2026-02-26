@@ -5,6 +5,8 @@ import '../styles/widgets/x402-pricing.css';
 import { createRoot } from 'react-dom/client';
 import { useOpenAIGlobal, useToolInput, useSendFollowUp, useMaxHeight } from '../sdk';
 
+const X402_WIDGET_BUILD = '2026-02-26.1';
+
 type PaymentOption = {
   price: number;
   priceFormatted: string;
@@ -137,6 +139,9 @@ function PricingCheck() {
 }
 
 const root = document.getElementById('x402-pricing-root');
-if (root) createRoot(root).render(<PricingCheck />);
+if (root) {
+  root.setAttribute('data-widget-build', X402_WIDGET_BUILD);
+  createRoot(root).render(<PricingCheck />);
+}
 
 export default PricingCheck;

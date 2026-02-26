@@ -6,6 +6,8 @@ import { createRoot } from 'react-dom/client';
 import { useState, useEffect } from 'react';
 import { useOpenAIGlobal, useOpenExternal, useMaxHeight } from '../sdk';
 
+const X402_WIDGET_BUILD = '2026-02-26.1';
+
 type FetchPayload = {
   status: number;
   data?: unknown;
@@ -240,6 +242,9 @@ function FetchResult() {
 }
 
 const root = document.getElementById('x402-fetch-result-root');
-if (root) createRoot(root).render(<FetchResult />);
+if (root) {
+  root.setAttribute('data-widget-build', X402_WIDGET_BUILD);
+  createRoot(root).render(<FetchResult />);
+}
 
 export default FetchResult;

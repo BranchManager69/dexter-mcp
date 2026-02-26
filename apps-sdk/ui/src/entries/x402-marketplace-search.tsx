@@ -5,6 +5,8 @@ import '../styles/widgets/x402-marketplace-search.css';
 import { createRoot } from 'react-dom/client';
 import { useOpenAIGlobal, useToolInput, useSendFollowUp, useMaxHeight } from '../sdk';
 
+const X402_WIDGET_BUILD = '2026-02-26.1';
+
 type Resource = {
   name: string;
   url: string;
@@ -142,6 +144,9 @@ function MarketplaceSearch() {
 }
 
 const root = document.getElementById('x402-marketplace-search-root');
-if (root) createRoot(root).render(<MarketplaceSearch />);
+if (root) {
+  root.setAttribute('data-widget-build', X402_WIDGET_BUILD);
+  createRoot(root).render(<MarketplaceSearch />);
+}
 
 export default MarketplaceSearch;
