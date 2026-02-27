@@ -111,6 +111,9 @@ function formatResource(r) {
     seller: r.seller?.displayName || null,
     sellerReputation: r.reputationScore ?? null,
     lastActive: r.lastSettlementAt || null,
+    authRequired: Boolean(r.authRequired),
+    authType: r.authType || null,
+    authHint: r.authHint || null,
   };
 }
 
@@ -187,6 +190,15 @@ async function checkEndpointPricing({ url, method = 'GET' }) {
   });
 
   if (probe.status !== 402) {
+    if (probe.status === 401 || probe.status === 403) {
+      const bodyText = await probe.text().catch(() => '');
+      return {
+        error: true,
+        statusCode: probe.status,
+        authRequired: true,
+        message: bodyText || 'Provider authentication required before x402 payment flow.',
+      };
+    }
     if (probe.status >= 500) return { error: true, statusCode: probe.status, message: 'Server error' };
     if (probe.status >= 400) return { error: true, statusCode: probe.status, message: `Client error: ${probe.status}` };
     return { requiresPayment: false, statusCode: probe.status, free: true };

@@ -87,6 +87,9 @@ function formatResource(r) {
     totalVolume: r.totalVolumeUsdc != null ? `$${Number(r.totalVolumeUsdc).toLocaleString()}` : null,
     seller: r.seller?.displayName || null,
     sellerReputation: r.reputationScore ?? null,
+    authRequired: Boolean(r.authRequired),
+    authType: r.authType || null,
+    authHint: r.authHint || null,
   };
 }
 
@@ -282,6 +285,15 @@ async function x402Check({ url, method }) {
   });
 
   if (res.status !== 402) {
+    if (res.status === 401 || res.status === 403) {
+      const bodyText = await res.text().catch(() => '');
+      return {
+        error: true,
+        statusCode: res.status,
+        authRequired: true,
+        message: bodyText || 'Provider authentication required before x402 payment flow.',
+      };
+    }
     if (res.status >= 500) return { error: true, statusCode: res.status, message: 'Server error' };
     if (res.status >= 400) return { error: true, statusCode: res.status, message: `Client error: ${res.status}` };
     return { requiresPayment: false, statusCode: res.status, free: true };

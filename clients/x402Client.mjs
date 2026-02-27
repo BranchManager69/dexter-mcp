@@ -4,8 +4,11 @@ const DEFAULT_MAX_ATTEMPTS = Number.isFinite(Number(process.env.MCP_X402_MAX_ATT
   ? Math.max(1, Number.parseInt(process.env.MCP_X402_MAX_ATTEMPTS, 10))
   : 2;
 
-const DEFAULT_SETTLEMENT_PATH =
+const DEFAULT_SETTLEMENT_PATH_V1 =
   (process.env.MCP_X402_SETTLEMENT_PATH || '/api/payments/x402/settle').trim() || '/api/payments/x402/settle';
+const DEFAULT_SETTLEMENT_PATH_V2 =
+  (process.env.MCP_X402_SETTLEMENT_V2_PATH || '/api/payments/x402/settle-v2').trim() ||
+  '/api/payments/x402/settle-v2';
 
 function parseBoolean(value, fallback = true) {
   if (value === undefined || value === null || value === '') return fallback;
@@ -17,6 +20,7 @@ function parseBoolean(value, fallback = true) {
 }
 
 const X402_ENABLED = parseBoolean(process.env.MCP_X402_ENABLED, true);
+const X402_SETTLE_V2_ENABLED = parseBoolean(process.env.MCP_X402_SETTLE_V2_ENABLED, true);
 const X402_REGISTER_ENABLED = parseBoolean(process.env.MCP_X402_REGISTER_ENABLED, true);
 const X402_REGISTER_PATH = (process.env.MCP_X402_REGISTER_PATH || '/api/x402/resources/register').trim() || '/api/x402/resources/register';
 const DEFAULT_API_BASE = (process.env.API_BASE_URL || process.env.DEXTER_API_BASE_URL || process.env.DEXTER_API_URL || 'http://localhost:3030').replace(/\/+$/, '');
@@ -103,7 +107,7 @@ function cloneInit(init = {}) {
   return cloned;
 }
 
-function deriveSettlementUrl(targetUrl, settlementPath = DEFAULT_SETTLEMENT_PATH) {
+function deriveSettlementUrl(targetUrl, settlementPath = DEFAULT_SETTLEMENT_PATH_V1) {
   try {
     const base = new URL(targetUrl);
     const path = settlementPath.startsWith('/') ? settlementPath : `/${settlementPath}`;
@@ -148,6 +152,8 @@ function extractForwardHeaders(headers, overrides = {}) {
 
 async function attemptSettlement({
   settleUrl,
+  settlePath,
+  settleMode,
   requirement,
   x402Version,
   request,
@@ -191,22 +197,40 @@ async function attemptSettlement({
       status: response.status,
       statusText: response.statusText,
       url: settleUrl,
+      settlePath,
+      settleMode,
       details: JSON.stringify(details)
     });
     throw error;
   }
 
   const json = await response.json();
-  if (!json?.paymentHeader) {
+  const header = json?.paymentSignature || json?.paymentHeader;
+  if (!header) {
     throw new Error('x402_settlement_missing_header');
   }
+  const headerName =
+    (typeof json?.paymentHeaderName === 'string' && json.paymentHeaderName.trim()) ||
+    (json?.paymentSignature ? 'payment-signature' : 'x-payment');
   return {
-    header: json.paymentHeader,
+    header,
+    headerName: String(headerName).toLowerCase(),
+    settlePath,
+    settleMode,
     attemptId: json.attemptId || null,
     walletAddress: json.walletAddress || null,
     requirement,
     response: json,
   };
+}
+
+function isCaipNetwork(network) {
+  return typeof network === 'string' && network.includes(':');
+}
+
+function shouldUseV2Settlement(requirement, payload) {
+  const version = Number(payload?.x402Version ?? 1);
+  return Boolean(X402_SETTLE_V2_ENABLED && (version >= 2 || isCaipNetwork(requirement?.network)));
 }
 
 async function handlePaymentRequired(url, response, init, options) {
@@ -230,10 +254,26 @@ async function handlePaymentRequired(url, response, init, options) {
       ? options.preferredNetworks
       : ['solana'];
 
-  const requirement =
+  const selectedRequirement =
     selectPaymentRequirements(payload.accepts, preferredNetworks, 'exact') ?? payload.accepts[0];
+  const resourceUrlFrom402 =
+    payload?.resource && typeof payload.resource === 'object' && typeof payload.resource.url === 'string'
+      ? payload.resource.url
+      : null;
+  const requirement = {
+    ...selectedRequirement,
+    ...(resourceUrlFrom402 ? { resource: resourceUrlFrom402 } : {}),
+    ...(selectedRequirement?.amount && !selectedRequirement?.maxAmountRequired
+      ? { maxAmountRequired: selectedRequirement.amount }
+      : {}),
+  };
 
-  const settleUrl = deriveSettlementUrl(url, options?.settlementPath);
+  const useV2SettlePath = shouldUseV2Settlement(requirement, payload);
+  const selectedSettlePath = useV2SettlePath
+    ? options?.settlementPathV2 || DEFAULT_SETTLEMENT_PATH_V2
+    : options?.settlementPath || DEFAULT_SETTLEMENT_PATH_V1;
+  const settleUrl = deriveSettlementUrl(url, selectedSettlePath);
+  const settleMode = useV2SettlePath ? 'v2' : 'legacy';
   const authHeaders = extractForwardHeaders(init.headers, options?.authHeaders);
   const metadata = {
     ...options?.metadata,
@@ -243,6 +283,19 @@ async function handlePaymentRequired(url, response, init, options) {
     },
   };
 
+  try {
+    console.info(
+      '[x402] settlement-select',
+      JSON.stringify({
+        url,
+        settleMode,
+        settlePath: selectedSettlePath,
+        requirementNetwork: requirement?.network ?? null,
+        x402Version: Number.isFinite(payload?.x402Version) ? payload.x402Version : 1,
+      }),
+    );
+  } catch {}
+
   void submitResourceSnapshot(url, payload, {
     metadata,
     facilitatorUrl: options?.facilitatorUrl || null,
@@ -251,6 +304,8 @@ async function handlePaymentRequired(url, response, init, options) {
 
   const settlement = await attemptSettlement({
     settleUrl,
+    settlePath: selectedSettlePath,
+    settleMode,
     requirement,
     x402Version: Number.isFinite(payload?.x402Version) ? payload.x402Version : 1,
     request: {
@@ -266,6 +321,9 @@ async function handlePaymentRequired(url, response, init, options) {
       '[x402] settlement-ok',
       JSON.stringify({
         url,
+        settleMode: settlement.settleMode ?? settleMode,
+        settlePath: settlement.settlePath ?? selectedSettlePath,
+        headerName: settlement.headerName ?? 'x-payment',
         network: settlement.requirement?.network ?? null,
         amount: settlement.requirement?.maxAmountRequired ?? null,
         attempt: metadata?.x402?.attempt ?? 1,
@@ -279,7 +337,8 @@ async function handlePaymentRequired(url, response, init, options) {
 
 export async function fetchWithX402(url, init = {}, options = {}) {
   const maxAttempts = Math.max(1, options.maxAttempts || DEFAULT_MAX_ATTEMPTS);
-  const settlementPath = options.settlementPath || DEFAULT_SETTLEMENT_PATH;
+  const settlementPath = options.settlementPath || DEFAULT_SETTLEMENT_PATH_V1;
+  const settlementPathV2 = options.settlementPathV2 || DEFAULT_SETTLEMENT_PATH_V2;
   const enabled = options.enabled ?? X402_ENABLED;
   const originalInit = cloneInit(init);
   const originalBody = originalInit.body;
@@ -292,7 +351,8 @@ export async function fetchWithX402(url, init = {}, options = {}) {
   while (attempt < maxAttempts) {
     const headers = createHeaders(originalInit.headers);
     if (paymentResult?.header) {
-      headers.set('X-PAYMENT', paymentResult.header);
+      const headerName = paymentResult.headerName === 'payment-signature' ? 'payment-signature' : 'X-PAYMENT';
+      headers.set(headerName, paymentResult.header);
     }
     if (paymentResult?.attemptId) {
       headers.set('X-PAYMENT-ATTEMPT-ID', paymentResult.attemptId);
@@ -325,6 +385,7 @@ export async function fetchWithX402(url, init = {}, options = {}) {
         paymentResult = await handlePaymentRequired(url, response, attemptInit, {
           ...options,
           settlementPath,
+          settlementPathV2,
           attempt: settlementAttempt,
         });
         settlementCount = settlementAttempt;

@@ -6,6 +6,26 @@ interface CheckOpts {
   dev: boolean;
 }
 
+function parsePaymentRequiredHeader(headerValue: string | null): Record<string, unknown> | null {
+  if (!headerValue) return null;
+  const candidates = [headerValue];
+  try { candidates.push(Buffer.from(headerValue, "base64").toString("utf-8")); } catch {}
+  try {
+    const normalized = headerValue.replace(/-/g, "+").replace(/_/g, "/");
+    candidates.push(Buffer.from(normalized, "base64").toString("utf-8"));
+  } catch {}
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object") {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {}
+  }
+  return null;
+}
+
 async function checkEndpoint(url: string, method: string): Promise<Record<string, unknown>> {
   const res = await fetch(url, {
     method,
@@ -15,6 +35,15 @@ async function checkEndpoint(url: string, method: string): Promise<Record<string
   });
 
   if (res.status !== 402) {
+    if (res.status === 401 || res.status === 403) {
+      const bodyText = await res.text().catch(() => "");
+      return {
+        error: true,
+        statusCode: res.status,
+        authRequired: true,
+        message: bodyText || "Provider authentication required before x402 payment flow.",
+      };
+    }
     if (res.status >= 500) {
       return { error: true, statusCode: res.status, message: "Server error" };
     }
@@ -29,8 +58,14 @@ async function checkEndpoint(url: string, method: string): Promise<Record<string
     body = await res.json() as Record<string, unknown>;
   } catch {}
 
+  const headerParsed = parsePaymentRequiredHeader(
+    res.headers.get("PAYMENT-REQUIRED") || res.headers.get("payment-required"),
+  );
+  const source = (headerParsed && typeof headerParsed === "object") ? headerParsed : body;
   const accepts = body?.accepts as Array<Record<string, unknown>> | undefined;
-  if (!accepts?.length) {
+  const acceptsFromHeader = source?.accepts as Array<Record<string, unknown>> | undefined;
+  const effectiveAccepts = accepts?.length ? accepts : acceptsFromHeader;
+  if (!effectiveAccepts?.length) {
     return {
       requiresPayment: true,
       statusCode: 402,
@@ -38,7 +73,7 @@ async function checkEndpoint(url: string, method: string): Promise<Record<string
     };
   }
 
-  const paymentOptions = accepts.map((a) => {
+  const paymentOptions = effectiveAccepts.map((a) => {
     const amount = Number(a.amount || a.maxAmountRequired || 0);
     const decimals = Number(a.extra && typeof a.extra === "object" && "decimals" in a.extra
       ? (a.extra as Record<string, unknown>).decimals
@@ -56,9 +91,9 @@ async function checkEndpoint(url: string, method: string): Promise<Record<string
   return {
     requiresPayment: true,
     statusCode: 402,
-    x402Version: body?.x402Version ?? 2,
+    x402Version: source?.x402Version ?? 2,
     paymentOptions,
-    resource: body?.resource,
+    resource: source?.resource,
   };
 }
 

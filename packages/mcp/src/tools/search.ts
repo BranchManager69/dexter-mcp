@@ -22,6 +22,9 @@ interface MarketplaceResource {
   category?: string | null;
   seller?: { displayName?: string | null };
   reputationScore?: number | null;
+  authRequired?: boolean;
+  authType?: string | null;
+  authHint?: string | null;
 }
 
 function formatResource(r: MarketplaceResource) {
@@ -37,6 +40,10 @@ function formatResource(r: MarketplaceResource) {
     verified: r.verificationStatus === "pass",
     totalCalls: r.totalSettlements ?? 0,
     seller: r.seller?.displayName || null,
+    sellerReputation: r.reputationScore ?? null,
+    authRequired: Boolean(r.authRequired),
+    authType: r.authType ?? null,
+    authHint: r.authHint ?? null,
   };
 }
 
@@ -58,8 +65,7 @@ async function searchMarketplace(
   if (params.network) qs.set("network", params.network);
   if (params.maxPriceUsdc != null) qs.set("maxPrice", String(params.maxPriceUsdc));
   if (params.verifiedOnly) qs.set("verified", "true");
-  qs.set("sort", params.sort || "quality_score");
-  qs.set("order", "desc");
+  qs.set("sort", params.sort || "marketplace");
   qs.set("limit", String(Math.min(params.limit || 20, 50)));
 
   const url = `${getApiBase(opts.dev)}${MARKETPLACE_PATH}?${qs}`;
@@ -92,9 +98,9 @@ export function registerSearchTool(server: McpServer, opts: SearchOpts): void {
       maxPriceUsdc: z.number().optional().describe("Maximum price per call in USDC"),
       verifiedOnly: z.boolean().optional().describe("Only return verified endpoints"),
       sort: z
-        .enum(["relevance", "quality_score", "settlements", "volume", "recent"])
+        .enum(["relevance", "quality_score", "settlements", "volume", "recent", "marketplace"])
         .optional()
-        .describe("Sort order (default: quality_score)"),
+        .describe("Sort order (default: marketplace)"),
       limit: z.number().optional().default(20).describe("Max results (1-50)"),
     },
     async (args) => {
@@ -112,10 +118,13 @@ export function registerSearchTool(server: McpServer, opts: SearchOpts): void {
           _meta: SEARCH_META,
         } as any;
       } catch (err: any) {
+        const payload = { error: err.message || "search_failed", success: false, count: 0, resources: [] };
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: err.message }) }],
+          content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
+          structuredContent: payload,
+          _meta: SEARCH_META,
           isError: true,
-        };
+        } as any;
       }
     },
   );

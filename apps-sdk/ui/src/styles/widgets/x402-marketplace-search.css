@@ -59,6 +59,17 @@
 
 .mkt-verified { color: #34d399; }
 .mkt-unverified { color: var(--text-tertiary); opacity: 0.5; }
+.mkt-auth-required {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(251, 113, 133, 0.12);
+  color: #fb7185;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
 
 .mkt-quality-badge {
   font-size: 11px;

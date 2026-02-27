@@ -19,6 +19,9 @@ type Resource = {
   verified: boolean;
   totalCalls: number;
   seller: string | null;
+  authRequired?: boolean;
+  authType?: string | null;
+  authHint?: string | null;
 };
 
 type SearchPayload = {
@@ -95,6 +98,14 @@ function ApiCard({ resource }: { resource: Resource }) {
         <span className={resource.verified ? 'mkt-verified' : 'mkt-unverified'}>
           {resource.verified ? '✓ Verified' : '○ Unverified'}
         </span>
+        {resource.authRequired && (
+          <span
+            className="mkt-auth-required"
+            title={resource.authHint || 'This endpoint needs provider auth before payment.'}
+          >
+            Auth Required{resource.authType ? ` (${resource.authType.toUpperCase()})` : ''}
+          </span>
+        )}
         {resource.totalCalls > 0 && <span className="mkt-calls">{formatCalls(resource.totalCalls)} calls</span>}
         {resource.network && <span className="mkt-tag">{getNetworkName(resource.network)}</span>}
       </div>

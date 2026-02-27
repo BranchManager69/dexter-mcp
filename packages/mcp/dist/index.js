@@ -113,7 +113,11 @@ function formatResource(r) {
     qualityScore: r.qualityScore ?? null,
     verified: r.verificationStatus === "pass",
     totalCalls: r.totalSettlements ?? 0,
-    seller: r.seller?.displayName || null
+    seller: r.seller?.displayName || null,
+    sellerReputation: r.reputationScore ?? null,
+    authRequired: Boolean(r.authRequired),
+    authType: r.authType ?? null,
+    authHint: r.authHint ?? null
   };
 }
 async function searchMarketplace(params, opts) {
@@ -123,8 +127,7 @@ async function searchMarketplace(params, opts) {
   if (params.network) qs.set("network", params.network);
   if (params.maxPriceUsdc != null) qs.set("maxPrice", String(params.maxPriceUsdc));
   if (params.verifiedOnly) qs.set("verified", "true");
-  qs.set("sort", params.sort || "quality_score");
-  qs.set("order", "desc");
+  qs.set("sort", params.sort || "marketplace");
   qs.set("limit", String(Math.min(params.limit || 20, 50)));
   const url = `${getApiBase(opts.dev)}${MARKETPLACE_PATH}?${qs}`;
   const res = await fetch(url, {
@@ -150,7 +153,7 @@ function registerSearchTool(server, opts) {
       network: z.string().optional().describe("Filter by payment network: 'solana', 'base', 'polygon'"),
       maxPriceUsdc: z.number().optional().describe("Maximum price per call in USDC"),
       verifiedOnly: z.boolean().optional().describe("Only return verified endpoints"),
-      sort: z.enum(["relevance", "quality_score", "settlements", "volume", "recent"]).optional().describe("Sort order (default: quality_score)"),
+      sort: z.enum(["relevance", "quality_score", "settlements", "volume", "recent", "marketplace"]).optional().describe("Sort order (default: marketplace)"),
       limit: z.number().optional().default(20).describe("Max results (1-50)")
     },
     async (args) => {
@@ -168,8 +171,11 @@ function registerSearchTool(server, opts) {
           _meta: SEARCH_META
         };
       } catch (err) {
+        const payload = { error: err.message || "search_failed", success: false, count: 0, resources: [] };
         return {
-          content: [{ type: "text", text: JSON.stringify({ error: err.message }) }],
+          content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+          structuredContent: payload,
+          _meta: SEARCH_META,
           isError: true
         };
       }
@@ -492,6 +498,29 @@ var init_fetch = __esm({
 
 // src/tools/check.ts
 import { z as z3 } from "zod";
+function parsePaymentRequiredHeader(headerValue) {
+  if (!headerValue) return null;
+  const candidates = [headerValue];
+  try {
+    candidates.push(Buffer.from(headerValue, "base64").toString("utf-8"));
+  } catch {
+  }
+  try {
+    const normalized = headerValue.replace(/-/g, "+").replace(/_/g, "/");
+    candidates.push(Buffer.from(normalized, "base64").toString("utf-8"));
+  } catch {
+  }
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object") {
+        return parsed;
+      }
+    } catch {
+    }
+  }
+  return null;
+}
 async function checkEndpoint(url, method) {
   const res = await fetch(url, {
     method,
@@ -500,6 +529,15 @@ async function checkEndpoint(url, method) {
     signal: AbortSignal.timeout(15e3)
   });
   if (res.status !== 402) {
+    if (res.status === 401 || res.status === 403) {
+      const bodyText = await res.text().catch(() => "");
+      return {
+        error: true,
+        statusCode: res.status,
+        authRequired: true,
+        message: bodyText || "Provider authentication required before x402 payment flow."
+      };
+    }
     if (res.status >= 500) {
       return { error: true, statusCode: res.status, message: "Server error" };
     }
@@ -513,15 +551,21 @@ async function checkEndpoint(url, method) {
     body = await res.json();
   } catch {
   }
+  const headerParsed = parsePaymentRequiredHeader(
+    res.headers.get("PAYMENT-REQUIRED") || res.headers.get("payment-required")
+  );
+  const source = headerParsed && typeof headerParsed === "object" ? headerParsed : body;
   const accepts = body?.accepts;
-  if (!accepts?.length) {
+  const acceptsFromHeader = source?.accepts;
+  const effectiveAccepts = accepts?.length ? accepts : acceptsFromHeader;
+  if (!effectiveAccepts?.length) {
     return {
       requiresPayment: true,
       statusCode: 402,
       error: "No payment options found in 402 response"
     };
   }
-  const paymentOptions = accepts.map((a) => {
+  const paymentOptions = effectiveAccepts.map((a) => {
     const amount = Number(a.amount || a.maxAmountRequired || 0);
     const decimals = Number(a.extra && typeof a.extra === "object" && "decimals" in a.extra ? a.extra.decimals : 6);
     return {
@@ -536,9 +580,9 @@ async function checkEndpoint(url, method) {
   return {
     requiresPayment: true,
     statusCode: 402,
-    x402Version: body?.x402Version ?? 2,
+    x402Version: source?.x402Version ?? 2,
     paymentOptions,
-    resource: body?.resource
+    resource: source?.resource
   };
 }
 function registerCheckTool(server, opts) {
