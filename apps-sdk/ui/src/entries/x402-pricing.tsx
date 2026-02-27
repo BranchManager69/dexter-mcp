@@ -87,6 +87,9 @@ function PricingCheck() {
   }
 
   const options = toolOutput.paymentOptions || [];
+  const cheapestIndex = options.length
+    ? options.reduce((best, current, idx) => (current.price < options[best].price ? idx : best), 0)
+    : -1;
 
   const handleFetch = async () => {
     if (!toolInput?.url) return;
@@ -98,7 +101,10 @@ function PricingCheck() {
     <div className="pricing" style={{ maxHeight: maxHeight ?? undefined }}>
       <div className="pricing-card">
         <div className="pricing-header">
-          <span className="pricing-header__title">Payment Required</span>
+          <div className="pricing-header__title-wrap">
+            <span className="pricing-header__eyebrow">x402 Pricing</span>
+            <span className="pricing-header__title">Payment Required</span>
+          </div>
           <div style={{ display: 'flex', gap: 6 }}>
             {toolOutput.x402Version && (
               <span className="pricing-badge pricing-badge--version">x402 v{toolOutput.x402Version}</span>
@@ -113,7 +119,7 @@ function PricingCheck() {
           {options.map((opt, i) => {
             const chain = CHAIN_MAP[opt.network] || { name: opt.network };
             return (
-              <div key={i} className="pricing-option">
+              <div key={i} className={`pricing-option ${i === cheapestIndex ? 'pricing-option--best' : ''}`}>
                 <div className="pricing-option__chain">
                   {chain.logo ? <img className="pricing-option__logo" src={chain.logo} alt={chain.name} /> : <span>⬡</span>}
                 </div>
@@ -122,6 +128,7 @@ function PricingCheck() {
                   <span className="pricing-option__asset">USDC</span>
                   <span className="pricing-option__payto">{shortenAddress(opt.payTo)}</span>
                 </div>
+                {i === cheapestIndex && <span className="pricing-option__best">Best route</span>}
                 <span className="pricing-option__price">{opt.priceFormatted}</span>
               </div>
             );

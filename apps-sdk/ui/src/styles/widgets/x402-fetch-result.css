@@ -1,21 +1,43 @@
 /* x402 Fetch Result Widget */
 
 .fetch {
-  padding: 12px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   background: transparent;
   overflow-y: auto;
 }
 
 .fetch-card {
+  position: relative;
   border-radius: var(--radius-md);
   border: 1px solid var(--surface-border);
-  background: var(--surface);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 28%),
+    var(--surface);
   box-shadow: none;
-  padding: 12px;
+  padding: 14px;
   display: flex; flex-direction: column; gap: 16px;
+  overflow: hidden;
+}
+
+.fetch-card::before {
+  content: '';
+  position: absolute;
+  inset: auto -30px -30px auto;
+  width: 160px;
+  height: 160px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.16) 0%, transparent 72%);
+  pointer-events: none;
+}
+
+.fetch-card__title {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
 }
 
 .fetch-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -33,7 +55,7 @@
 .fetch-receipt {
   display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
   padding: 14px; border-radius: var(--radius-md);
-  background: var(--surface-muted); border: 1px solid var(--surface-border);
+  background: rgba(15, 23, 42, 0.62); border: 1px solid var(--surface-border);
 }
 .fetch-receipt__field { display: flex; flex-direction: column; gap: 3px; }
 .fetch-receipt__label {
@@ -52,7 +74,7 @@
 .fetch-data {
   border-radius: var(--radius-md);
   border: 1px solid var(--surface-border);
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(15, 23, 42, 0.66);
   overflow: hidden;
 }
 .fetch-data__header {
@@ -69,6 +91,7 @@
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 12px; line-height: 1.6; color: var(--text-secondary);
   white-space: pre-wrap; word-break: break-word;
+  scrollbar-width: thin;
 }
 .fetch-data__image { max-width: 100%; border-radius: var(--radius-sm); }
 

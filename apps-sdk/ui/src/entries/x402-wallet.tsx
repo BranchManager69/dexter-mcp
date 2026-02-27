@@ -57,14 +57,17 @@ function WalletDashboard() {
     <div className="wallet" style={{ maxHeight: maxHeight ?? undefined }}>
       <div className="wallet-card">
         <div className="wallet-header">
-          <span className="wallet-header__title">
-            <img
-              className="wallet-header__logo"
-              src="https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/sol.png"
-              alt="Solana"
-            />
-            x402 Wallet
-          </span>
+          <div className="wallet-header__title-wrap">
+            <span className="wallet-header__eyebrow">x402 Settlement Wallet</span>
+            <span className="wallet-header__title">
+              <img
+                className="wallet-header__logo"
+                src="https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/sol.png"
+                alt="Solana"
+              />
+              Wallet Overview
+            </span>
+          </div>
           <span className="wallet-network">{toolOutput.networkName || 'Solana'}</span>
         </div>
 
@@ -93,6 +96,7 @@ function WalletDashboard() {
 
         {qrSrc && (
           <div className="wallet-qr">
+            <div className="wallet-qr__label">Deposit</div>
             <img src={qrSrc} alt="Wallet QR code" width={160} height={160} style={{ borderRadius: 12 }} />
           </div>
         )}

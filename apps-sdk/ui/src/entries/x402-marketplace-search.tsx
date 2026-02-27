@@ -70,6 +70,7 @@ function ApiCard({ resource }: { resource: Resource }) {
   const sendFollowUp = useSendFollowUp();
   const networkSlug = getNetworkSlug(resource.network);
   const chainLogo = CHAIN_LOGOS[networkSlug];
+  const networkName = getNetworkName(resource.network);
 
   const handleFetch = async () => {
     const method = resource.method || 'GET';
@@ -85,9 +86,10 @@ function ApiCard({ resource }: { resource: Resource }) {
         </div>
         <div className="mkt-card__right">
           <span className="mkt-price">
-            {chainLogo && <img className="mkt-chain-logo" src={chainLogo} alt={getNetworkName(resource.network)} />}
+            {chainLogo && <img className="mkt-chain-logo" src={chainLogo} alt={networkName} />}
             {resource.price}
           </span>
+          {networkName && <span className="mkt-network">{networkName}</span>}
           {resource.qualityScore !== null && <span className="mkt-quality-badge">Quality {resource.qualityScore}</span>}
         </div>
       </div>
@@ -109,6 +111,7 @@ function ApiCard({ resource }: { resource: Resource }) {
         {resource.totalCalls > 0 && <span className="mkt-calls">{formatCalls(resource.totalCalls)} calls</span>}
         {resource.network && <span className="mkt-tag">{getNetworkName(resource.network)}</span>}
       </div>
+      <div className="mkt-card__url" title={resource.url}>{resource.url}</div>
       <button className="mkt-fetch-btn" onClick={handleFetch}>
         Fetch {resource.price}
       </button>
@@ -142,8 +145,11 @@ function MarketplaceSearch() {
   return (
     <div className="mkt" style={{ maxHeight: maxHeight ?? undefined }}>
       <div className="mkt-header">
-        <span className="mkt-header__count">{toolOutput.count} result{toolOutput.count !== 1 ? 's' : ''}</span>
-        {toolInput?.query && <span className="mkt-header__query">"{toolInput.query}"</span>}
+        <div className="mkt-header__title-block">
+          <span className="mkt-header__eyebrow">x402 Marketplace</span>
+          <span className="mkt-header__count">{toolOutput.count} result{toolOutput.count !== 1 ? 's' : ''}</span>
+        </div>
+        {toolInput?.query && <span className="mkt-header__query">Query: "{toolInput.query}"</span>}
       </div>
       <div className="mkt-grid">
         {toolOutput.resources.map((r, i) => (

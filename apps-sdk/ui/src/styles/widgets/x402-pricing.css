@@ -1,26 +1,49 @@
 /* x402 Pricing Check Widget */
 
 .pricing {
-  padding: 12px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   background: transparent;
   overflow-y: auto;
 }
 
 .pricing-card {
+  position: relative;
   border-radius: var(--radius-md);
   border: 1px solid var(--surface-border);
-  background: var(--surface);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 28%),
+    var(--surface);
   box-shadow: none;
-  padding: 12px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.pricing-card::before {
+  content: '';
+  position: absolute;
+  right: -50px;
+  top: -50px;
+  width: 160px;
+  height: 160px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.14) 0%, transparent 72%);
+  pointer-events: none;
 }
 
 .pricing-header { display: flex; justify-content: space-between; align-items: center; }
+.pricing-header__title-wrap { display: flex; flex-direction: column; gap: 3px; }
+.pricing-header__eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
 .pricing-header__title { font-size: 16px; font-weight: 600; color: var(--text-primary); }
 
 .pricing-badge {
@@ -39,9 +62,14 @@
   display: flex; align-items: center; gap: 14px;
   padding: 12px; border-radius: var(--radius-md);
   background: var(--surface-muted); border: 1px solid var(--surface-border);
-  transition: border-color 0.15s;
+  transition: border-color 0.18s ease, transform 0.18s ease;
 }
-.pricing-option:hover { border-color: var(--accent); }
+.pricing-option:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+.pricing-option--best {
+  border-color: rgba(52, 211, 153, 0.55);
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.08), rgba(15, 23, 42, 0.45));
+}
 
 .pricing-option__chain {
   width: 32px; height: 32px; border-radius: 10px;
@@ -63,6 +91,17 @@
 
 .pricing-option__price {
   font-size: 18px; font-weight: 700; color: #34d399; flex-shrink: 0;
+}
+
+.pricing-option__best {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 999px;
+  padding: 4px 8px;
 }
 
 .pricing-resource {
@@ -120,5 +159,9 @@
   .pricing-option__price {
     margin-left: auto;
     font-size: 16px;
+  }
+
+  .pricing-option__best {
+    order: 2;
   }
 }

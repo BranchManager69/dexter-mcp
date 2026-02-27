@@ -1,24 +1,47 @@
 /* x402 Wallet Dashboard Widget */
 
 .wallet {
-  padding: 12px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   background: transparent;
   overflow-y: auto;
 }
 
 .wallet-card {
+  position: relative;
   border-radius: var(--radius-md);
   border: 1px solid var(--surface-border);
-  background: var(--surface);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 30%),
+    var(--surface);
   box-shadow: none;
-  padding: 12px;
+  padding: 14px;
   display: flex; flex-direction: column; gap: 18px;
+  overflow: hidden;
+}
+
+.wallet-card::before {
+  content: '';
+  position: absolute;
+  left: -40px;
+  top: -30px;
+  width: 150px;
+  height: 150px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.13) 0%, transparent 72%);
+  pointer-events: none;
 }
 
 .wallet-header { display: flex; justify-content: space-between; align-items: center; }
+.wallet-header__title-wrap { display: flex; flex-direction: column; gap: 3px; }
+.wallet-header__eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
 .wallet-header__title { font-size: 16px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
 .wallet-header__logo { width: 20px; height: 20px; border-radius: 50%; }
 
@@ -32,7 +55,7 @@
 .wallet-address {
   display: flex; align-items: center; gap: 8px;
   padding: 12px; border-radius: var(--radius-md);
-  background: var(--surface-muted); border: 1px solid var(--surface-border);
+  background: rgba(15, 23, 42, 0.64); border: 1px solid var(--surface-border);
 }
 .wallet-address__text {
   flex: 1; font-family: "JetBrains Mono", ui-monospace, monospace;
@@ -51,7 +74,7 @@
 .wallet-balance {
   display: flex; flex-direction: column; gap: 4px;
   padding: 14px; border-radius: var(--radius-md);
-  background: var(--surface-muted); border: 1px solid var(--surface-border);
+  background: rgba(15, 23, 42, 0.58); border: 1px solid var(--surface-border);
 }
 .wallet-balance__label {
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-tertiary);
@@ -73,7 +96,21 @@
 }
 
 .wallet-qr {
-  display: flex; justify-content: center; padding: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, 0.45);
+}
+.wallet-qr__label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-tertiary);
 }
 .wallet-qr img, .wallet-qr canvas, .wallet-qr svg {
   border-radius: var(--radius-md);

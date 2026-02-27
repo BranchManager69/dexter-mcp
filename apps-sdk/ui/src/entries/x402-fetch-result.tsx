@@ -62,8 +62,18 @@ function formatPrice(requirements?: FetchPayload['payment']['details']['requirem
   return `$${price.toFixed(2)}`;
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function syntaxHighlight(json: string): string {
-  return json.replace(
+  const safe = escapeHtml(json);
+  return safe.replace(
     /("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
     (match) => {
       let cls = 'json-number';
@@ -87,7 +97,7 @@ function JsonViewer({ data }: { data: unknown }) {
   return (
     <div className="fetch-data">
       <div className="fetch-data__header">
-        <span>Response</span>
+        <span>Response Payload</span>
         {isLong && (
           <button className="fetch-data__toggle" onClick={() => setExpanded(!expanded)}>
             {expanded ? 'Collapse' : 'Expand'}
@@ -171,6 +181,7 @@ function FetchResult() {
     return (
       <div className="fetch" style={{ maxHeight: maxHeight ?? undefined }}>
         <div className="fetch-card">
+          <div className="fetch-card__title">x402 Execution Result</div>
           <div className="fetch-status">
             <span className="fetch-badge fetch-badge--qr">Payment Required</span>
           </div>
@@ -185,6 +196,7 @@ function FetchResult() {
     return (
       <div className="fetch" style={{ maxHeight: maxHeight ?? undefined }}>
         <div className="fetch-card">
+          <div className="fetch-card__title">x402 Execution Result</div>
           <div className="fetch-status">
             <span className="fetch-badge fetch-badge--error">Error</span>
           </div>
@@ -205,6 +217,7 @@ function FetchResult() {
   return (
     <div className="fetch" style={{ maxHeight: maxHeight ?? undefined }}>
       <div className="fetch-card">
+        <div className="fetch-card__title">x402 Execution Result</div>
         <div className="fetch-status">
           {settled ? (
             <span className="fetch-badge fetch-badge--success">✓ Paid</span>
