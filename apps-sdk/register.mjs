@@ -127,7 +127,7 @@ function injectBootstrap(html, baseHref) {
   return `${bootstrapScript}\n${html}`;
 }
 
-export function registerAppsSdkResources(server) {
+export function registerAppsSdkResources(server, options = {}) {
   if (!server || typeof server.registerResource !== 'function') return;
   if (!isAppsSdkEnabled()) return;
 
@@ -530,7 +530,14 @@ export function registerAppsSdkResources(server) {
     },
   ];
 
-  for (const entry of entries) {
+  const allowedTemplateUris = Array.isArray(options.allowedTemplateUris)
+    ? new Set(options.allowedTemplateUris.filter((uri) => typeof uri === 'string' && uri.trim()))
+    : null;
+  const selectedEntries = allowedTemplateUris
+    ? entries.filter((entry) => allowedTemplateUris.has(entry.templateUri))
+    : entries;
+
+  for (const entry of selectedEntries) {
     const assetPath = path.join(APPS_SDK_DIR, entry.file);
     if (!fileExistsSync(assetPath)) {
       console.warn('[apps-sdk] missing asset', assetPath);
