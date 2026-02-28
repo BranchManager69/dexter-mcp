@@ -117,6 +117,85 @@ function formatResource(r) {
   };
 }
 
+function normalizeSearchQuery(query) {
+  if (typeof query !== 'string') return '';
+  const trimmed = query.trim();
+  if (!trimmed) return '';
+  if (/^[*%_\-.\s]+$/.test(trimmed)) return '';
+  return trimmed;
+}
+
+function tokenize(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((token) => token.length >= 3);
+}
+
+function levenshtein(a, b) {
+  if (a === b) return 0;
+  const rows = a.length + 1;
+  const cols = b.length + 1;
+  const dp = Array.from({ length: rows }, () => Array(cols).fill(0));
+  for (let i = 0; i < rows; i += 1) dp[i][0] = i;
+  for (let j = 0; j < cols; j += 1) dp[0][j] = j;
+  for (let i = 1; i < rows; i += 1) {
+    for (let j = 1; j < cols; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost,
+      );
+    }
+  }
+  return dp[rows - 1][cols - 1];
+}
+
+function scoreResourceMatch(resource, queryTokens) {
+  if (!queryTokens.length) return 0;
+  const text = `${resource.name || ''} ${resource.description || ''} ${resource.category || ''}`.toLowerCase();
+  const words = tokenize(text);
+  let score = 0;
+  for (const token of queryTokens) {
+    if (text.includes(token)) {
+      score += 4;
+      continue;
+    }
+    if (token.length >= 5 && text.includes(token.slice(0, -1))) {
+      score += 2;
+      continue;
+    }
+    if (token.length >= 5 && words.some((w) => Math.abs(w.length - token.length) <= 1 && levenshtein(w, token) <= 1)) {
+      score += 1;
+    }
+  }
+  return score;
+}
+
+async function fetchMarketplaceResources({ query, category, maxPriceUsdc, network, verifiedOnly, sort, limit }) {
+  const params = new URLSearchParams();
+  if (query) params.set('search', query);
+  if (category) params.set('category', category);
+  if (maxPriceUsdc != null) params.set('maxPrice', String(maxPriceUsdc));
+  if (network) params.set('network', network);
+  if (verifiedOnly) params.set('verified', 'true');
+  params.set('sort', sort || 'marketplace');
+  params.set('order', 'desc');
+  params.set('limit', String(Math.min(limit || 20, 50)));
+
+  const url = `${DEXTER_API}${MARKETPLACE_PATH}?${params}`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+
+  if (!res.ok) {
+    throw new Error(`Marketplace returned ${res.status}: ${await res.text().catch(() => 'unknown')}`);
+  }
+
+  const data = await res.json();
+  return (data.resources || []).map(formatResource);
+}
+
 function parseResponseData(contentType, json, text) {
   if (json !== null && json !== undefined) return json;
   if (contentType.includes('application/json') && text) {
@@ -157,27 +236,61 @@ function normalizePaymentReceipt(paymentReceipt, response) {
 // ─── x402_search ─────────────────────────────────────────────────────────────
 
 async function searchMarketplace({ query, category, maxPriceUsdc, network, verifiedOnly, sort, limit }) {
-  const params = new URLSearchParams();
-  if (query) params.set('search', query);
-  if (category) params.set('category', category);
-  if (maxPriceUsdc != null) params.set('maxPrice', String(maxPriceUsdc));
-  if (network) params.set('network', network);
-  if (verifiedOnly) params.set('verified', 'true');
-  if (sort) params.set('sort', sort);
-  params.set('order', 'desc');
-  params.set('limit', String(Math.min(limit || 20, 50)));
+  const rawQuery = typeof query === 'string' ? query.trim() : '';
+  const normalizedQuery = normalizeSearchQuery(rawQuery);
+  const primaryResources = await fetchMarketplaceResources({
+    query: normalizedQuery,
+    category,
+    maxPriceUsdc,
+    network,
+    verifiedOnly,
+    sort,
+    limit,
+  });
 
-  const url = `${DEXTER_API}${MARKETPLACE_PATH}?${params}`;
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-
-  if (!res.ok) {
-    throw new Error(`Marketplace returned ${res.status}: ${await res.text().catch(() => 'unknown')}`);
+  if (primaryResources.length > 0 || !normalizedQuery) {
+    const fallbackUsed = Boolean(rawQuery && !normalizedQuery);
+    return {
+      resources: primaryResources,
+      total: primaryResources.length,
+      searchMeta: fallbackUsed
+        ? {
+            mode: 'normalized_browse',
+            note: 'Wildcard-only query was normalized to a broad marketplace browse.',
+          }
+        : { mode: 'direct' },
+    };
   }
 
-  const data = await res.json();
+  const broadResources = await fetchMarketplaceResources({
+    query: '',
+    category,
+    maxPriceUsdc,
+    network,
+    verifiedOnly,
+    sort,
+    limit: 50,
+  });
+  const tokens = tokenize(normalizedQuery);
+  const ranked = broadResources
+    .map((resource) => ({ resource, score: scoreResourceMatch(resource, tokens) }))
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, Math.min(limit || 20, 50))
+    .map((row) => row.resource);
+
   return {
-    resources: (data.resources || []).map(formatResource),
-    total: data.resources?.length || 0,
+    resources: ranked,
+    total: ranked.length,
+    searchMeta: ranked.length
+      ? {
+          mode: 'fuzzy_broad',
+          note: `No exact matches for "${normalizedQuery}". Showing closest related results from a broader marketplace scan.`,
+        }
+      : {
+          mode: 'empty_after_fallback',
+          note: `No exact or close matches found for "${normalizedQuery}" after broad fallback.`,
+        },
   };
 }
 
@@ -359,17 +472,16 @@ export function registerX402ClientToolset(server) {
     title: 'x402 Marketplace Search',
     description:
       'Search the Dexter x402 marketplace for paid API resources. ' +
-      'Returns services with pricing, quality scores, verification status, ' +
-      'settlement volume, and seller reputation. Use this to discover APIs ' +
-      'an agent can pay for and call.',
+      'When exact matches are empty, automatically performs a broad fallback scan ' +
+      'and returns closest related results with explicit search metadata.',
     inputSchema: {
       query: z.string().optional().describe('Search term (e.g. "token analysis", "image generation", "sentiment")'),
       category: z.string().optional().describe('Filter by category (e.g. "api", "games", "creative")'),
       network: z.string().optional().describe('Filter by payment network: "solana", "base", "polygon"'),
       maxPriceUsdc: z.number().optional().describe('Maximum price per call in USDC'),
       verifiedOnly: z.boolean().optional().describe('Only return verified (quality-checked) endpoints'),
-      sort: z.enum(['relevance', 'quality_score', 'settlements', 'volume', 'recent']).optional()
-        .describe('Sort results (default: relevance when searching, settlements otherwise)'),
+      sort: z.enum(['marketplace', 'relevance', 'quality_score', 'settlements', 'volume', 'recent']).optional()
+        .describe('Sort results (default: marketplace)'),
       limit: z.number().optional().describe('Max results (default: 20, max: 50)'),
     },
     _meta: {
@@ -385,8 +497,9 @@ export function registerX402ClientToolset(server) {
         success: true,
         count: result.resources.length,
         resources: result.resources,
+        searchMeta: result.searchMeta || { mode: 'direct' },
         source: 'Dexter x402 Marketplace (https://dexter.cash)',
-        tip: 'Use x402_fetch to call any of these endpoints. Payment is handled automatically.',
+        tip: 'Use x402_fetch or x402_pay to call any of these endpoints. Payment is handled automatically.',
       };
       return {
         structuredContent: data,

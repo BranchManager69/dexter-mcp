@@ -6,7 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { useState, useEffect } from 'react';
 import { useOpenAIGlobal, useOpenExternal, useMaxHeight } from '../sdk';
 
-const X402_WIDGET_BUILD = '2026-02-26.1';
+const X402_WIDGET_BUILD = '2026-02-27.1';
 
 type FetchPayload = {
   status: number;
@@ -31,7 +31,37 @@ type FetchPayload = {
   message?: string;
   qr?: { solanaPayUrl?: string; nonce?: string; expiresAt?: string };
   pollUrl?: string;
+  session?: {
+    sessionId?: string;
+    sessionToken?: string;
+    funding?: {
+      amountAtomic?: string;
+      amountUsdc?: number;
+      walletAddress?: string;
+      payTo?: string;
+      txUrl?: string;
+      solanaPayUrl?: string;
+      reference?: string;
+    };
+    expiresAt?: string;
+    state?: string;
+  };
   requirements?: unknown;
+  sessionFunding?: {
+    amountAtomic?: string;
+    amountUsdc?: number;
+    walletAddress?: string;
+    payTo?: string;
+    txUrl?: string;
+    solanaPayUrl?: string;
+    reference?: string;
+  };
+  merchantSettlement?: Array<{
+    network?: string | null;
+    asset?: string | null;
+    amountAtomic?: string;
+    payTo?: string | null;
+  }>;
 };
 
 function shortenHash(hash: string): string {
@@ -167,6 +197,16 @@ function QrMode({ qr }: { qr: FetchPayload['qr'] }) {
   );
 }
 
+function FetchRail({ state }: { state: 'success' | 'pending' | 'error' }) {
+  return (
+    <div className="fetch-rail" aria-label="Execution progress">
+      <span className={`fetch-rail__step ${state !== 'error' ? 'is-done' : ''}`}>Challenge</span>
+      <span className={`fetch-rail__step ${state === 'success' ? 'is-done' : state === 'pending' ? 'is-active' : ''}`}>Settle</span>
+      <span className={`fetch-rail__step ${state === 'success' ? 'is-done' : state === 'error' ? 'is-active' : ''}`}>Response</span>
+    </div>
+  );
+}
+
 function FetchResult() {
   const toolOutput = useOpenAIGlobal('toolOutput') as FetchPayload | null;
   const openExternal = useOpenExternal();
@@ -177,15 +217,54 @@ function FetchResult() {
   }
 
   // QR mode
-  if (toolOutput.mode === 'qr') {
+  if (toolOutput.mode === 'session_required') {
+    const session = toolOutput.session;
+    const funding = toolOutput.sessionFunding || session?.funding;
+    const walletAddress = funding?.walletAddress || funding?.payTo;
+    const qr = funding?.solanaPayUrl ? { solanaPayUrl: funding.solanaPayUrl, expiresAt: session?.expiresAt } : null;
     return (
       <div className="fetch" style={{ maxHeight: maxHeight ?? undefined }}>
         <div className="fetch-card">
           <div className="fetch-card__title">x402 Execution Result</div>
+          <div className="fetch-card__hero">Execution Ledger</div>
+          <FetchRail state="pending" />
           <div className="fetch-status">
-            <span className="fetch-badge fetch-badge--qr">Payment Required</span>
+            <span className="fetch-badge fetch-badge--qr">Session Required</span>
           </div>
-          <QrMode qr={toolOutput.qr} />
+          <div className="fetch-session">
+            <span className="fetch-session__line">{toolOutput.message || 'Fund an anonymous OpenDexter session to run canonical x402 fetch.'}</span>
+            {session?.sessionId && <span className="fetch-session__line">Session: {session.sessionId}</span>}
+            {session?.sessionToken && <span className="fetch-session__line">Token: {session.sessionToken}</span>}
+            {funding?.amountUsdc !== undefined && (
+              <span className="fetch-session__line">Funding target: ${Number(funding.amountUsdc).toFixed(2)} USDC</span>
+            )}
+            {funding?.amountAtomic && <span className="fetch-session__line">Amount atomic: {funding.amountAtomic}</span>}
+            {walletAddress && <span className="fetch-session__line">Deposit wallet: {walletAddress}</span>}
+            {funding?.reference && <span className="fetch-session__line">Reference: {funding.reference}</span>}
+            {funding?.txUrl && (
+              <button className="fetch-session__action" onClick={() => openExternal(funding.txUrl!)}>
+                Open Funding Link
+              </button>
+            )}
+            {funding?.solanaPayUrl && (
+              <button className="fetch-session__action" onClick={() => openExternal(funding.solanaPayUrl!)}>
+                Open Solana Pay
+              </button>
+            )}
+            {session?.expiresAt && <span className="fetch-session__line">Expires: {new Date(session.expiresAt).toLocaleTimeString()}</span>}
+          </div>
+          {qr && <QrMode qr={qr} />}
+          {toolOutput.merchantSettlement && toolOutput.merchantSettlement.length > 0 && (
+            <div className="fetch-session fetch-session--warn">
+              <span className="fetch-session__line">Merchant settlement destinations (DO NOT FUND DIRECTLY):</span>
+              {toolOutput.merchantSettlement.map((m, i) => (
+                <span key={`${m.payTo || 'payto'}-${i}`} className="fetch-session__line">
+                  {getNetworkName(m.network || '') || m.network || 'Network'} · {m.asset || 'asset'} · {m.payTo || 'n/a'}
+                </span>
+              ))}
+            </div>
+          )}
+          {toolOutput.requirements && <JsonViewer data={toolOutput.requirements} />}
         </div>
       </div>
     );
@@ -197,6 +276,8 @@ function FetchResult() {
       <div className="fetch" style={{ maxHeight: maxHeight ?? undefined }}>
         <div className="fetch-card">
           <div className="fetch-card__title">x402 Execution Result</div>
+          <div className="fetch-card__hero">Execution Ledger</div>
+          <FetchRail state="error" />
           <div className="fetch-status">
             <span className="fetch-badge fetch-badge--error">Error</span>
           </div>
@@ -218,6 +299,8 @@ function FetchResult() {
     <div className="fetch" style={{ maxHeight: maxHeight ?? undefined }}>
       <div className="fetch-card">
         <div className="fetch-card__title">x402 Execution Result</div>
+        <div className="fetch-card__hero">Execution Ledger</div>
+        <FetchRail state={settled ? 'success' : 'pending'} />
         <div className="fetch-status">
           {settled ? (
             <span className="fetch-badge fetch-badge--success">✓ Paid</span>

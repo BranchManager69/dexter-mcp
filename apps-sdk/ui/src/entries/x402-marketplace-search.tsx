@@ -5,7 +5,7 @@ import '../styles/widgets/x402-marketplace-search.css';
 import { createRoot } from 'react-dom/client';
 import { useOpenAIGlobal, useToolInput, useSendFollowUp, useMaxHeight } from '../sdk';
 
-const X402_WIDGET_BUILD = '2026-02-26.1';
+const X402_WIDGET_BUILD = '2026-02-26.3';
 
 type Resource = {
   name: string;
@@ -32,16 +32,6 @@ type SearchPayload = {
   error?: string;
 };
 
-const CHAIN_LOGOS: Record<string, string> = {
-  solana: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/sol.png',
-  base: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/base.png',
-  polygon: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/matic.png',
-  arbitrum: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/arb.png',
-  optimism: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/op.png',
-  avalanche: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/avax.png',
-  skale: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/skl.png',
-};
-
 function formatCalls(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
@@ -66,11 +56,22 @@ function getNetworkSlug(network: string | null): string {
   return network.toLowerCase();
 }
 
-function ApiCard({ resource }: { resource: Resource }) {
+function getQualityTone(score: number | null): 'high' | 'mid' | 'low' | 'na' {
+  if (score === null || Number.isNaN(score)) return 'na';
+  if (score >= 85) return 'high';
+  if (score >= 65) return 'mid';
+  return 'low';
+}
+
+function ChainIcon({ slug }: { slug: string }) {
+  return <span className={`mkt-chain-icon mkt-chain-icon--${slug || 'default'}`} aria-hidden="true" />;
+}
+
+function ApiCard({ resource, featured = false }: { resource: Resource; featured?: boolean }) {
   const sendFollowUp = useSendFollowUp();
   const networkSlug = getNetworkSlug(resource.network);
-  const chainLogo = CHAIN_LOGOS[networkSlug];
   const networkName = getNetworkName(resource.network);
+  const qualityTone = getQualityTone(resource.qualityScore);
 
   const handleFetch = async () => {
     const method = resource.method || 'GET';
@@ -78,7 +79,7 @@ function ApiCard({ resource }: { resource: Resource }) {
   };
 
   return (
-    <div className="mkt-card">
+    <div className={`mkt-card ${featured ? 'mkt-card--featured' : ''}`}>
       <div className="mkt-card__top">
         <div className="mkt-card__info">
           <span className="mkt-card__name">{resource.name}</span>
@@ -86,11 +87,15 @@ function ApiCard({ resource }: { resource: Resource }) {
         </div>
         <div className="mkt-card__right">
           <span className="mkt-price">
-            {chainLogo && <img className="mkt-chain-logo" src={chainLogo} alt={networkName} />}
+            <ChainIcon slug={networkSlug} />
             {resource.price}
           </span>
           {networkName && <span className="mkt-network">{networkName}</span>}
-          {resource.qualityScore !== null && <span className="mkt-quality-badge">Quality {resource.qualityScore}</span>}
+          {resource.qualityScore !== null && (
+            <span className={`mkt-quality-badge mkt-quality-badge--${qualityTone}`}>
+              Quality {resource.qualityScore}
+            </span>
+          )}
         </div>
       </div>
       {resource.description && <div className="mkt-card__desc">{resource.description}</div>}
@@ -109,11 +114,16 @@ function ApiCard({ resource }: { resource: Resource }) {
           </span>
         )}
         {resource.totalCalls > 0 && <span className="mkt-calls">{formatCalls(resource.totalCalls)} calls</span>}
-        {resource.network && <span className="mkt-tag">{getNetworkName(resource.network)}</span>}
+        {resource.network && (
+          <span className="mkt-tag">
+            <ChainIcon slug={networkSlug} />
+            {getNetworkName(resource.network)}
+          </span>
+        )}
       </div>
       <div className="mkt-card__url" title={resource.url}>{resource.url}</div>
       <button className="mkt-fetch-btn" onClick={handleFetch}>
-        Fetch {resource.price}
+        Run Fetch {resource.price}
       </button>
     </div>
   );
@@ -123,6 +133,13 @@ function MarketplaceSearch() {
   const toolOutput = useOpenAIGlobal('toolOutput') as SearchPayload | null;
   const toolInput = useToolInput() as { query?: string } | null;
   const maxHeight = useMaxHeight();
+  const qualityValues = (toolOutput?.resources ?? [])
+    .map((r) => r.qualityScore)
+    .filter((q): q is number => q !== null);
+  const avgQuality = qualityValues.length
+    ? Math.round(qualityValues.reduce((sum, q) => sum + q, 0) / qualityValues.length)
+    : null;
+  const verifiedCount = (toolOutput?.resources ?? []).filter((r) => r.verified).length;
 
   if (!toolOutput) {
     return <div className="mkt" style={{ maxHeight: maxHeight ?? undefined }}><div className="mkt-empty">Loading results...</div></div>;
@@ -148,14 +165,23 @@ function MarketplaceSearch() {
         <div className="mkt-header__title-block">
           <span className="mkt-header__eyebrow">x402 Marketplace</span>
           <span className="mkt-header__count">{toolOutput.count} result{toolOutput.count !== 1 ? 's' : ''}</span>
+          <span className="mkt-header__lede">Discover paid endpoints with the cleanest execution path.</span>
         </div>
         {toolInput?.query && <span className="mkt-header__query">Query: "{toolInput.query}"</span>}
       </div>
+      <div className="mkt-statbar">
+        <span className="mkt-statbar__item">Catalog: live</span>
+        <span className="mkt-statbar__dot" />
+        <span className="mkt-statbar__item">Verified: {verifiedCount}</span>
+        <span className="mkt-statbar__dot" />
+        <span className="mkt-statbar__item">Avg quality: {avgQuality ?? 'n/a'}</span>
+      </div>
       <div className="mkt-grid">
         {toolOutput.resources.map((r, i) => (
-          <ApiCard key={r.url + i} resource={r} />
+          <ApiCard key={r.url + i} resource={r} featured={i === 0} />
         ))}
       </div>
+      {toolOutput.tip && <div className="mkt-tip">{toolOutput.tip}</div>}
     </div>
   );
 }

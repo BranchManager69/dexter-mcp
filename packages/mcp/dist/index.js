@@ -356,20 +356,6 @@ function parse402(body) {
     firstAccept: obj.accepts[0] || null
   };
 }
-async function createQrSession(accept, resourceUrl, dev) {
-  const sessionRes = await fetch(`${getApiBase(dev)}/v2/pay/session`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      payTo: accept.payTo,
-      amount: String(accept.amount || accept.maxAmountRequired),
-      asset: accept.asset,
-      feePayer: accept.extra?.feePayer || "",
-      resourceUrl
-    })
-  });
-  return await sessionRes.json();
-}
 async function x402Fetch(params, wallet, opts) {
   const requestHeaders = {
     "Content-Type": "application/json",
@@ -414,30 +400,9 @@ async function x402Fetch(params, wallet, opts) {
       return { status: 402, error: `Payment failed: ${err.message}`, requirements };
     }
   }
-  if (firstAccept && String(firstAccept.network || "").startsWith("solana")) {
-    try {
-      const session = await createQrSession(firstAccept, params.url, opts.dev);
-      if (!session.ok) {
-        return { status: 402, error: "Failed to create payment session", requirements };
-      }
-      return {
-        status: 402,
-        mode: "qr",
-        message: "Scan the QR code with Phantom or Solflare to pay, then this tool will automatically complete the request.",
-        qr: {
-          solanaPayUrl: session.solanaPayUrl,
-          nonce: session.nonce,
-          expiresAt: session.expiresAt
-        },
-        pollUrl: `${getApiBase(opts.dev)}/v2/pay/status/${session.nonce}`,
-        requirements
-      };
-    } catch {
-    }
-  }
   return {
     status: 402,
-    message: "Payment required. Set DEXTER_PRIVATE_KEY for auto-pay, or use a Solana wallet to pay manually.",
+    message: "Payment required. Configure DEXTER_PRIVATE_KEY for canonical x402 settlement or provide payment-signature manually.",
     requirements
   };
 }
@@ -491,7 +456,6 @@ async function cliFetch(url, opts) {
 var init_fetch = __esm({
   "src/tools/fetch.ts"() {
     "use strict";
-    init_config();
     init_widget_meta();
   }
 });

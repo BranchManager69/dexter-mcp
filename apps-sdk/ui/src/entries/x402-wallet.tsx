@@ -6,7 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
 import { useOpenAIGlobal, useMaxHeight } from '../sdk';
 
-const X402_WIDGET_BUILD = '2026-02-26.1';
+const X402_WIDGET_BUILD = '2026-02-26.3';
 
 type WalletPayload = {
   address?: string;
@@ -22,9 +22,6 @@ function WalletDashboard() {
   const toolOutput = useOpenAIGlobal('toolOutput') as WalletPayload | null;
   const [copied, setCopied] = useState(false);
   const maxHeight = useMaxHeight();
-  const qrSrc = toolOutput?.address
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(toolOutput.address)}`
-    : null;
 
   if (!toolOutput) {
     return <div className="wallet" style={{ maxHeight: maxHeight ?? undefined }}><div className="wallet-setup"><span className="wallet-setup__title">Loading wallet...</span></div></div>;
@@ -52,6 +49,8 @@ function WalletDashboard() {
   };
 
   const hasUsdc = (toolOutput.balances?.usdc ?? 0) > 0;
+  const hasSol = (toolOutput.balances?.sol ?? 0) > 0.001;
+  const ready = hasUsdc && hasSol;
 
   return (
     <div className="wallet" style={{ maxHeight: maxHeight ?? undefined }}>
@@ -60,13 +59,10 @@ function WalletDashboard() {
           <div className="wallet-header__title-wrap">
             <span className="wallet-header__eyebrow">x402 Settlement Wallet</span>
             <span className="wallet-header__title">
-              <img
-                className="wallet-header__logo"
-                src="https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/sol.png"
-                alt="Solana"
-              />
+              <span className="wallet-chain-icon wallet-chain-icon--solana" aria-hidden="true" />
               Wallet Overview
             </span>
+            <span className="wallet-header__subtitle">Funding state for automated x402 execution.</span>
           </div>
           <span className="wallet-network">{toolOutput.networkName || 'Solana'}</span>
         </div>
@@ -78,7 +74,10 @@ function WalletDashboard() {
 
         <div className="wallet-balances">
           <div className="wallet-balance">
-            <span className="wallet-balance__label">USDC</span>
+            <span className="wallet-balance__label">
+              <span className="wallet-token-dot wallet-token-dot--usdc" aria-hidden="true" />
+              USDC
+            </span>
             <span className={`wallet-balance__value ${hasUsdc ? 'wallet-balance__value--usdc' : 'wallet-balance__value--zero'}`}>
               ${toolOutput.balances?.usdc.toFixed(2) ?? '0.00'}
             </span>
@@ -92,14 +91,12 @@ function WalletDashboard() {
           </div>
         </div>
 
+        <div className={`wallet-readiness ${ready ? 'wallet-readiness--ready' : 'wallet-readiness--needs'}`}>
+          {ready ? 'Ready for x402 execution' : 'Needs funding before automated x402 execution'}
+        </div>
+
         {toolOutput.tip && <div className="wallet-tip">{toolOutput.tip}</div>}
 
-        {qrSrc && (
-          <div className="wallet-qr">
-            <div className="wallet-qr__label">Deposit</div>
-            <img src={qrSrc} alt="Wallet QR code" width={160} height={160} style={{ borderRadius: 12 }} />
-          </div>
-        )}
       </div>
     </div>
   );

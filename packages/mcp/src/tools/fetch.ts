@@ -33,35 +33,6 @@ function parse402(body: unknown): { requirements: Record<string, unknown> | null
   };
 }
 
-async function createQrSession(
-  accept: Record<string, unknown>,
-  resourceUrl: string,
-  dev: boolean,
-): Promise<Record<string, unknown>> {
-  const sessionRes = await fetch(`${getApiBase(dev)}/v2/pay/session`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      payTo: accept.payTo,
-      amount: String(accept.amount || accept.maxAmountRequired),
-      asset: accept.asset,
-      feePayer: (accept.extra as Record<string, unknown>)?.feePayer || "",
-      resourceUrl,
-    }),
-  });
-  return await sessionRes.json() as Record<string, unknown>;
-}
-
-async function pollSessionStatus(nonce: string, dev: boolean, maxAttempts = 60): Promise<Record<string, unknown>> {
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise((r) => setTimeout(r, 2000));
-    const res = await fetch(`${getApiBase(dev)}/v2/pay/status/${nonce}`);
-    const status = await res.json() as Record<string, unknown>;
-    if (status.state === "paid" || status.state === "expired") return status;
-  }
-  return { state: "timeout" };
-}
-
 async function x402Fetch(
   params: { url: string; method: string; body?: string; headers?: Record<string, string> },
   wallet: LoadedWallet | null,
@@ -114,36 +85,11 @@ async function x402Fetch(
     }
   }
 
-  // Mode 2: QR pay (no local wallet)
-  if (firstAccept && String(firstAccept.network || "").startsWith("solana")) {
-    try {
-      const session = await createQrSession(firstAccept, params.url, opts.dev);
-
-      if (!session.ok) {
-        return { status: 402, error: "Failed to create payment session", requirements };
-      }
-
-      return {
-        status: 402,
-        mode: "qr",
-        message: "Scan the QR code with Phantom or Solflare to pay, then this tool will automatically complete the request.",
-        qr: {
-          solanaPayUrl: session.solanaPayUrl,
-          nonce: session.nonce,
-          expiresAt: session.expiresAt,
-        },
-        pollUrl: `${getApiBase(opts.dev)}/v2/pay/status/${session.nonce}`,
-        requirements,
-      };
-    } catch {
-      // Fall through to manual mode
-    }
-  }
-
-  // Fallback: return raw requirements
+  // No local signing wallet: return canonical x402 requirements only.
+  // Clients must settle using x402 payment-signature flow and retry.
   return {
     status: 402,
-    message: "Payment required. Set DEXTER_PRIVATE_KEY for auto-pay, or use a Solana wallet to pay manually.",
+    message: "Payment required. Configure DEXTER_PRIVATE_KEY for canonical x402 settlement or provide payment-signature manually.",
     requirements,
   };
 }

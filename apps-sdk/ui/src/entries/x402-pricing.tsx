@@ -5,7 +5,7 @@ import '../styles/widgets/x402-pricing.css';
 import { createRoot } from 'react-dom/client';
 import { useOpenAIGlobal, useToolInput, useSendFollowUp, useMaxHeight } from '../sdk';
 
-const X402_WIDGET_BUILD = '2026-02-26.1';
+const X402_WIDGET_BUILD = '2026-02-26.3';
 
 type PaymentOption = {
   price: number;
@@ -27,18 +27,22 @@ type PricingPayload = {
   message?: string;
 };
 
-const CHAIN_MAP: Record<string, { name: string; logo?: string }> = {
-  'solana': { name: 'Solana', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/sol.png' },
-  'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': { name: 'Solana', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/sol.png' },
-  'eip155:8453': { name: 'Base', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/base.png' },
-  'base': { name: 'Base', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/base.png' },
-  'eip155:137': { name: 'Polygon', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/matic.png' },
-  'polygon': { name: 'Polygon', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/matic.png' },
-  'eip155:42161': { name: 'Arbitrum', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/arb.png' },
-  'eip155:10': { name: 'Optimism', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/op.png' },
-  'eip155:43114': { name: 'Avalanche', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/avax.png' },
-  'eip155:2046399126': { name: 'SKALE', logo: 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/skl.png' },
+const CHAIN_MAP: Record<string, { name: string; slug: string }> = {
+  'solana': { name: 'Solana', slug: 'solana' },
+  'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': { name: 'Solana', slug: 'solana' },
+  'eip155:8453': { name: 'Base', slug: 'base' },
+  'base': { name: 'Base', slug: 'base' },
+  'eip155:137': { name: 'Polygon', slug: 'polygon' },
+  'polygon': { name: 'Polygon', slug: 'polygon' },
+  'eip155:42161': { name: 'Arbitrum', slug: 'arbitrum' },
+  'eip155:10': { name: 'Optimism', slug: 'optimism' },
+  'eip155:43114': { name: 'Avalanche', slug: 'avalanche' },
+  'eip155:2046399126': { name: 'SKALE', slug: 'skale' },
 };
+
+function ChainIcon({ slug }: { slug: string }) {
+  return <span className={`pricing-chain-icon pricing-chain-icon--${slug || 'default'}`} aria-hidden="true" />;
+}
 
 function shortenAddress(addr: string): string {
   if (addr.length <= 12) return addr;
@@ -90,6 +94,7 @@ function PricingCheck() {
   const cheapestIndex = options.length
     ? options.reduce((best, current, idx) => (current.price < options[best].price ? idx : best), 0)
     : -1;
+  const selectedPrice = cheapestIndex >= 0 ? options[cheapestIndex].priceFormatted : null;
 
   const handleFetch = async () => {
     if (!toolInput?.url) return;
@@ -104,6 +109,7 @@ function PricingCheck() {
           <div className="pricing-header__title-wrap">
             <span className="pricing-header__eyebrow">x402 Pricing</span>
             <span className="pricing-header__title">Payment Required</span>
+            <span className="pricing-header__subtitle">Select the best settlement route before execution.</span>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             {toolOutput.x402Version && (
@@ -114,14 +120,21 @@ function PricingCheck() {
         </div>
 
         {toolInput?.url && <div className="pricing-resource">{toolInput.url}</div>}
+        {!!options.length && (
+          <div className="pricing-summary">
+            <span className="pricing-summary__label">Best route</span>
+            <span className="pricing-summary__value">{selectedPrice ?? '—'}</span>
+          </div>
+        )}
 
         <div className="pricing-options">
           {options.map((opt, i) => {
-            const chain = CHAIN_MAP[opt.network] || { name: opt.network };
+            const chain = CHAIN_MAP[opt.network] || { name: opt.network, slug: 'default' };
             return (
               <div key={i} className={`pricing-option ${i === cheapestIndex ? 'pricing-option--best' : ''}`}>
+                <span className="pricing-option__index">{String(i + 1).padStart(2, '0')}</span>
                 <div className="pricing-option__chain">
-                  {chain.logo ? <img className="pricing-option__logo" src={chain.logo} alt={chain.name} /> : <span>⬡</span>}
+                  <ChainIcon slug={chain.slug} />
                 </div>
                 <div className="pricing-option__info">
                   <span className="pricing-option__network">{chain.name}</span>
@@ -136,9 +149,14 @@ function PricingCheck() {
         </div>
 
         {toolInput?.url && (
-          <button className="pricing-fetch-btn" onClick={handleFetch}>
-            Fetch & Pay{options[0] ? ` ${options[0].priceFormatted}` : ''}
-          </button>
+          <>
+            <button className="pricing-fetch-btn" onClick={handleFetch}>
+              Fetch & Pay{selectedPrice ? ` ${selectedPrice}` : ''}
+            </button>
+            <div className="pricing-disclaimer">
+              Route and fee details are resolved live at execution time.
+            </div>
+          </>
         )}
       </div>
     </div>
