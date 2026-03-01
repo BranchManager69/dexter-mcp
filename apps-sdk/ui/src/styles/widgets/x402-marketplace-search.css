@@ -219,10 +219,10 @@
   background: radial-gradient(circle at 30% 30%, #e2e8f0 0%, #64748b 100%);
 }
 
-.mkt-chain-icon--solana { background: linear-gradient(135deg, #22d3ee 0%, #14b8a6 50%, #8b5cf6 100%); }
-.mkt-chain-icon--base { background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%); }
+.mkt-chain-icon--solana { background: linear-gradient(135deg, #fbbf24 0%, #f97316 50%, #ea580c 100%); }
+.mkt-chain-icon--base { background: linear-gradient(135deg, #fbbf24 0%, #ea580c 100%); }
 .mkt-chain-icon--polygon { background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%); }
-.mkt-chain-icon--arbitrum { background: linear-gradient(135deg, #93c5fd 0%, #1d4ed8 100%); }
+.mkt-chain-icon--arbitrum { background: linear-gradient(135deg, #fdba74 0%, #c2410c 100%); }
 .mkt-chain-icon--optimism { background: linear-gradient(135deg, #fda4af 0%, #ef4444 100%); }
 .mkt-chain-icon--avalanche { background: linear-gradient(135deg, #fca5a5 0%, #dc2626 100%); }
 .mkt-chain-icon--skale { background: linear-gradient(135deg, #86efac 0%, #16a34a 100%); }

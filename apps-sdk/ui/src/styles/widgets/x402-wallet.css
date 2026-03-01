@@ -15,7 +15,7 @@
   border-radius: 14px;
   border: 1px solid var(--x4-border);
   background:
-    linear-gradient(160deg, rgba(45, 212, 191, 0.09), var(--x4-surface) 28%, transparent 62%),
+    linear-gradient(160deg, rgba(251, 146, 60, 0.09), var(--x4-surface) 28%, transparent 62%),
     var(--surface);
   box-shadow: none;
   padding: 16px;
@@ -34,7 +34,7 @@
   width: 150px;
   height: 150px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(45, 212, 191, 0.15) 0%, transparent 72%);
+  background: radial-gradient(circle, rgba(251, 146, 60, 0.15) 0%, transparent 72%);
   pointer-events: none;
 }
 
@@ -45,7 +45,7 @@
   right: 16px;
   top: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(94, 234, 212, 0.85), transparent);
+  background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.85), transparent);
   pointer-events: none;
 }
 
@@ -73,7 +73,7 @@
   display: inline-block;
   border: 1px solid rgba(255, 255, 255, 0.24);
 }
-.wallet-chain-icon--solana { background: linear-gradient(135deg, #22d3ee 0%, #14b8a6 50%, #8b5cf6 100%); }
+.wallet-chain-icon--solana { background: linear-gradient(135deg, #fbbf24 0%, #f97316 50%, #ea580c 100%); }
 
 .wallet-network {
   display: inline-flex;
@@ -81,8 +81,8 @@
   gap: 4px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(45, 212, 191, 0.14);
-  color: #5eead4;
+  background: rgba(251, 146, 60, 0.14);
+  color: #fb923c;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -114,8 +114,8 @@
   min-height: 32px;
   padding: 4px 8px;
   border-radius: 6px;
-  background: linear-gradient(135deg, #b9fff1 0%, #99f6e4 35%, #5eead4 100%);
-  color: #03201d;
+  background: linear-gradient(135deg, #fde68a 0%, #fbbf24 35%, #f97316 100%);
+  color: #1c0a00;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.03em;
@@ -151,7 +151,7 @@
   display: inline-block;
   border: 1px solid rgba(255, 255, 255, 0.24);
 }
-.wallet-token-dot--usdc { background: linear-gradient(135deg, #93c5fd 0%, #2563eb 100%); }
+.wallet-token-dot--usdc { background: linear-gradient(135deg, #fdba74 0%, #ea580c 100%); }
 .wallet-balance__value { font-size: 24px; font-weight: 800; color: var(--text-primary); }
 .wallet-balance__value--usdc { color: var(--x4-success); }
 .wallet-balance__value--zero { color: var(--text-tertiary); }
@@ -268,8 +268,8 @@
   text-align: center;
   padding: 10px 16px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #b9fff1 0%, #99f6e4 35%, #5eead4 100%);
-  color: #03201d;
+  background: linear-gradient(135deg, #fde68a 0%, #fbbf24 35%, #f97316 100%);
+  color: #1c0a00;
   font-size: 13px;
   font-weight: 700;
   transition: transform 0.15s ease, opacity 0.15s ease;

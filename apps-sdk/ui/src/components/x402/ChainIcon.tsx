@@ -15,7 +15,7 @@ const CHAIN_MAP: Record<string, { name: string; slug: string }> = {
   skale: { name: 'SKALE', slug: 'skale' },
 };
 
-const ASSET_BASE = '/apps-sdk/assets/chains';
+const ASSET_BASE = 'https://dexter.cash/assets/chains';
 
 const LOGO_FILES: Record<string, string> = {
   solana: 'solana.svg',
