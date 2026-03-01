@@ -43,7 +43,7 @@ Calls the endpoint and pays automatically from the local wallet. The user gets t
 
 ### 4. `x402_wallet` — Check Balance
 
-Shows the wallet address at `~/.dexterai-mcp/wallet.json` and USDC/SOL balances. Use this:
+Shows the wallet address and USDC/SOL balances. If you have a session token from a previous call, pass it as sessionToken to resume that session. Use this:
 - Before a fetch, to confirm sufficient funds
 - When the user asks about their balance
 - When a fetch fails due to insufficient funds

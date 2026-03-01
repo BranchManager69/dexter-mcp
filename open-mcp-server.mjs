@@ -573,8 +573,9 @@ async function x402Check({ url, method }) {
 
 // ─── Tool: x402_wallet ───────────────────────────────────────────────────────
 
-async function x402Wallet(_args, extra) {
-  let session = readContextSessionHint(extra);
+async function x402Wallet(args, extra) {
+  let session = args?.sessionToken ? readOpenSessionHint(args.sessionToken) : readContextSessionHint(extra);
+  if (session && args?.sessionToken) linkSessionToContext(extra, args.sessionToken);
   if (!session) {
     const sessionBody = await createOpenSession('1000000', extractMcpSessionId(extra));
     if (sessionBody?.ok) {
@@ -717,6 +718,9 @@ function createOpenMcpServer() {
   server.registerTool('x402_wallet', {
     title: 'x402 Wallet',
     description: 'OpenDexter session dashboard. Returns or creates the active anonymous spend session, including funding rails and current session balance state.',
+    inputSchema: {
+      sessionToken: z.string().optional().describe('Pass an existing session token to check its status and balance instead of creating a new session.'),
+    },
     annotations: { readOnlyHint: true },
     _meta: WALLET_META,
   }, async (args, extra) => {

@@ -55,7 +55,7 @@ Link the transaction hash to the appropriate block explorer (Solscan for Solana,
 
 ### 4. `x402_wallet` — Check Balance
 
-Shows the session wallet address and USDC/SOL balance. Use this when:
+Shows the session wallet address, balance, and status. Accepts an optional sessionToken to resume a previous session. Use this when:
 - The user asks "how much do I have"
 - Before a fetch, to confirm they have enough funds
 - After a fetch, to see the remaining balance
