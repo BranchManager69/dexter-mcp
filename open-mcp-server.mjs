@@ -1,3 +1,6 @@
+// Sentry instrumentation (must be before all other imports)
+import './instrument.open-mcp.mjs';
+
 /**
  * Dexter Open MCP Server — x402 Gateway
  *
@@ -405,6 +408,7 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
         merchantSettlement: buildMerchantSettlement(requirements),
       };
     } catch (err) {
+      console.error(`[open-mcp] Direct payment failed: url=${url} error=${err?.message || String(err)}`, err?.stack || '');
       return {
         status: 402,
         mode: 'session_error',
@@ -446,6 +450,7 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
       }
 
       if (!openRes || !openRes.ok || !openBody?.ok) {
+        console.error(`[open-mcp] x402_fetch API failed: status=${openRes?.status} ok=${openBody?.ok} error=${openBody?.error} url=${url}`, JSON.stringify(openBody)?.slice(0, 500));
         const sessionHint = sessionToken ? readOpenSessionHint(sessionToken) : null;
         const looksUnfunded = openBody?.error === 'session_not_funded' || openBody?.state === 'pending_funding';
         if (looksUnfunded) {
@@ -492,6 +497,7 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
         merchantSettlement: buildMerchantSettlement(requirements),
       };
     } catch (err) {
+      console.error(`[open-mcp] x402_fetch exception: url=${url} error=${err?.message || String(err)}`, err?.stack || '');
       return {
         status: 500,
         mode: 'session_error',
