@@ -607,19 +607,51 @@ async function x402Wallet(args, extra) {
     };
   }
 
+  // Query dexter-api for current session state (funding, spend, balance)
+  let liveState = null;
+  if (session.sessionId) {
+    const bases = [DEXTER_API, API_BASE_FALLBACK].filter(Boolean);
+    const statusPaths = ['/v2/open/session/status/', '/v2/pay/open/session/status/'];
+    for (const base of bases) {
+      for (const path of statusPaths) {
+        try {
+          const res = await fetch(`${base}${path}${session.sessionId}`, {
+            headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(5000),
+          });
+          if (res.ok) {
+            liveState = await res.json().catch(() => null);
+            break;
+          }
+        } catch {}
+      }
+      if (liveState) break;
+    }
+  }
+
+  const state = liveState?.state || 'pending_funding';
+  const fundedAtomic = liveState?.fundedAtomic || liveState?.funding?.amountAtomic || '0';
+  const spentAtomic = liveState?.spentAtomic || '0';
+  const availableAtomic = liveState?.availableAtomic || String(Math.max(0, Number(fundedAtomic) - Number(spentAtomic)));
+  const funding = normalizeSessionFunding(liveState?.funding || session.funding);
+
   return {
-    mode: 'session_required',
+    mode: state === 'active' || state === 'depleted' ? 'session_ready' : 'session_required',
     sessionId: session.sessionId,
     sessionToken: session.sessionToken,
-    state: 'pending_funding',
-    sessionFunding: normalizeSessionFunding(session.funding),
+    state,
+    sessionFunding: funding,
     balances: {
-      fundedAtomic: '0',
-      spentAtomic: '0',
-      availableAtomic: '0',
+      fundedAtomic: String(fundedAtomic),
+      spentAtomic: String(spentAtomic),
+      availableAtomic: String(availableAtomic),
     },
-    expiresAt: session.expiresAt || null,
-    tip: 'Fund the session via txUrl or solanaPayUrl. OpenDexter will then settle merchant payments automatically.',
+    expiresAt: liveState?.expiresAt || session.expiresAt || null,
+    tip: state === 'active'
+      ? 'Session is funded and ready. Use x402_fetch or x402_pay to call paid APIs.'
+      : state === 'depleted'
+        ? 'Session balance exhausted. Fund again or create a new session.'
+        : 'Fund the session via txUrl or solanaPayUrl. OpenDexter will then settle merchant payments automatically.',
   };
 }
 
