@@ -675,13 +675,21 @@ async function x402Wallet(args, extra) {
   const availableAtomic = liveState?.availableAtomic || String(Math.max(0, Number(fundedAtomic) - Number(spentAtomic)));
   const funding = normalizeSessionFunding(liveState?.funding || session.funding);
 
+  const usdcAvailable = Number(availableAtomic) / 1e6;
+  const walletAddress = funding?.walletAddress || liveState?.funding?.walletAddress || session.funding?.walletAddress || null;
+
   return {
     mode: state === 'active' || state === 'depleted' ? 'session_ready' : 'session_required',
     sessionId: session.sessionId,
     sessionToken: session.sessionToken,
     state,
+    address: walletAddress,
+    network: 'solana',
+    networkName: 'Solana',
     sessionFunding: funding,
     balances: {
+      usdc: usdcAvailable,
+      sol: 0,
       fundedAtomic: String(fundedAtomic),
       spentAtomic: String(spentAtomic),
       availableAtomic: String(availableAtomic),
