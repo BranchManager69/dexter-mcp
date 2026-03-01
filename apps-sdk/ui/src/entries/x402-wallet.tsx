@@ -4,9 +4,8 @@ import '../styles/widgets/x402-wallet.css';
 
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
-import { useOpenAIGlobal, useMaxHeight } from '../sdk';
-
-const X402_WIDGET_BUILD = '2026-02-26.3';
+import { useOpenAIGlobal, useMaxHeight, useTheme, useCallToolFn } from '../sdk';
+import { CopyButton, useIntrinsicHeight, DebugPanel } from '../components/x402';
 
 type WalletPayload = {
   address?: string;
@@ -16,20 +15,35 @@ type WalletPayload = {
   walletFile?: string;
   tip?: string;
   error?: string;
+  maxPaymentUsdc?: string;
+  evmAddress?: string;
+  evmNetwork?: string;
 };
 
 function WalletDashboard() {
   const toolOutput = useOpenAIGlobal('toolOutput') as WalletPayload | null;
-  const [copied, setCopied] = useState(false);
+  const theme = useTheme();
+  const callTool = useCallToolFn();
   const maxHeight = useMaxHeight();
+  const containerRef = useIntrinsicHeight();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await callTool('x402_wallet', {});
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   if (!toolOutput) {
-    return <div className="wallet" style={{ maxHeight: maxHeight ?? undefined }}><div className="wallet-setup"><span className="wallet-setup__title">Loading wallet...</span></div></div>;
+    return <div className="wallet" data-theme={theme} style={{ maxHeight: maxHeight ?? undefined }}><div className="wallet-setup"><span className="wallet-setup__title">Loading wallet...</span></div></div>;
   }
 
   if (toolOutput.error && !toolOutput.address) {
     return (
-      <div className="wallet" style={{ maxHeight: maxHeight ?? undefined }}>
+      <div className="wallet" data-theme={theme} style={{ maxHeight: maxHeight ?? undefined }}>
         <div className="wallet-setup">
           <span className="wallet-setup__title">Wallet Not Configured</span>
           <span className="wallet-setup__cmd">npx @dexterai/mcp wallet</span>
@@ -39,21 +53,12 @@ function WalletDashboard() {
     );
   }
 
-  const handleCopy = async () => {
-    if (!toolOutput.address) return;
-    try {
-      await navigator.clipboard.writeText(toolOutput.address);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {}
-  };
-
   const hasUsdc = (toolOutput.balances?.usdc ?? 0) > 0;
   const hasSol = (toolOutput.balances?.sol ?? 0) > 0.001;
   const ready = hasUsdc && hasSol;
 
   return (
-    <div className="wallet" style={{ maxHeight: maxHeight ?? undefined }}>
+    <div className="wallet" data-theme={theme} ref={containerRef} style={{ maxHeight: maxHeight ?? undefined }}>
       <div className="wallet-card">
         <div className="wallet-header">
           <div className="wallet-header__title-wrap">
@@ -64,12 +69,17 @@ function WalletDashboard() {
             </span>
             <span className="wallet-header__subtitle">Funding state for automated x402 execution.</span>
           </div>
-          <span className="wallet-network">{toolOutput.networkName || 'Solana'}</span>
+          <div className="wallet-header__actions">
+            <button className="wallet-refresh-btn" onClick={handleRefresh} disabled={refreshing}>
+              {refreshing ? '...' : 'Refresh'}
+            </button>
+            <span className="wallet-network">{toolOutput.networkName || 'Solana'}</span>
+          </div>
         </div>
 
-        <div className="wallet-address" onClick={handleCopy} style={{ cursor: 'pointer' }}>
+        <div className="wallet-address">
           <span className="wallet-address__text">{toolOutput.address}</span>
-          <button className="wallet-address__copy">{copied ? 'Copied!' : 'Copy'}</button>
+          {toolOutput.address && <CopyButton text={toolOutput.address} label="Copy" className="wallet-address__copy" />}
         </div>
 
         <div className="wallet-balances">
@@ -89,14 +99,28 @@ function WalletDashboard() {
               <span className="wallet-balance__unit"> SOL</span>
             </span>
           </div>
+          {toolOutput.maxPaymentUsdc && (
+            <div className="wallet-balance">
+              <span className="wallet-balance__label">Spend limit</span>
+              <span className="wallet-balance__value">${toolOutput.maxPaymentUsdc}/call</span>
+            </div>
+          )}
         </div>
+
+        {toolOutput.evmAddress && (
+          <div className="wallet-evm">
+            <span className="wallet-evm__label">EVM ({toolOutput.evmNetwork || 'Base'})</span>
+            <span className="wallet-evm__addr">{toolOutput.evmAddress}</span>
+            <CopyButton text={toolOutput.evmAddress} label="Copy" className="wallet-evm__copy" />
+          </div>
+        )}
 
         <div className={`wallet-readiness ${ready ? 'wallet-readiness--ready' : 'wallet-readiness--needs'}`}>
           {ready ? 'Ready for x402 execution' : 'Needs funding before automated x402 execution'}
         </div>
 
         {toolOutput.tip && <div className="wallet-tip">{toolOutput.tip}</div>}
-
+        <DebugPanel widgetName="x402-wallet" />
       </div>
     </div>
   );
@@ -104,7 +128,7 @@ function WalletDashboard() {
 
 const root = document.getElementById('x402-wallet-root');
 if (root) {
-  root.setAttribute('data-widget-build', X402_WIDGET_BUILD);
+  root.setAttribute('data-widget-build', '2026-02-28.2');
   createRoot(root).render(<WalletDashboard />);
 }
 

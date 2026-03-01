@@ -681,6 +681,8 @@ function createOpenMcpServer() {
       sessionToken: z.string().optional().describe('Anonymous OpenDexter session token for canonical x402 settlement when no local key is configured.'),
       sessionKey: z.string().optional().describe('Optional stable session key for reusable OpenDexter sessions (for example, caller-hash on phone).'),
     },
+    annotations: { destructiveHint: true },
+    annotations: { destructiveHint: true },
     _meta: FETCH_META,
   }, async (args, extra) => {
     try {
@@ -812,6 +814,13 @@ const httpServer = http.createServer(async (req, res) => {
   // ─── GET: SSE / session resume ──────────────────────────────────────
   if (req.method === 'GET') {
     const sessionId = req.headers['mcp-session-id'];
+    // Browser visit (no MCP session, accepts HTML) → redirect to OpenDexter page
+    const acceptsHtml = (req.headers.accept || "").includes("text/html");
+    if (acceptsHtml && !sessionId) {
+      res.writeHead(301, { Location: "https://dexter.cash/opendexter" });
+      res.end();
+      return;
+    }
     if (!sessionId || !transports.has(sessionId)) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'No active session. Send a POST to initialize.' }));

@@ -1,3 +1,4 @@
+@import '../x402-theme.css';
 /* x402 Pricing Check Widget */
 
 .pricing {
@@ -13,9 +14,9 @@
 .pricing-card {
   position: relative;
   border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid var(--x4-border);
   background:
-    linear-gradient(155deg, rgba(16, 185, 129, 0.09), rgba(15, 23, 42, 0.16) 30%, transparent 62%),
+    linear-gradient(155deg, rgba(16, 185, 129, 0.09), var(--x4-surface) 30%, transparent 62%),
     var(--surface);
   box-shadow: none;
   padding: 16px;
@@ -66,7 +67,7 @@
   font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
 }
 .pricing-badge--paid { background: rgba(251, 191, 36, 0.12); color: #fbbf24; }
-.pricing-badge--free { background: rgba(52, 211, 153, 0.12); color: #34d399; }
+.pricing-badge--free { background: rgba(52, 211, 153, 0.12); color: var(--x4-success); }
 .pricing-badge--error { background: rgba(248, 113, 113, 0.12); color: #f87171; }
 .pricing-badge--version { background: var(--accent-soft); color: var(--accent); font-size: 11px; }
 
@@ -76,8 +77,8 @@
   font-family: "JetBrains Mono", ui-monospace, monospace;
   padding: 8px 12px;
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.55);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: var(--x4-surface);
+  border: 1px solid var(--x4-border);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -113,15 +114,15 @@
   gap: 12px;
   padding: 12px;
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.56);
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: var(--x4-surface);
+  border: 1px solid var(--x4-border);
   transition: border-color 0.18s ease, transform 0.18s ease;
 }
 .pricing-option:hover { border-color: rgba(52, 211, 153, 0.6); transform: translateY(-1px); }
 
 .pricing-option--best {
   border-color: rgba(52, 211, 153, 0.55);
-  background: linear-gradient(160deg, rgba(52, 211, 153, 0.16), rgba(15, 23, 42, 0.6));
+  background: linear-gradient(160deg, rgba(52, 211, 153, 0.16), var(--x4-surface));
   box-shadow: 0 10px 24px rgba(6, 78, 59, 0.28);
 }
 
@@ -150,7 +151,7 @@
 }
 
 .pricing-chain-icon--solana { background: linear-gradient(135deg, #22d3ee 0%, #14b8a6 50%, #8b5cf6 100%); }
-.pricing-chain-icon--base { background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%); }
+.pricing-chain-icon--base { background: linear-gradient(135deg, var(--x4-accent) 0%, #2563eb 100%); }
 .pricing-chain-icon--polygon { background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%); }
 .pricing-chain-icon--arbitrum { background: linear-gradient(135deg, #93c5fd 0%, #1d4ed8 100%); }
 .pricing-chain-icon--optimism { background: linear-gradient(135deg, #fda4af 0%, #ef4444 100%); }
@@ -162,7 +163,7 @@
 .pricing-option__asset { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; }
 .pricing-option__payto { font-size: 11px; color: var(--text-tertiary); font-family: "JetBrains Mono", ui-monospace, monospace; }
 
-.pricing-option__price { font-size: 19px; font-weight: 800; color: #34d399; flex-shrink: 0; }
+.pricing-option__price { font-size: 19px; font-weight: 800; color: var(--x4-success); flex-shrink: 0; }
 
 .pricing-option__best {
   font-size: 10px;
@@ -185,7 +186,7 @@
   min-height: 36px;
   padding: 8px 10px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #99f6cf 0%, #6ee7b7 36%, #34d399 100%);
+  background: linear-gradient(135deg, #99f6cf 0%, #6ee7b7 36%, var(--x4-success) 100%);
   color: #022116;
   font-size: 12px;
   font-weight: 800;

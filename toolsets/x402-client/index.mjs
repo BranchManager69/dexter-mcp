@@ -484,6 +484,7 @@ export function registerX402ClientToolset(server) {
         .describe('Sort results (default: marketplace)'),
       limit: z.number().optional().describe('Max results (default: 20, max: 50)'),
     },
+    annotations: { readOnlyHint: true },
     _meta: {
       category: 'x402.marketplace',
       access: 'guest',
@@ -529,6 +530,7 @@ export function registerX402ClientToolset(server) {
       'Call any x402-enabled paid API with automatic USDC payment. ' +
       'Payment is settled through the Dexter facilitator using your authenticated wallet. ' +
       'Supports any x402 resource URL — use x402_search to discover available endpoints.',
+    annotations: { destructiveHint: true },
     inputSchema: {
       url: z.string().url().describe('The x402 resource URL to call'),
       method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).default('GET').describe('HTTP method'),
@@ -570,6 +572,7 @@ export function registerX402ClientToolset(server) {
     title: 'x402 Fetch',
     description:
       'Call any x402 endpoint with authenticated automatic payment and return a normalized fetch-result payload.',
+    annotations: { destructiveHint: true },
     inputSchema: {
       url: z.string().url().describe('The x402 resource URL to call'),
       method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).default('GET').describe('HTTP method'),

@@ -3,9 +3,8 @@ import '../styles/components.css';
 import '../styles/widgets/x402-pricing.css';
 
 import { createRoot } from 'react-dom/client';
-import { useOpenAIGlobal, useToolInput, useSendFollowUp, useMaxHeight } from '../sdk';
-
-const X402_WIDGET_BUILD = '2026-02-26.3';
+import { useOpenAIGlobal, useToolInput, useCallToolFn, useMaxHeight, useTheme } from '../sdk';
+import { ChainIcon, getChain, CopyButton, useIntrinsicHeight, shortenAddress } from '../components/x402';
 
 type PaymentOption = {
   price: number;
@@ -24,48 +23,31 @@ type PricingPayload = {
   resource?: unknown;
   free?: boolean;
   error?: boolean | string;
+  authRequired?: boolean;
   message?: string;
 };
-
-const CHAIN_MAP: Record<string, { name: string; slug: string }> = {
-  'solana': { name: 'Solana', slug: 'solana' },
-  'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': { name: 'Solana', slug: 'solana' },
-  'eip155:8453': { name: 'Base', slug: 'base' },
-  'base': { name: 'Base', slug: 'base' },
-  'eip155:137': { name: 'Polygon', slug: 'polygon' },
-  'polygon': { name: 'Polygon', slug: 'polygon' },
-  'eip155:42161': { name: 'Arbitrum', slug: 'arbitrum' },
-  'eip155:10': { name: 'Optimism', slug: 'optimism' },
-  'eip155:43114': { name: 'Avalanche', slug: 'avalanche' },
-  'eip155:2046399126': { name: 'SKALE', slug: 'skale' },
-};
-
-function ChainIcon({ slug }: { slug: string }) {
-  return <span className={`pricing-chain-icon pricing-chain-icon--${slug || 'default'}`} aria-hidden="true" />;
-}
-
-function shortenAddress(addr: string): string {
-  if (addr.length <= 12) return addr;
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-}
 
 function PricingCheck() {
   const toolOutput = useOpenAIGlobal('toolOutput') as PricingPayload | null;
   const toolInput = useToolInput() as { url?: string; method?: string } | null;
-  const sendFollowUp = useSendFollowUp();
+  const callTool = useCallToolFn();
+  const theme = useTheme();
   const maxHeight = useMaxHeight();
+  const containerRef = useIntrinsicHeight();
 
   if (!toolOutput) {
-    return <div className="pricing" style={{ maxHeight: maxHeight ?? undefined }}><div className="pricing-card"><span>Checking endpoint...</span></div></div>;
+    return <div className="pricing" data-theme={theme} style={{ maxHeight: maxHeight ?? undefined }}><div className="pricing-card"><span>Checking endpoint...</span></div></div>;
   }
 
   if (toolOutput.error) {
     return (
-      <div className="pricing" style={{ maxHeight: maxHeight ?? undefined }}>
+      <div className="pricing" data-theme={theme} style={{ maxHeight: maxHeight ?? undefined }}>
         <div className="pricing-card">
           <div className="pricing-header">
             <span className="pricing-header__title">Endpoint Check</span>
-            <span className="pricing-badge pricing-badge--error">Error {toolOutput.statusCode}</span>
+            <span className="pricing-badge pricing-badge--error">
+              {toolOutput.authRequired ? 'Auth Required' : `Error ${toolOutput.statusCode}`}
+            </span>
           </div>
           <div className="pricing-error">{toolOutput.message || 'Failed to check endpoint'}</div>
         </div>
@@ -75,14 +57,13 @@ function PricingCheck() {
 
   if (toolOutput.free || (!toolOutput.requiresPayment && toolOutput.statusCode >= 200 && toolOutput.statusCode < 300)) {
     return (
-      <div className="pricing" style={{ maxHeight: maxHeight ?? undefined }}>
+      <div className="pricing" data-theme={theme} style={{ maxHeight: maxHeight ?? undefined }}>
         <div className="pricing-card">
           <div className="pricing-header">
             <span className="pricing-header__title">Endpoint Check</span>
-            <span className="pricing-badge pricing-badge--free">✓ Free</span>
+            <span className="pricing-badge pricing-badge--free">Free</span>
           </div>
           <div className="pricing-free">
-            <span className="pricing-free__icon">✅</span>
             <span className="pricing-free__text">No payment required — this endpoint is free to use.</span>
           </div>
         </div>
@@ -98,12 +79,11 @@ function PricingCheck() {
 
   const handleFetch = async () => {
     if (!toolInput?.url) return;
-    const method = toolInput.method || 'GET';
-    await sendFollowUp(`Call x402_fetch with url "${toolInput.url}" and method "${method}".`);
+    await callTool('x402_fetch', { url: toolInput.url, method: toolInput.method || 'GET' });
   };
 
   return (
-    <div className="pricing" style={{ maxHeight: maxHeight ?? undefined }}>
+    <div className="pricing" data-theme={theme} ref={containerRef} style={{ maxHeight: maxHeight ?? undefined }}>
       <div className="pricing-card">
         <div className="pricing-header">
           <div className="pricing-header__title-wrap">
@@ -113,7 +93,7 @@ function PricingCheck() {
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             {toolOutput.x402Version && (
-              <span className="pricing-badge pricing-badge--version">x402 v{toolOutput.x402Version}</span>
+              <span className="pricing-badge pricing-badge--version">v{toolOutput.x402Version}</span>
             )}
             <span className="pricing-badge pricing-badge--paid">402</span>
           </div>
@@ -129,17 +109,20 @@ function PricingCheck() {
 
         <div className="pricing-options">
           {options.map((opt, i) => {
-            const chain = CHAIN_MAP[opt.network] || { name: opt.network, slug: 'default' };
+            const { name: chainName, slug } = getChain(opt.network);
             return (
               <div key={i} className={`pricing-option ${i === cheapestIndex ? 'pricing-option--best' : ''}`}>
                 <span className="pricing-option__index">{String(i + 1).padStart(2, '0')}</span>
                 <div className="pricing-option__chain">
-                  <ChainIcon slug={chain.slug} />
+                  <ChainIcon network={opt.network} />
                 </div>
                 <div className="pricing-option__info">
-                  <span className="pricing-option__network">{chain.name}</span>
+                  <span className="pricing-option__network">{chainName}</span>
                   <span className="pricing-option__asset">USDC</span>
-                  <span className="pricing-option__payto">{shortenAddress(opt.payTo)}</span>
+                  <span className="pricing-option__payto">
+                    {shortenAddress(opt.payTo)}
+                    <CopyButton text={opt.payTo} label="" copiedLabel="✓" className="pricing-option__copy" />
+                  </span>
                 </div>
                 {i === cheapestIndex && <span className="pricing-option__best">Best route</span>}
                 <span className="pricing-option__price">{opt.priceFormatted}</span>
@@ -158,6 +141,7 @@ function PricingCheck() {
             </div>
           </>
         )}
+        <DebugPanel widgetName="x402-pricing" />
       </div>
     </div>
   );
@@ -165,7 +149,7 @@ function PricingCheck() {
 
 const root = document.getElementById('x402-pricing-root');
 if (root) {
-  root.setAttribute('data-widget-build', X402_WIDGET_BUILD);
+  root.setAttribute('data-widget-build', '2026-02-28.2');
   createRoot(root).render(<PricingCheck />);
 }
 
