@@ -3,7 +3,7 @@ import { hideBin } from "yargs/helpers";
 
 async function main() {
   await yargs(hideBin(process.argv))
-    .scriptName("@dexterai/mcp")
+    .scriptName("opendexter")
     .usage("$0 [command] [options]")
     .option("dev", {
       type: "boolean",

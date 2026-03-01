@@ -1,10 +1,12 @@
 {
-  "name": "@dexterai/mcp",
-  "version": "1.1.4",
+  "name": "@dexterai/opendexter",
+  "version": "1.0.0",
   "description": "OpenDexter - x402 search engine for AI agents. Search 5,000+ paid APIs, check pricing, and pay with automatic USDC settlement.",
   "type": "module",
   "main": "dist/index.js",
-  "bin": "dist/index.js",
+  "bin": {
+    "opendexter": "dist/index.js"
+  },
   "files": [
     "dist",
     "assets",

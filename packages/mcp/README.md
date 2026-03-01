@@ -2,14 +2,14 @@
   <img src="https://raw.githubusercontent.com/Dexter-DAO/dexter-x402-sdk/main/assets/dexter-wordmark.svg" alt="Dexter" width="360">
 </p>
 
-<h1 align="center">@dexterai/mcp</h1>
+<h1 align="center">@dexterai/opendexter</h1>
 
 <p align="center">
   <strong>x402 gateway for AI agents. Search, pay, and call any paid API.</strong>
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@dexterai/mcp"><img src="https://img.shields.io/npm/v/@dexterai/mcp.svg" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/@dexterai/opendexter"><img src="https://img.shields.io/npm/v/@dexterai/opendexter.svg" alt="npm"></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E=18-brightgreen.svg" alt="Node"></a>
   <a href="https://dexter.cash/opendexter"><img src="https://img.shields.io/badge/Marketplace-dexter.cash-blueviolet" alt="Marketplace"></a>
 </p>
@@ -29,7 +29,7 @@
 ## Install
 
 ```bash
-npx @dexterai/mcp install
+npx @dexterai/opendexter install
 ```
 
 Supports **Cursor**, **Claude Code**, **Codex**, **VS Code**, **Windsurf**, and **Gemini CLI**.
@@ -45,7 +45,7 @@ The installer creates a local Solana wallet at `~/.dexterai-mcp/wallet.json` and
   "mcpServers": {
     "dexter-x402": {
       "command": "npx",
-      "args": ["-y", "@dexterai/mcp@latest"]
+      "args": ["-y", "@dexterai/opendexter@latest"]
     }
   }
 }
@@ -54,7 +54,7 @@ The installer creates a local Solana wallet at `~/.dexterai-mcp/wallet.json` and
 **Claude Code:**
 
 ```bash
-claude mcp add dexter-x402 -- npx -y @dexterai/mcp@latest
+claude mcp add dexter-x402 -- npx -y @dexterai/opendexter@latest
 ```
 
 **Codex** — `~/.codex/config.toml`:
@@ -62,7 +62,7 @@ claude mcp add dexter-x402 -- npx -y @dexterai/mcp@latest
 ```toml
 [mcp_servers.dexter-x402]
 command = "npx"
-args = ["-y", "@dexterai/mcp@latest"]
+args = ["-y", "@dexterai/opendexter@latest"]
 ```
 
 ---
@@ -171,9 +171,9 @@ Show the wallet address, SOL and USDC balances, and the wallet file location. If
 Every tool is also available as a standalone command:
 
 ```bash
-npx @dexterai/mcp wallet
-npx @dexterai/mcp search "token analysis"
-npx @dexterai/mcp fetch "https://x402.dexter.cash/api/v2-test" --method POST
+npx @dexterai/opendexter wallet
+npx @dexterai/opendexter search "token analysis"
+npx @dexterai/opendexter fetch "https://x402.dexter.cash/api/v2-test" --method POST
 ```
 
 ---

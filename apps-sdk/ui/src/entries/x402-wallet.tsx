@@ -46,7 +46,7 @@ function WalletDashboard() {
       <div className="wallet" data-theme={theme} style={{ maxHeight: maxHeight ?? undefined }}>
         <div className="wallet-setup">
           <span className="wallet-setup__title">Wallet Not Configured</span>
-          <span className="wallet-setup__cmd">npx @dexterai/mcp wallet</span>
+          <span className="wallet-setup__cmd">npx @dexterai/opendexter wallet</span>
           <span className="wallet-setup__hint">Or set DEXTER_PRIVATE_KEY environment variable</span>
         </div>
       </div>

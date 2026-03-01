@@ -84,7 +84,7 @@ This is the lower-level version of `x402_fetch`. It exposes the two-phase x402 f
 1. `x402_wallet`
 
 ### "What is OpenDexter?"
-OpenDexter is Dexter's x402 search engine — a public gateway that lets any AI agent search and pay for x402 APIs without an account. It indexes endpoints from every major x402 facilitator (Dexter, Coinbase, PayAI, and more), verifies them with automated quality testing, and ranks them by a composite score. Three access methods: this MCP connection, the `@dexterai/mcp` npm package, or the authenticated Dexter MCP at mcp.dexter.cash.
+OpenDexter is Dexter's x402 search engine — a public gateway that lets any AI agent search and pay for x402 APIs without an account. It indexes endpoints from every major x402 facilitator (Dexter, Coinbase, PayAI, and more), verifies them with automated quality testing, and ranks them by a composite score. Three access methods: this MCP connection, the `@dexterai/opendexter` npm package, or the authenticated Dexter MCP at mcp.dexter.cash.
 
 ## Understanding Quality Scores
 

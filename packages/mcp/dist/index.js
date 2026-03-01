@@ -595,7 +595,7 @@ function registerWalletTool(server, wallet, opts) {
               type: "text",
               text: JSON.stringify({
                 error: "No wallet configured",
-                tip: "Set DEXTER_PRIVATE_KEY env var or run `npx @dexterai/mcp wallet` to create one."
+                tip: "Set DEXTER_PRIVATE_KEY env var or run `npx @dexterai/opendexter wallet` to create one."
               }, null, 2)
             }
           ]
@@ -780,7 +780,7 @@ var init_clients = __esm({
     };
     SERVER_CMD = {
       command: "npx",
-      args: ["-y", "@dexterai/mcp@latest"]
+      args: ["-y", "@dexterai/opendexter@latest"]
     };
     SERVER_CMD_DEV = {
       command: "node",
@@ -884,7 +884,7 @@ var init_install = __esm({
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 async function main() {
-  await yargs(hideBin(process.argv)).scriptName("@dexterai/mcp").usage("$0 [command] [options]").option("dev", {
+  await yargs(hideBin(process.argv)).scriptName("opendexter").usage("$0 [command] [options]").option("dev", {
     type: "boolean",
     description: "Use localhost endpoints instead of production",
     default: false

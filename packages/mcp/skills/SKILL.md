@@ -1,9 +1,9 @@
 ---
 name: dexterai-mcp
-description: "Use @dexterai/mcp to search, price-check, and pay for any x402 API. Trigger this skill whenever the user wants to find paid APIs, call an x402 endpoint, check pricing, see their wallet balance, or do anything involving x402 payments, paid APIs, USDC payments for APIs, the Dexter marketplace, or agent commerce. Also trigger when the user mentions x402, OpenDexter, paid APIs, or wants to monetize or call a paid service."
+description: "Use @dexterai/opendexter to search, price-check, and pay for any x402 API. Trigger this skill whenever the user wants to find paid APIs, call an x402 endpoint, check pricing, see their wallet balance, or do anything involving x402 payments, paid APIs, USDC payments for APIs, the Dexter marketplace, or agent commerce. Also trigger when the user mentions x402, OpenDexter, paid APIs, or wants to monetize or call a paid service."
 ---
 
-# @dexterai/mcp — x402 Search Engine for AI Agents
+# @dexterai/opendexter — x402 Search Engine for AI Agents
 
 This package gives you access to the Dexter x402 marketplace — the largest directory of paid APIs that agents can search, price-check, and call with automatic USDC payment.
 
@@ -67,7 +67,7 @@ If USDC is 0, proactively suggest funding before attempting any fetch.
 1. `x402_wallet`
 
 ### "What is this?"
-This is @dexterai/mcp — a local x402 gateway that connects your AI agent to the Dexter marketplace. It searches 5,000+ paid APIs from every major x402 facilitator (Dexter, Coinbase, PayAI, and more), all verified and quality-ranked. Your wallet stays on your machine — no account needed, no custodial risk.
+This is @dexterai/opendexter — a local x402 gateway that connects your AI agent to the Dexter marketplace. It searches 5,000+ paid APIs from every major x402 facilitator (Dexter, Coinbase, PayAI, and more), all verified and quality-ranked. Your wallet stays on your machine — no account needed, no custodial risk.
 
 ## Quality Scores
 
