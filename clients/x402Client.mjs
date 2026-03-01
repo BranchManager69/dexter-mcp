@@ -272,7 +272,10 @@ async function handlePaymentRequired(url, response, init, options) {
   const selectedSettlePath = useV2SettlePath
     ? options?.settlementPathV2 || DEFAULT_SETTLEMENT_PATH_V2
     : options?.settlementPath || DEFAULT_SETTLEMENT_PATH_V1;
-  const settleUrl = deriveSettlementUrl(url, selectedSettlePath);
+  const facilitatorBase = options?.facilitatorUrl || process.env.MCP_X402_FACILITATOR_URL || null;
+  const settleUrl = facilitatorBase
+    ? deriveSettlementUrl(facilitatorBase, selectedSettlePath)
+    : deriveSettlementUrl(url, selectedSettlePath);
   const settleMode = useV2SettlePath ? 'v2' : 'legacy';
   const authHeaders = extractForwardHeaders(init.headers, options?.authHeaders);
   const metadata = {
