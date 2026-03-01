@@ -212,6 +212,71 @@
 }
 .wallet-qr img, .wallet-qr canvas, .wallet-qr svg { border-radius: 12px; }
 
+.wallet-funding {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.06);
+}
+.wallet-funding__title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #fbbf24;
+}
+.wallet-funding__amount {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+.wallet-funding__address {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  width: 100%;
+}
+.wallet-funding__label { font-weight: 600; white-space: nowrap; }
+.wallet-funding__value {
+  flex: 1;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wallet-funding__copy { flex-shrink: 0; }
+.wallet-funding__qr {
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wallet-funding__qr img { border-radius: 8px; }
+.wallet-funding__action {
+  all: unset;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #b9fff1 0%, #99f6e4 35%, #5eead4 100%);
+  color: #03201d;
+  font-size: 13px;
+  font-weight: 700;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.wallet-funding__action:hover { opacity: 0.92; transform: translateY(-1px); }
+.wallet-funding__action:active { transform: translateY(0); }
+
 .wallet-setup {
   border-radius: var(--radius-lg);
   border: 1px dashed var(--surface-border);

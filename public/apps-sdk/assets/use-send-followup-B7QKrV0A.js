@@ -1,0 +1,1 @@
+import{r as o}from"./use-openai-global-D7K5F0u7.js";function s(){return o.useCallback(async e=>{if(typeof window>"u"||!window.openai?.sendFollowUpMessage){console.warn("sendFollowUpMessage is not available in this context");return}await window.openai.sendFollowUpMessage({prompt:e})},[])}export{s as u};

@@ -1,1 +1,0 @@
-import{r as t}from"./use-openai-global-CrQ2ob0v.js";function e(){const i=t.useRef(null);return t.useEffect(()=>{i.current&&window.openai?.notifyIntrinsicHeight&&window.openai.notifyIntrinsicHeight({height:i.current.scrollHeight})}),i}export{e as u};

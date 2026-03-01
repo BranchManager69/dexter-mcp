@@ -5,7 +5,7 @@ import '../styles/widgets/x402-fetch-result.css';
 import { createRoot } from 'react-dom/client';
 import { useState, useEffect } from 'react';
 import { useOpenAIGlobal, useOpenExternal, useMaxHeight, useTheme } from '../sdk';
-import { JsonViewer, CopyButton, useIntrinsicHeight, shortenHash, getExplorerUrl, formatUsdc } from '../components/x402';
+import { JsonViewer, CopyButton, DebugPanel, useIntrinsicHeight, shortenHash, getExplorerUrl, formatUsdc } from '../components/x402';
 
 type FetchPayload = {
   status: number;
