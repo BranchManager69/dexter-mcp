@@ -88,7 +88,7 @@ Search the [Dexter Marketplace](https://dexter.cash/opendexter) for paid API res
 | `network` | string | `"solana"`, `"base"`, `"polygon"` |
 | `maxPriceUsdc` | number | Maximum price per call |
 | `verifiedOnly` | boolean | Only quality-checked endpoints |
-| `sort` | string | `"relevance"` `"quality_score"` `"settlements"` `"volume"` `"recent"` |
+| `sort` | string | `"marketplace"` (default) `"relevance"` `"quality_score"` `"settlements"` `"volume"` `"recent"` |
 | `limit` | number | 1–50, default 20 |
 
 ---

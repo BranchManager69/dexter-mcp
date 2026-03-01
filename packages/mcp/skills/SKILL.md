@@ -1,5 +1,5 @@
 ---
-name: dexterai-mcp
+name: opendexter
 description: "Use @dexterai/opendexter to search, price-check, and pay for any x402 API. Trigger this skill whenever the user wants to find paid APIs, call an x402 endpoint, check pricing, see their wallet balance, or do anything involving x402 payments, paid APIs, USDC payments for APIs, the Dexter marketplace, or agent commerce. Also trigger when the user mentions x402, OpenDexter, paid APIs, or wants to monetize or call a paid service."
 ---
 
@@ -43,12 +43,12 @@ Calls the endpoint and pays automatically from the local wallet. The user gets t
 
 ### 4. `x402_wallet` — Check Balance
 
-Shows the wallet address and USDC/SOL balances. If you have a session token from a previous call, pass it as sessionToken to resume that session. Use this:
+Shows the local wallet address and USDC/SOL balances. Use this:
 - Before a fetch, to confirm sufficient funds
 - When the user asks about their balance
 - When a fetch fails due to insufficient funds
 
-If USDC is 0, proactively suggest funding before attempting any fetch.
+If USDC is 0, proactively suggest funding the wallet address shown.
 
 ## Workflow Patterns
 
