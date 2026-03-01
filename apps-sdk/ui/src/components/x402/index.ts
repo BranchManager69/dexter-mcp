@@ -1,4 +1,4 @@
-export { ChainIcon, getChain } from './ChainIcon';
+export { ChainIcon, UsdcIcon, getChain } from './ChainIcon';
 export { CopyButton, useCopyToClipboard } from './CopyButton';
 export { QualityBadge, VerifiedBadge } from './QualityBadge';
 export { JsonViewer } from './JsonViewer';

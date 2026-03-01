@@ -1,7 +1,7 @@
 {
   "name": "@dexterai/mcp",
-  "version": "1.1.3",
-  "description": "x402 gateway for AI agents — search, pay, and call any x402 API through Dexter",
+  "version": "1.1.4",
+  "description": "OpenDexter - x402 search engine for AI agents. Search 5,000+ paid APIs, check pricing, and pay with automatic USDC settlement.",
   "type": "module",
   "main": "dist/index.js",
   "bin": "dist/index.js",
@@ -42,6 +42,7 @@
     "node": ">=18"
   },
   "keywords": [
+    "opendexter",
     "x402",
     "mcp",
     "dexter",
@@ -49,7 +50,11 @@
     "base",
     "evm",
     "payments",
-    "ai-agents"
+    "ai-agents",
+    "marketplace",
+    "chatgpt",
+    "cursor",
+    "claude"
   ],
   "author": "Dexter",
   "license": "MIT",
@@ -57,5 +62,5 @@
     "type": "git",
     "url": "https://github.com/Dexter-DAO/dexter-mcp"
   },
-  "homepage": "https://dexter.cash/mcp"
+  "homepage": "https://dexter.cash/opendexter"
 }

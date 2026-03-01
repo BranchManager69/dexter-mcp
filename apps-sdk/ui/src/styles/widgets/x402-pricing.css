@@ -237,3 +237,13 @@
 
   .pricing-option__best { order: 2; }
 }
+
+.x4-chain-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: middle;
+  object-fit: contain;
+}

@@ -386,3 +386,14 @@
   .mkt-card__right { align-items: flex-start; flex-direction: row; justify-content: space-between; }
   .mkt-card__actions { flex-direction: column; }
 }
+
+/* ─── Real Chain Logos (replacing CSS gradient circles) ─── */
+.x4-chain-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: middle;
+  object-fit: contain;
+}
