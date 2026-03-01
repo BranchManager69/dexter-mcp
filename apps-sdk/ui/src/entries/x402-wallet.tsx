@@ -50,11 +50,11 @@ function SessionFundingPanel({ funding, state }: { funding: SessionFunding; stat
     ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(funding.solanaPayUrl)}`
     : null;
 
-  if (state === 'active' || state === 'depleted') return null;
+  const isFunded = state === 'active' || state === 'depleted';
 
   return (
     <div className="wallet-funding">
-      <div className="wallet-funding__title">Fund Session</div>
+      <div className="wallet-funding__title">{isFunded ? 'Add Funds' : 'Fund Session'}</div>
       {funding.amountUsdc !== undefined && (
         <div className="wallet-funding__amount">${Number(funding.amountUsdc).toFixed(2)} USDC</div>
       )}
