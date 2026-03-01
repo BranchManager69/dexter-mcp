@@ -36,6 +36,7 @@ const USDC_MINT_STR = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const WIDGET_DOMAIN = 'https://dexter.cash';
 const WIDGET_CSP = {
   resource_domains: [
+    'https://api.dexter.cash',
     'https://cdn.dexscreener.com', 'https://raw.githubusercontent.com', 'https://metadata.jup.ag',
     'https://cdn.jsdelivr.net', 'https://dexter.cash', 'https://api.qrserver.com',
     'https://*.digitaloceanspaces.com', 'https://*.cloudfront.net', 'https://*.amazonaws.com',

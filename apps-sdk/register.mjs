@@ -106,7 +106,9 @@ function buildWidgetCsp(assetBase) {
   resourceDomains.push('https://raw.githubusercontent.com');
   resourceDomains.push('https://metadata.jup.ag');
   resourceDomains.push('https://api.qrserver.com');
-  // Common CDNs used by third-party x402 endpoints for media
+  // Image proxy on api.dexter.cash — all third-party images route through this
+  resourceDomains.push('https://api.dexter.cash');
+  // Common CDNs used by third-party x402 endpoints for media (fallback if proxy isn't used)
   resourceDomains.push('https://*.digitaloceanspaces.com');
   resourceDomains.push('https://*.cloudfront.net');
   resourceDomains.push('https://*.amazonaws.com');

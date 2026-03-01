@@ -69,6 +69,10 @@ function isImageUrl(data: unknown): string | null {
   return null;
 }
 
+function proxyImageUrl(url: string): string {
+  return `https://api.dexter.cash/api/img?url=${encodeURIComponent(url)}`;
+}
+
 function FetchRail({ state }: { state: 'success' | 'pending' | 'error' }) {
   return (
     <div className="fetch-rail" aria-label="Execution progress">
@@ -206,7 +210,7 @@ function FetchResult() {
               <div className="fetch-data">
                 <div className="fetch-data__header"><span>Image</span></div>
                 <div className="fetch-data__body" style={{ padding: 0 }}>
-                  <img src={imageUrl} alt="Response" className="fetch-data__image" />
+                  <img src={proxyImageUrl(imageUrl)} alt="Response" className="fetch-data__image" />
                 </div>
               </div>
             ) : toolOutput.data !== undefined ? (
