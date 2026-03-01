@@ -106,6 +106,19 @@ function buildWidgetCsp(assetBase) {
   resourceDomains.push('https://raw.githubusercontent.com');
   resourceDomains.push('https://metadata.jup.ag');
   resourceDomains.push('https://api.qrserver.com');
+  // Common CDNs used by third-party x402 endpoints for media
+  resourceDomains.push('https://*.digitaloceanspaces.com');
+  resourceDomains.push('https://*.cloudfront.net');
+  resourceDomains.push('https://*.amazonaws.com');
+  resourceDomains.push('https://*.cloudflare.com');
+  resourceDomains.push('https://*.r2.dev');
+  resourceDomains.push('https://*.blob.core.windows.net');
+  resourceDomains.push('https://*.supabase.co');
+  resourceDomains.push('https://*.imgix.net');
+  resourceDomains.push('https://*.vercel.app');
+  resourceDomains.push('https://*.replicate.delivery');
+  resourceDomains.push('https://*.openai.com');
+  resourceDomains.push('https://images.unsplash.com');
 
   return {
     connect_domains: connectDomains,

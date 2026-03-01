@@ -35,7 +35,14 @@ const SOLANA_RPC = process.env.SOLANA_RPC_URL || 'https://api.dexter.cash/api/so
 const USDC_MINT_STR = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const WIDGET_DOMAIN = 'https://dexter.cash';
 const WIDGET_CSP = {
-  resource_domains: ['https://cdn.dexscreener.com', 'https://raw.githubusercontent.com', 'https://metadata.jup.ag', 'https://cdn.jsdelivr.net', 'https://dexter.cash', 'https://api.qrserver.com'],
+  resource_domains: [
+    'https://cdn.dexscreener.com', 'https://raw.githubusercontent.com', 'https://metadata.jup.ag',
+    'https://cdn.jsdelivr.net', 'https://dexter.cash', 'https://api.qrserver.com',
+    'https://*.digitaloceanspaces.com', 'https://*.cloudfront.net', 'https://*.amazonaws.com',
+    'https://*.cloudflare.com', 'https://*.r2.dev', 'https://*.blob.core.windows.net',
+    'https://*.supabase.co', 'https://*.imgix.net', 'https://*.vercel.app',
+    'https://*.replicate.delivery', 'https://*.openai.com', 'https://images.unsplash.com',
+  ],
   connect_domains: ['https://x402.dexter.cash', 'https://api.dexter.cash', 'https://open.dexter.cash', 'https://dexter.cash'],
 };
 

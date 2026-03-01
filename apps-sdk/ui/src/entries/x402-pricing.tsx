@@ -4,7 +4,7 @@ import '../styles/widgets/x402-pricing.css';
 
 import { createRoot } from 'react-dom/client';
 import { useOpenAIGlobal, useToolInput, useCallToolFn, useMaxHeight, useTheme } from '../sdk';
-import { ChainIcon, getChain, CopyButton, useIntrinsicHeight, shortenAddress } from '../components/x402';
+import { ChainIcon, getChain, CopyButton, DebugPanel, useIntrinsicHeight, shortenAddress } from '../components/x402';
 
 type PaymentOption = {
   price: number;
