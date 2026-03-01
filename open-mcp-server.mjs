@@ -94,6 +94,7 @@ function formatResource(r) {
     authRequired: Boolean(r.authRequired),
     authType: r.authType || null,
     authHint: r.authHint || null,
+    sessionCompatible: !r.priceNetwork || r.priceNetwork === 'solana' || (r.priceNetwork || '').startsWith('solana:'),
   };
 }
 
@@ -233,6 +234,7 @@ function normalizeSessionFunding(funding) {
     ...funding,
     walletAddress,
     payTo: funding.payTo || walletAddress,
+    escrowNote: "This is the session escrow address. Fund it to enable x402 payments. Merchant payTo addresses are shown in merchantSettlement after a paid call.",
   };
 }
 
@@ -485,7 +487,7 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
         payment: openBody.payment?.settlement
           ? { settled: true, details: openBody.payment.settlement }
           : { settled: Boolean(openBody.paid) },
-        session: openBody.session ?? { sessionToken },
+        session: { ...(openBody.session ?? { sessionToken }), funding: undefined },
         sessionFunding: normalizeSessionFunding(openBody.session?.funding || readOpenSessionHint(sessionToken)?.funding),
         merchantSettlement: buildMerchantSettlement(requirements),
       };
@@ -568,7 +570,8 @@ async function x402Check({ url, method }) {
     return { price, priceFormatted: `$${price.toFixed(decimals > 2 ? 4 : 2)}`, network: a.network, scheme: a.scheme, asset: a.asset, payTo: a.payTo };
   });
 
-  return { requiresPayment: true, statusCode: 402, x402Version: body?.x402Version ?? 2, paymentOptions, resource: body?.resource };
+  const schema = accepts[0]?.outputSchema || null;
+  return { requiresPayment: true, statusCode: 402, x402Version: body?.x402Version ?? 2, paymentOptions, resource: body?.resource, schema };
 }
 
 // ─── Tool: x402_wallet ───────────────────────────────────────────────────────
@@ -655,7 +658,7 @@ function createOpenMcpServer() {
 
   server.registerTool('x402_pay', {
     title: 'x402 Pay',
-    description: 'Call any x402-protected API using canonical x402 settlement. In OpenDexter mode this uses an anonymous session: fund sessionFunding rails (txUrl/solanaPayUrl), then retry with the same session token; do not fund merchant payTo directly.',
+    description: 'Alias for x402_fetch. Prefer x402_fetch for all paid API calls. This tool exists for backward compatibility and returns identical results.',
     inputSchema: {
       url: z.string().url().describe('The x402 resource URL to call'),
       method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).default('GET').describe('HTTP method'),
@@ -698,7 +701,7 @@ function createOpenMcpServer() {
 
   server.registerTool('x402_check', {
     title: 'x402 Check',
-    description: 'Check if an endpoint requires x402 payment and see its pricing per chain. Does NOT make a payment — just probes for requirements.',
+    description: 'Check if an endpoint requires x402 payment. Returns pricing per chain, input/output schema, and payment requirements. Does NOT make a payment.',
     inputSchema: {
       url: z.string().url().describe('The URL to check'),
       method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).default('GET').describe('HTTP method to probe with'),
