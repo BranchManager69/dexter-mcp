@@ -353,11 +353,18 @@ async function checkEndpointPricing({ url, method = 'GET' }) {
 async function fetchWithSettlement({ url, method = 'GET', params, headers: customHeaders }, extra, normalizeForWidget = false) {
   const startTime = Date.now();
   const authToken = resolveAuthToken(extra);
-  const requestHeaders = {
+
+  // Resource headers: sent to the third-party endpoint. No Dexter auth token --
+  // the x402 payment header is what authorizes the request, not our Bearer token.
+  const resourceHeaders = {
     Accept: 'application/json',
     ...(customHeaders || {}),
   };
-  if (authToken) requestHeaders.Authorization = `Bearer ${authToken}`;
+
+  // Settlement headers: sent to dexter-api only. Includes the auth token so
+  // dexter-api can resolve the user's managed wallet for payment signing.
+  const settlementHeaders = { ...resourceHeaders };
+  if (authToken) settlementHeaders.Authorization = `Bearer ${authToken}`;
 
   let targetUrl = url;
   let body;
@@ -369,13 +376,14 @@ async function fetchWithSettlement({ url, method = 'GET', params, headers: custo
     targetUrl = urlObj.toString();
   } else if (params != null) {
     body = typeof params === 'string' ? params : JSON.stringify(params);
-    if (!requestHeaders['Content-Type']) requestHeaders['Content-Type'] = 'application/json';
+    if (!resourceHeaders['Content-Type']) resourceHeaders['Content-Type'] = 'application/json';
+    if (!settlementHeaders['Content-Type']) settlementHeaders['Content-Type'] = 'application/json';
   }
 
   const { response, json, text, paymentReceipt } = await fetchWithX402Json(
     targetUrl,
-    { method, headers: requestHeaders, body },
-    { authHeaders: requestHeaders, metadata: { tool: normalizeForWidget ? 'x402_fetch' : 'x402_pay', resourceUrl: url } },
+    { method, headers: resourceHeaders, body },
+    { authHeaders: settlementHeaders, metadata: { tool: normalizeForWidget ? 'x402_fetch' : 'x402_pay', resourceUrl: url } },
   );
 
   const contentType = (response.headers.get('content-type') || '').toLowerCase();

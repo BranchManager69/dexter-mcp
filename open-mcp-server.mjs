@@ -582,9 +582,49 @@ async function x402Check({ url, method }) {
 
 // ─── Tool: x402_wallet ───────────────────────────────────────────────────────
 
+async function resolveSessionByToken(sessionToken) {
+  const bases = [DEXTER_API, API_BASE_FALLBACK].filter(Boolean);
+  const paths = ['/v2/open/session/resolve', '/v2/pay/open/session/resolve'];
+  for (const base of bases) {
+    for (const path of paths) {
+      try {
+        const res = await fetch(`${base}${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ sessionToken }),
+          signal: AbortSignal.timeout(5000),
+        });
+        if (res.ok) {
+          const body = await res.json().catch(() => null);
+          if (body?.ok && body.sessionId) return body;
+        }
+        if (res.status === 404) return null;
+      } catch {}
+    }
+  }
+  return null;
+}
+
 async function x402Wallet(args, extra) {
   let session = args?.sessionToken ? readOpenSessionHint(args.sessionToken) : readContextSessionHint(extra);
   if (session && args?.sessionToken) linkSessionToContext(extra, args.sessionToken);
+
+  // If hint not in memory but token was provided, try resolving from dexter-api (DB-backed)
+  if (!session && args?.sessionToken) {
+    const resolved = await resolveSessionByToken(args.sessionToken);
+    if (resolved) {
+      session = {
+        sessionId: resolved.sessionId,
+        sessionToken: args.sessionToken,
+        funding: resolved.funding || null,
+        expiresAt: resolved.expiresAt || null,
+      };
+      rememberOpenSessionHint({ ...session, ...resolved });
+      linkSessionToContext(extra, args.sessionToken);
+    }
+  }
+
+  // No token provided and no context hint -- create a new session
   if (!session) {
     const sessionBody = await createOpenSession('1000000', extractMcpSessionId(extra));
     if (sessionBody?.ok) {
