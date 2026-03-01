@@ -8,6 +8,9 @@ node_modules/
 # Screenshots
 screenshots
 
+# Conversation logs
+docs/conversation_logs/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
