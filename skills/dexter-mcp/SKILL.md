@@ -103,7 +103,7 @@ When the user wants to trade, the typical flow is: resolve the token → preview
 | Aspect | This (Authenticated) | OpenDexter |
 |--------|---------------------|------------|
 | Auth | Dexter OAuth required | No auth |
-| Wallet | Managed by Dexter, pre-funded | Ephemeral session, needs manual funding |
+| Wallet | Managed by Dexter, pre-funded | Session wallet, persists 30 days, needs manual funding |
 | Tools | 50+ (trading, analytics, media, games + x402) | 5 (x402 marketplace only) |
 | Payment | Automatic, zero friction | Automatic after session funding |
 | Best for | Power users with Dexter accounts | Anyone, quick marketplace access |

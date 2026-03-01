@@ -100,4 +100,5 @@ OpenDexter is Dexter's x402 search engine — a public gateway that lets any AI 
 - The marketplace has endpoints across multiple chains. If the user cares about a specific chain, use the `network` filter.
 - If search returns too many results, use `verifiedOnly: true` to filter down to quality-tested endpoints.
 - Price is per call. Most endpoints cost $0.01-$0.10. Some creative/compute-heavy ones cost more.
-- The session wallet is ephemeral. Funds deposited are for this session's use.
+- Sessions persist for 30 days. The user can resume a session across conversations by passing the `sessionToken` to `x402_wallet`. Funds are safe even if the server restarts.
+- Pass `sessionToken` to `x402_wallet` to resume a previous session and see the current balance. If you don't have a token, calling `x402_wallet` without one creates a new session.
