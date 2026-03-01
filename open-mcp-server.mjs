@@ -89,7 +89,7 @@ function formatResource(r) {
     verified: r.verificationStatus === 'pass',
     totalCalls: r.totalSettlements ?? 0,
     totalVolume: r.totalVolumeUsdc != null ? `$${Number(r.totalVolumeUsdc).toLocaleString()}` : null,
-    seller: r.seller?.displayName || null,
+    seller: r.seller?.displayName || 'Independent',
     sellerReputation: r.reputationScore ?? null,
     authRequired: Boolean(r.authRequired),
     authType: r.authType || null,
