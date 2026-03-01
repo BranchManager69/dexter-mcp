@@ -11,11 +11,11 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/@dexterai/mcp"><img src="https://img.shields.io/npm/v/@dexterai/mcp.svg" alt="npm"></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E=18-brightgreen.svg" alt="Node"></a>
-  <a href="https://dexter.cash/marketplace"><img src="https://img.shields.io/badge/Marketplace-dexter.cash-blueviolet" alt="Marketplace"></a>
+  <a href="https://dexter.cash/opendexter"><img src="https://img.shields.io/badge/Marketplace-dexter.cash-blueviolet" alt="Marketplace"></a>
 </p>
 
 <p align="center">
-  <a href="https://dexter.cash/marketplace"><strong>Browse paid APIs →</strong></a>
+  <a href="https://dexter.cash/opendexter"><strong>Browse paid APIs →</strong></a>
 </p>
 
 ---
@@ -71,7 +71,7 @@ args = ["-y", "@dexterai/mcp@latest"]
 
 ### `x402_search`
 
-Search the [Dexter Marketplace](https://dexter.cash/marketplace) for paid API resources. Returns pricing, quality scores, verification status, seller reputation, and call volume.
+Search the [Dexter Marketplace](https://dexter.cash/opendexter) for paid API resources. Returns pricing, quality scores, verification status, seller reputation, and call volume.
 
 ```
 "Find image generation APIs under $0.10"
@@ -210,7 +210,7 @@ The MCP auto-detects which chain a 402 response requires and signs with the appr
 
 ## Links
 
-- [Dexter Marketplace](https://dexter.cash/marketplace)
+- [Dexter Marketplace](https://dexter.cash/opendexter)
 - [Dexter Facilitator](https://x402.dexter.cash)
 - [@dexterai/x402 SDK](https://www.npmjs.com/package/@dexterai/x402)
 - [x402 Protocol](https://x402.org)
