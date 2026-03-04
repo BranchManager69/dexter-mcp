@@ -237,3 +237,29 @@
     height: 160px;
   }
 }
+
+/* ─── Fullscreen Mode ─── */
+.fetch--fullscreen { max-height: none !important; overflow-y: auto; padding: 24px 32px; }
+.fetch--fullscreen .fetch-card { max-width: 900px; margin: 0 auto; }
+.fetch--fullscreen .fetch-data__image { max-height: none; }
+
+.fetch-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.fetch-expand-btn {
+  all: unset;
+  cursor: pointer;
+  padding: 5px 14px;
+  border-radius: 8px;
+  background: var(--x4-accent-soft);
+  color: var(--x4-accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: background 0.15s ease;
+}
+.fetch-expand-btn:hover { background: var(--x4-accent); color: var(--x4-accent-gradient-text); }

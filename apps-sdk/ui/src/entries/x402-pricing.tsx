@@ -79,6 +79,12 @@ function PricingCheck() {
 
   const handleFetch = async () => {
     if (!toolInput?.url) return;
+    try {
+      (window as any).openai?.sendFollowUpMessage?.({
+        prompt: `Paying ${selectedPrice || 'the listed price'} to call ${toolInput.url}`,
+        scrollToBottom: false,
+      });
+    } catch {}
     await callTool('x402_fetch', { url: toolInput.url, method: toolInput.method || 'GET' });
   };
 
@@ -149,7 +155,7 @@ function PricingCheck() {
 
 const root = document.getElementById('x402-pricing-root');
 if (root) {
-  root.setAttribute('data-widget-build', '2026-02-28.2');
+  root.setAttribute('data-widget-build', '2026-03-04.1');
   createRoot(root).render(<PricingCheck />);
 }
 

@@ -3,8 +3,8 @@ import '../styles/components.css';
 import '../styles/widgets/x402-fetch-result.css';
 
 import { createRoot } from 'react-dom/client';
-import { useState, useEffect } from 'react';
-import { useOpenAIGlobal, useOpenExternal, useMaxHeight, useTheme } from '../sdk';
+import { useState, useEffect, useCallback } from 'react';
+import { useOpenAIGlobal, useOpenExternal, useMaxHeight, useTheme, useDisplayMode } from '../sdk';
 import { JsonViewer, CopyButton, DebugPanel, useIntrinsicHeight, shortenHash, getExplorerUrl, formatUsdc } from '../components/x402';
 
 type FetchPayload = {
@@ -140,7 +140,15 @@ function FetchResult() {
   const openExternal = useOpenExternal();
   const theme = useTheme();
   const maxHeight = useMaxHeight();
+  const displayMode = useDisplayMode();
   const containerRef = useIntrinsicHeight();
+  const isFullscreen = displayMode === 'fullscreen';
+
+  const toggleFullscreen = useCallback(() => {
+    try {
+      (window as any).openai?.requestDisplayMode?.({ mode: isFullscreen ? 'inline' : 'fullscreen' });
+    } catch {}
+  }, [isFullscreen]);
 
   if (!toolOutput) {
     return <div className="fetch" data-theme={theme} style={{ maxHeight: maxHeight ?? undefined }}><div className="fetch-card"><span>Loading...</span></div></div>;
@@ -155,11 +163,28 @@ function FetchResult() {
     ? formatUsdc(details.requirements.amount, details.requirements.extra?.decimals ?? 6)
     : '';
 
+  const dataStr = toolOutput.data !== undefined ? JSON.stringify(toolOutput.data) : '';
+  const isLargePayload = dataStr.length > 500;
+
   return (
-    <div className="fetch" data-theme={theme} ref={containerRef} style={{ maxHeight: maxHeight ?? undefined }}>
+    <div
+      className={`fetch ${isFullscreen ? 'fetch--fullscreen' : ''}`}
+      data-theme={theme}
+      ref={containerRef}
+      style={{ maxHeight: isFullscreen ? undefined : (maxHeight ?? undefined) }}
+    >
       <div className="fetch-card">
-        <div className="fetch-card__title">x402 Execution Result</div>
-        <div className="fetch-card__hero">Execution Ledger</div>
+        <div className="fetch-card__header">
+          <div>
+            <div className="fetch-card__title">x402 Execution Result</div>
+            <div className="fetch-card__hero">Execution Ledger</div>
+          </div>
+          {isLargePayload && (
+            <button className="fetch-expand-btn" onClick={toggleFullscreen}>
+              {isFullscreen ? 'Minimize' : 'Expand'}
+            </button>
+          )}
+        </div>
 
         {isSession ? (
           <SessionPanel payload={toolOutput} />
@@ -226,7 +251,7 @@ function FetchResult() {
 
 const root = document.getElementById('x402-fetch-result-root');
 if (root) {
-  root.setAttribute('data-widget-build', '2026-02-28.2');
+  root.setAttribute('data-widget-build', '2026-03-04.1');
   createRoot(root).render(<FetchResult />);
 }
 

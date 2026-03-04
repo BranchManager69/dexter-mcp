@@ -277,6 +277,56 @@
 .wallet-funding__action:hover { opacity: 0.92; transform: translateY(-1px); }
 .wallet-funding__action:active { transform: translateY(0); }
 
+/* ─── Session Details (expandable) ─── */
+.wallet-session-details {
+  border-radius: 10px;
+  border: 1px solid var(--x4-border);
+  overflow: hidden;
+}
+.wallet-session-toggle {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--x4-surface);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--x4-text-muted);
+}
+.wallet-session-toggle:hover { color: var(--x4-text); }
+.wallet-session-toggle__icon { font-size: 10px; }
+.wallet-session-expanded {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--x4-border);
+  background: var(--x4-surface-muted);
+}
+.wallet-session-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.wallet-session-field__label {
+  font-weight: 600;
+  color: var(--x4-text-muted);
+  min-width: 60px;
+  flex-shrink: 0;
+}
+.wallet-session-field__value {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: var(--x4-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
 .wallet-setup {
   border-radius: var(--radius-lg);
   border: 1px dashed var(--surface-border);

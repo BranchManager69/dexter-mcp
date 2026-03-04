@@ -84,6 +84,53 @@ function SessionFundingPanel({ funding, state }: { funding: SessionFunding; stat
   );
 }
 
+function SessionDetails({ sessionToken, sessionId, expiresAt, walletAddress }: {
+  sessionToken: string;
+  sessionId?: string;
+  expiresAt?: string | null;
+  walletAddress?: string | null;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="wallet-session-details">
+      <button className="wallet-session-toggle" onClick={() => setExpanded(!expanded)}>
+        <span className="wallet-session-toggle__label">Session Details</span>
+        <span className="wallet-session-toggle__icon">{expanded ? '\u25B2' : '\u25BC'}</span>
+      </button>
+      {expanded && (
+        <div className="wallet-session-expanded">
+          <div className="wallet-session-field">
+            <span className="wallet-session-field__label">Token</span>
+            <span className="wallet-session-field__value">{sessionToken}</span>
+            <CopyButton text={sessionToken} label="Copy" className="wallet-address__copy" />
+          </div>
+          {sessionId && (
+            <div className="wallet-session-field">
+              <span className="wallet-session-field__label">Session ID</span>
+              <span className="wallet-session-field__value">{sessionId}</span>
+              <CopyButton text={sessionId} label="Copy" className="wallet-address__copy" />
+            </div>
+          )}
+          {walletAddress && (
+            <div className="wallet-session-field">
+              <span className="wallet-session-field__label">Wallet</span>
+              <span className="wallet-session-field__value">{walletAddress}</span>
+              <CopyButton text={walletAddress} label="Copy" className="wallet-address__copy" />
+            </div>
+          )}
+          {expiresAt && (
+            <div className="wallet-session-field">
+              <span className="wallet-session-field__label">Expires</span>
+              <span className="wallet-session-field__value">{new Date(expiresAt).toLocaleDateString()}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function WalletDashboard() {
   const toolOutput = useOpenAIGlobal('toolOutput') as WalletPayload | null;
   const toolMeta = useOpenAIGlobal('toolResponseMetadata') as Record<string, unknown> | null;
@@ -219,11 +266,12 @@ function WalletDashboard() {
         )}
 
         {isSession && sessionToken && (
-          <div className="wallet-address" style={{ opacity: 0.7 }}>
-            <span className="wallet-balance__label" style={{ fontSize: 10, marginBottom: 2 }}>Session Token</span>
-            <span className="wallet-address__text" style={{ fontSize: 11 }}>{sessionToken.slice(0, 16)}...{sessionToken.slice(-8)}</span>
-            <CopyButton text={sessionToken} label="Copy" className="wallet-address__copy" />
-          </div>
+          <SessionDetails
+            sessionToken={sessionToken}
+            sessionId={toolOutput.sessionId}
+            expiresAt={toolOutput.expiresAt}
+            walletAddress={toolOutput.address}
+          />
         )}
 
         {isSession && toolOutput.sessionFunding && (

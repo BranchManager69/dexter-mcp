@@ -3,14 +3,14 @@ import '../styles/components.css';
 import '../styles/widgets/x402-marketplace-search.css';
 
 import { createRoot } from 'react-dom/client';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   useOpenAIGlobal,
   useToolInput,
   useTheme,
   useCallToolFn,
   useMaxHeight,
-  useIsMobile,
+  useDisplayMode,
 } from '../sdk';
 import {
   ChainIcon,
@@ -47,7 +47,28 @@ type SearchPayload = {
   error?: string;
 };
 
-function ApiCard({ resource, featured = false }: { resource: Resource; featured?: boolean }) {
+function updateModelContext(data: Record<string, unknown>) {
+  try {
+    (window as any).openai?.sendFollowUpMessage?.({
+      prompt: `The user selected: ${data.name} at ${data.url} (${data.price})`,
+      scrollToBottom: false,
+    });
+  } catch {}
+}
+
+function requestFullscreen() {
+  try { (window as any).openai?.requestDisplayMode?.({ mode: 'fullscreen' }); } catch {}
+}
+
+function requestInline() {
+  try { (window as any).openai?.requestDisplayMode?.({ mode: 'inline' }); } catch {}
+}
+
+function ApiCard({ resource, featured = false, onSelect }: {
+  resource: Resource;
+  featured?: boolean;
+  onSelect: (r: Resource) => void;
+}) {
   const callTool = useCallToolFn();
   const [copied, setCopied] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -66,7 +87,8 @@ function ApiCard({ resource, featured = false }: { resource: Resource; featured?
     }
   }, [callTool, resource.url, resource.method]);
 
-  const handleCopyUrl = useCallback(async () => {
+  const handleCopyUrl = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       await navigator.clipboard.writeText(resource.url);
       setCopied(true);
@@ -74,8 +96,17 @@ function ApiCard({ resource, featured = false }: { resource: Resource; featured?
     } catch {}
   }, [resource.url]);
 
+  const handleCardClick = useCallback(() => {
+    onSelect(resource);
+  }, [onSelect, resource]);
+
   return (
-    <div className={`mkt-card ${featured ? 'mkt-card--featured' : ''}`}>
+    <div
+      className={`mkt-card ${featured ? 'mkt-card--featured' : ''}`}
+      onClick={handleCardClick}
+      role="button"
+      tabIndex={0}
+    >
       <div className="mkt-card__top">
         <div className="mkt-card__info">
           <span className="mkt-card__name">{resource.name}</span>
@@ -107,13 +138,13 @@ function ApiCard({ resource, featured = false }: { resource: Resource; featured?
         title="Click to copy"
         onClick={handleCopyUrl}
       >
-        {copied ? '✓ Copied!' : resource.url}
+        {copied ? 'Copied!' : resource.url}
       </div>
       <div className="mkt-card__actions">
-        <button className="mkt-check-btn" onClick={handleCheck} disabled={checking}>
+        <button className="mkt-check-btn" onClick={(e) => { e.stopPropagation(); handleCheck(); }} disabled={checking}>
           {checking ? '...' : 'Check Price'}
         </button>
-        <button className="mkt-fetch-btn" onClick={handleFetch}>
+        <button className="mkt-fetch-btn" onClick={(e) => { e.stopPropagation(); handleFetch(); }}>
           Fetch {resource.price}
         </button>
       </div>
@@ -124,9 +155,20 @@ function ApiCard({ resource, featured = false }: { resource: Resource; featured?
 function MarketplaceSearch() {
   const toolOutput = useOpenAIGlobal('toolOutput') as SearchPayload | null;
   const toolInput = useToolInput() as { query?: string } | null;
+  const widgetState = useOpenAIGlobal('widgetState') as { selectedUrl?: string } | null;
   const theme = useTheme();
   const maxHeight = useMaxHeight();
+  const displayMode = useDisplayMode();
   const containerRef = useIntrinsicHeight();
+  const isFullscreen = displayMode === 'fullscreen';
+
+  // Persist selected card in widget state
+  const handleSelectResource = useCallback((r: Resource) => {
+    try {
+      (window as any).openai?.setWidgetState?.({ selectedUrl: r.url });
+    } catch {}
+    updateModelContext({ name: r.name, url: r.url, price: r.price, network: r.network });
+  }, []);
 
   const qualityValues = (toolOutput?.resources ?? [])
     .map((r) => r.qualityScore)
@@ -163,7 +205,12 @@ function MarketplaceSearch() {
   }
 
   return (
-    <div className="mkt" data-theme={theme} ref={containerRef} style={{ maxHeight: maxHeight ?? undefined }}>
+    <div
+      className={`mkt ${isFullscreen ? 'mkt--fullscreen' : ''}`}
+      data-theme={theme}
+      ref={containerRef}
+      style={{ maxHeight: isFullscreen ? undefined : (maxHeight ?? undefined) }}
+    >
       <div className="mkt-header">
         <div className="mkt-header__title-block">
           <span className="mkt-header__eyebrow">OpenDexter Marketplace</span>
@@ -172,6 +219,13 @@ function MarketplaceSearch() {
         </div>
         <div className="mkt-header__actions">
           {toolInput?.query && <span className="mkt-header__query">"{toolInput.query}"</span>}
+          <button
+            className="mkt-expand-btn"
+            onClick={isFullscreen ? requestInline : requestFullscreen}
+            title={isFullscreen ? 'Minimize' : 'Expand marketplace'}
+          >
+            {isFullscreen ? 'Minimize' : 'Expand'}
+          </button>
         </div>
       </div>
       <div className="mkt-statbar">
@@ -181,9 +235,14 @@ function MarketplaceSearch() {
         <span className="mkt-statbar__dot" />
         <span className="mkt-statbar__item">Avg quality: {avgQuality ?? 'n/a'}</span>
       </div>
-      <div className="mkt-grid">
+      <div className={`mkt-grid ${isFullscreen ? 'mkt-grid--fullscreen' : ''}`}>
         {toolOutput.resources.map((r, i) => (
-          <ApiCard key={r.url + i} resource={r} featured={i === 0} />
+          <ApiCard
+            key={r.url + i}
+            resource={r}
+            featured={i === 0 && !isFullscreen}
+            onSelect={handleSelectResource}
+          />
         ))}
       </div>
       {toolOutput.tip && <div className="mkt-tip">{toolOutput.tip}</div>}
@@ -194,7 +253,7 @@ function MarketplaceSearch() {
 
 const root = document.getElementById('x402-marketplace-search-root');
 if (root) {
-  root.setAttribute('data-widget-build', '2026-02-28.2');
+  root.setAttribute('data-widget-build', '2026-03-04.1');
   createRoot(root).render(<MarketplaceSearch />);
 }
 
