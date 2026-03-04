@@ -3,7 +3,7 @@ import '../styles/components.css';
 import '../styles/widgets/x402-wallet.css';
 
 import { createRoot } from 'react-dom/client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useOpenAIGlobal, useMaxHeight, useTheme, useCallToolFn, useOpenExternal } from '../sdk';
 import { CopyButton, useIntrinsicHeight, DebugPanel } from '../components/x402';
 
@@ -86,16 +86,32 @@ function SessionFundingPanel({ funding, state }: { funding: SessionFunding; stat
 
 function WalletDashboard() {
   const toolOutput = useOpenAIGlobal('toolOutput') as WalletPayload | null;
+  const toolMeta = useOpenAIGlobal('toolResponseMetadata') as Record<string, unknown> | null;
+  const widgetState = useOpenAIGlobal('widgetState') as { sessionToken?: string } | null;
   const theme = useTheme();
   const callTool = useCallToolFn();
   const maxHeight = useMaxHeight();
   const containerRef = useIntrinsicHeight();
   const [refreshing, setRefreshing] = useState(false);
 
+  // Session token flows through _meta (never visible to the model).
+  // Persist in widgetState so it survives between renders.
+  const metaToken = (toolMeta as any)?.sessionToken as string | undefined;
+  const storedToken = widgetState?.sessionToken;
+  const sessionToken = metaToken || storedToken;
+
+  useEffect(() => {
+    if (sessionToken && sessionToken !== storedToken) {
+      try {
+        (window as any).openai?.setWidgetState?.({ sessionToken });
+      } catch {}
+    }
+  }, [sessionToken, storedToken]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      const sessionToken = toolOutput?.sessionToken;
+      // Widget-initiated tool call — bypasses model, uses server-side session context
       await callTool('x402_wallet', sessionToken ? { sessionToken } : {});
     } finally {
       setRefreshing(false);
@@ -202,6 +218,14 @@ function WalletDashboard() {
           </div>
         )}
 
+        {isSession && sessionToken && (
+          <div className="wallet-address" style={{ opacity: 0.7 }}>
+            <span className="wallet-balance__label" style={{ fontSize: 10, marginBottom: 2 }}>Session Token</span>
+            <span className="wallet-address__text" style={{ fontSize: 11 }}>{sessionToken.slice(0, 16)}...{sessionToken.slice(-8)}</span>
+            <CopyButton text={sessionToken} label="Copy" className="wallet-address__copy" />
+          </div>
+        )}
+
         {isSession && toolOutput.sessionFunding && (
           <SessionFundingPanel funding={toolOutput.sessionFunding} state={toolOutput.state} />
         )}
@@ -219,7 +243,7 @@ function WalletDashboard() {
 
 const root = document.getElementById('x402-wallet-root');
 if (root) {
-  root.setAttribute('data-widget-build', '2026-03-01.1');
+  root.setAttribute('data-widget-build', '2026-03-04.1');
   createRoot(root).render(<WalletDashboard />);
 }
 

@@ -70,7 +70,7 @@ const WALLET_META = widgetMeta('ui://dexter/x402-wallet', 'Loading wallet…', '
 const ALL_TOOLS = ['x402_search', 'x402_pay', 'x402_fetch', 'x402_check', 'x402_wallet'];
 const OPEN_SESSION_HINTS = new Map();
 const OPEN_SESSION_CONTEXT = new Map();
-const OPEN_SESSION_HINT_TTL_MS = 30 * 60 * 1000;
+const OPEN_SESSION_HINT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 // Set env vars required by registerAppsSdkResources before importing it
 if (!process.env.TOKEN_AI_MCP_PUBLIC_URL) process.env.TOKEN_AI_MCP_PUBLIC_URL = 'https://open.dexter.cash/mcp';
@@ -181,6 +181,11 @@ function rememberOpenSessionHint(session) {
 }
 
 function extractMcpSessionId(extra) {
+  // MCP SDK transport session (most reliable, stable across all tool calls)
+  if (extra?.sessionId) return extra.sessionId;
+  // ChatGPT provides an anonymized conversation ID on every tool call
+  if (extra?._meta?.['openai/session']) return extra._meta['openai/session'];
+  // Fallback: read from request headers
   const headerSources = [
     extra?.requestInfo?.headers,
     extra?.httpRequest?.headers,
@@ -427,7 +432,11 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
     }
   }
 
-  if (sessionToken) {
+  // Resolve session token: server-side context first (works on ChatGPT without model passing token),
+  // then fall back to explicit parameter (works on Claude, npm package)
+  const resolvedSessionToken = sessionToken || readContextSessionHint(extra)?.sessionToken || null;
+
+  if (resolvedSessionToken) {
     try {
       const bases = [DEXTER_API, API_BASE_FALLBACK].filter(Boolean);
       const paths = ['/v2/open/x402/fetch', '/v2/pay/open/x402/fetch'];
@@ -439,7 +448,7 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              sessionToken,
+              sessionToken: resolvedSessionToken,
               url,
               method: method || 'GET',
               body: fetchOpts.body ?? null,
@@ -459,7 +468,7 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
 
       if (!openRes || !openRes.ok || !openBody?.ok) {
         console.error(`[open-mcp] x402_fetch API failed: status=${openRes?.status} ok=${openBody?.ok} error=${openBody?.error} url=${url}`, JSON.stringify(openBody)?.slice(0, 500));
-        const sessionHint = sessionToken ? readOpenSessionHint(sessionToken) : null;
+        const sessionHint = resolvedSessionToken ? readOpenSessionHint(resolvedSessionToken) : null;
         const looksUnfunded = openBody?.error === 'session_not_funded' || openBody?.state === 'pending_funding';
         if (looksUnfunded) {
           const funding = normalizeSessionFunding(openBody?.funding || openBody?.session?.funding || sessionHint?.funding);
@@ -472,7 +481,7 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
             merchantSettlement: buildMerchantSettlement(requirements),
             sessionFunding: funding,
             session: sessionHint ? { ...sessionHint, state: openBody?.state || 'pending_funding' } : {
-              sessionToken,
+              sessionToken: resolvedSessionToken,
               state: openBody?.state || 'pending_funding',
             },
             details: openBody || null,
@@ -490,8 +499,8 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
       if (openBody?.session?.sessionToken) {
         rememberOpenSessionHint(openBody.session);
         linkSessionToContext(extra, openBody.session.sessionToken);
-      } else if (sessionToken) {
-        linkSessionToContext(extra, sessionToken);
+      } else if (resolvedSessionToken) {
+        linkSessionToContext(extra, resolvedSessionToken);
       }
       return {
         status: openBody.status ?? 200,
@@ -500,8 +509,8 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
         payment: openBody.payment?.settlement
           ? { settled: true, details: openBody.payment.settlement }
           : { settled: Boolean(openBody.paid) },
-        session: { ...(openBody.session ?? { sessionToken }), funding: undefined },
-        sessionFunding: normalizeSessionFunding(openBody.session?.funding || readOpenSessionHint(sessionToken)?.funding),
+        session: { ...(openBody.session ?? { sessionToken: resolvedSessionToken }), funding: undefined },
+        sessionFunding: normalizeSessionFunding(openBody.session?.funding || readOpenSessionHint(resolvedSessionToken)?.funding),
         merchantSettlement: buildMerchantSettlement(requirements),
       };
     } catch (err) {
@@ -689,7 +698,7 @@ async function x402Wallet(args, extra) {
   return {
     mode: state === 'active' || state === 'depleted' ? 'session_ready' : 'session_required',
     sessionId: session.sessionId,
-    sessionToken: session.sessionToken,
+    _sessionToken: session.sessionToken,
     state,
     address: walletAddress,
     network: 'solana',
@@ -763,6 +772,10 @@ function createOpenMcpServer() {
   }, async (args, extra) => {
     try {
       const result = await x402Pay(args, extra);
+      if (result.session?.sessionToken) {
+        const { sessionToken: _drop, ...cleanSession } = result.session;
+        result.session = cleanSession;
+      }
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     } catch (err) {
       return { content: [{ type: 'text', text: JSON.stringify({ error: err.message }) }], isError: true };
@@ -785,7 +798,14 @@ function createOpenMcpServer() {
   }, async (args, extra) => {
     try {
       const result = await x402Fetch(args, extra);
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], structuredContent: result, _meta: FETCH_META };
+      // Strip sessionToken from session object so model never sees it
+      const meta = { ...FETCH_META };
+      if (result.session?.sessionToken) {
+        meta.sessionToken = result.session.sessionToken;
+        const { sessionToken: _drop, ...cleanSession } = result.session;
+        result.session = cleanSession;
+      }
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], structuredContent: result, _meta: meta };
     } catch (err) {
       const msg = err.cause?.code === 'ENOTFOUND' ? `Could not reach ${args.url}` : err.message || String(err);
       const data = { status: 500, error: msg };
@@ -823,7 +843,10 @@ function createOpenMcpServer() {
   }, async (args, extra) => {
     try {
       const result = await x402Wallet(args, extra);
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], structuredContent: result, _meta: WALLET_META };
+      const { _sessionToken, ...publicResult } = result;
+      const meta = { ...WALLET_META };
+      if (_sessionToken) meta.sessionToken = _sessionToken;
+      return { content: [{ type: 'text', text: JSON.stringify(publicResult, null, 2) }], structuredContent: publicResult, _meta: meta };
     } catch (err) {
       const data = { error: err?.message || String(err) };
       return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }], structuredContent: data, isError: true, _meta: WALLET_META };
