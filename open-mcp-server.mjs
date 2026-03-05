@@ -718,30 +718,51 @@ async function x402Wallet(args, extra) {
   const funding = normalizeSessionFunding(liveState?.funding || session.funding);
 
   const usdcAvailable = Number(availableAtomic) / 1e6;
-  const walletAddress = funding?.walletAddress || liveState?.funding?.walletAddress || session.funding?.walletAddress || null;
+  const solanaAddress = funding?.walletAddress || liveState?.solanaAddress || liveState?.funding?.walletAddress || session.funding?.walletAddress || null;
+  const evmAddress = liveState?.evmAddress || null;
+  const chainBalances = liveState?.chainBalances || {};
+
+  // Compute per-chain display info for the widget
+  const chainDisplay = {};
+  const CHAIN_NAMES = {
+    'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': { name: 'Solana', tier: 'first' },
+    'eip155:8453': { name: 'Base', tier: 'first' },
+    'eip155:137': { name: 'Polygon', tier: 'second' },
+    'eip155:42161': { name: 'Arbitrum', tier: 'second' },
+    'eip155:10': { name: 'Optimism', tier: 'second' },
+    'eip155:43114': { name: 'Avalanche', tier: 'second' },
+  };
+  for (const [caip2, meta] of Object.entries(CHAIN_NAMES)) {
+    const bal = chainBalances[caip2] || '0';
+    chainDisplay[caip2] = { available: String(bal), name: meta.name, tier: meta.tier };
+  }
+
+  const totalUsdc = Object.values(chainBalances).reduce((sum, v) => sum + Number(v || 0), 0) / 1e6;
 
   return {
     mode: state === 'active' || state === 'depleted' ? 'session_ready' : 'session_required',
     sessionId: session.sessionId,
     _sessionToken: session.sessionToken,
     state,
-    address: walletAddress,
-    network: 'solana',
-    networkName: 'Solana',
+    solanaAddress,
+    evmAddress,
+    address: solanaAddress,
+    network: 'multichain',
+    networkName: 'Multi-Chain',
     sessionFunding: funding,
+    chainBalances: chainDisplay,
     balances: {
-      usdc: usdcAvailable,
-      sol: 0,
+      usdc: totalUsdc || usdcAvailable,
       fundedAtomic: String(fundedAtomic),
       spentAtomic: String(spentAtomic),
       availableAtomic: String(availableAtomic),
     },
     expiresAt: liveState?.expiresAt || session.expiresAt || null,
     tip: state === 'active'
-      ? 'Session is funded and ready. Use x402_fetch or x402_pay to call paid APIs.'
+      ? 'Session is funded and ready. Use x402_fetch to call paid APIs on any supported chain.'
       : state === 'depleted'
-        ? 'Session balance exhausted. Fund again or create a new session.'
-        : 'Fund the session via txUrl or solanaPayUrl. OpenDexter will then settle merchant payments automatically.',
+        ? 'Session balance exhausted. Send USDC to either address to continue.'
+        : 'Send USDC on any supported chain (Solana, Base, Polygon, Arbitrum, Optimism, Avalanche) to either the Solana or EVM address.',
   };
 }
 

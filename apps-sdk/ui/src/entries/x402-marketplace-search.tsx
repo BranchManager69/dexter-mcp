@@ -24,6 +24,8 @@ import {
   DebugPanel,
 } from '../components/x402';
 
+const WORDMARK_URL = 'https://dexter.cash/wordmarks/dexter-wordmark.svg';
+
 type Resource = {
   name: string;
   url: string;
@@ -49,14 +51,21 @@ type SearchPayload = {
   error?: string;
 };
 
-function ApiCard({ resource, featured = false, onSelect }: {
+function ApiCard({ resource, index, featured = false, onSelect }: {
   resource: Resource;
+  index: number;
   featured?: boolean;
   onSelect: (r: Resource) => void;
 }) {
   const callTool = useCallToolFn();
   const [checking, setChecking] = useState(false);
+  const [visible, setVisible] = useState(false);
   const { name: networkName } = getChain(resource.network);
+
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 60 + index * 40);
+    return () => clearTimeout(t);
+  }, [index]);
 
   const handleFetch = useCallback(async () => {
     await callTool('x402_fetch', { url: resource.url, method: resource.method || 'GET' });
@@ -73,7 +82,9 @@ function ApiCard({ resource, featured = false, onSelect }: {
 
   return (
     <div
-      className={`rounded-2xl border ${featured ? 'border-primary/30 shadow-md' : 'border-default'} bg-surface p-4 flex flex-col gap-3 cursor-pointer transition-colors hover:border-primary/50`}
+      className={`rounded-2xl border bg-surface p-4 flex flex-col gap-3 cursor-pointer transition-all duration-300 ${
+        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+      } ${featured ? 'border-[#ff6b00]/25 shadow-[0_0_20px_rgba(255,107,0,0.06)]' : 'border-default'} hover:border-[#ff6b00]/40`}
       onClick={() => onSelect(resource)}
       role="button"
       tabIndex={0}
@@ -210,39 +221,41 @@ function MarketplaceSearch() {
     <div
       data-theme={theme}
       ref={containerRef}
-      className={`flex flex-col gap-4 ${isFullscreen ? 'p-6' : 'p-4'} overflow-y-auto`}
+      className={`flex flex-col ${isFullscreen ? 'p-6' : 'p-0'} overflow-y-auto`}
       style={{ maxHeight: isFullscreen ? undefined : (maxHeight ?? undefined) }}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 flex-wrap min-w-0">
-        <div className="flex flex-col gap-1 min-w-0 flex-1">
-          <span className="text-xs text-tertiary uppercase tracking-wider font-semibold">OpenDexter Marketplace</span>
-          <span className="heading-lg">{toolOutput.count} result{toolOutput.count !== 1 ? 's' : ''}</span>
-          <span className="text-sm text-secondary">Discover paid endpoints with the cleanest execution path.</span>
+      {/* Branded header */}
+      <div className="relative overflow-hidden rounded-t-2xl px-4 pt-4 pb-3"
+        style={{ background: 'linear-gradient(135deg, rgba(209,63,0,0.08) 0%, rgba(255,107,0,0.04) 50%, transparent 100%)' }}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <img src={WORDMARK_URL} alt="Dexter" height={22} style={{ height: 22, width: 'auto', opacity: 0.9 }} />
+            <span className="text-xs text-tertiary">Marketplace</span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {toolInput?.query && <Badge variant="outline" size="sm">&quot;{toolInput.query}&quot;</Badge>}
+            <Button variant="soft" color="secondary" size="sm" onClick={toggleFullscreen}>
+              {isFullscreen ? 'Minimize' : 'Expand'}
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-          {toolInput?.query && <Badge variant="outline">&quot;{toolInput.query}&quot;</Badge>}
-          <Button variant="soft" color="secondary" size="sm" onClick={toggleFullscreen}>
-            {isFullscreen ? 'Minimize' : 'Expand'}
-          </Button>
+        <div className="flex items-baseline gap-2 mt-2">
+          <span className="heading-lg">{toolOutput.count}</span>
+          <span className="text-sm text-secondary">result{toolOutput.count !== 1 ? 's' : ''}</span>
+          <span className="text-3xs text-tertiary ml-auto">{verifiedCount} verified · avg quality {avgQuality ?? 'n/a'}</span>
         </div>
+        {/* Subtle orange accent line */}
+        <div className="absolute bottom-0 left-4 right-4 h-px" style={{ background: 'linear-gradient(90deg, #ff6b00 0%, transparent 100%)', opacity: 0.15 }} />
       </div>
 
-      {/* Stats bar */}
-      <div className="flex items-center gap-3 text-xs text-tertiary">
-        <span>Catalog: live</span>
-        <span className="size-1 rounded-full bg-current opacity-30" />
-        <span>Verified: {verifiedCount}</span>
-        <span className="size-1 rounded-full bg-current opacity-30" />
-        <span>Avg quality: {avgQuality ?? 'n/a'}</span>
-      </div>
-
-      {/* Results grid */}
-      <div className={`grid gap-4 ${isFullscreen ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+      {/* Results */}
+      <div className={`flex flex-col gap-3 px-4 py-3 ${isFullscreen ? 'grid grid-cols-1 sm:grid-cols-2' : ''}`}>
         {toolOutput.resources.map((r, i) => (
           <ApiCard
             key={r.url + i}
             resource={r}
+            index={i}
             featured={i === 0 && !isFullscreen}
             onSelect={handleSelectResource}
           />
@@ -250,7 +263,7 @@ function MarketplaceSearch() {
       </div>
 
       {toolOutput.tip && (
-        <p className="text-xs text-tertiary">{toolOutput.tip}</p>
+        <p className="text-xs text-tertiary px-4 pb-3">{toolOutput.tip}</p>
       )}
       <DebugPanel widgetName="x402-marketplace-search" />
     </div>
@@ -259,7 +272,7 @@ function MarketplaceSearch() {
 
 const root = document.getElementById('x402-marketplace-search-root');
 if (root) {
-  root.setAttribute('data-widget-build', '2026-03-04.2');
+  root.setAttribute('data-widget-build', '2026-03-05.2');
   createRoot(root).render(<MarketplaceSearch />);
 }
 
