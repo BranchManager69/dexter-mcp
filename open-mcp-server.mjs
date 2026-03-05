@@ -776,7 +776,7 @@ function createOpenMcpServer() {
 
   server.registerTool('x402_search', {
     title: 'x402 Search',
-    description: 'Search the Dexter x402 marketplace for paid API resources. If exact matches are empty, automatically retries with a broad scan and returns closest related results with explicit fallback metadata.',
+    description: 'Search the x402 marketplace for paid API resources across Solana and EVM chains (Base, Polygon, Arbitrum, Optimism, Avalanche). Returns verified endpoints with pricing, quality scores, and input/output schemas. Results span multiple chains — the session handles chain selection automatically at payment time.',
     inputSchema: {
       query: z.string().optional().describe('What are you looking for? e.g. "token analysis", "image generation", "video"'),
       category: z.string().optional().describe('Filter by category (e.g. "api", "games", "creative")'),
@@ -830,7 +830,7 @@ function createOpenMcpServer() {
 
   server.registerTool('x402_fetch', {
     title: 'x402 Fetch',
-    description: 'Call any x402-protected API with canonical x402 settlement using an anonymous OpenDexter session token. sessionFunding fields are for user top-up; merchantSettlement.payTo is destination settled by the session.',
+    description: 'Call any x402-protected API and pay automatically from the active OpenDexter session. The session checks balances across all funded chains (Solana, Base, Polygon, Arbitrum, Optimism, Avalanche) and picks the best-funded chain that the endpoint accepts — no chain parameter needed. Returns the API response data, payment receipt, and updated per-chain balances.',
     inputSchema: {
       url: z.string().url().describe('The x402 resource URL to call'),
       method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).default('GET').describe('HTTP method'),
@@ -861,7 +861,7 @@ function createOpenMcpServer() {
 
   server.registerTool('x402_check', {
     title: 'x402 Check',
-    description: 'Check if an endpoint requires x402 payment. Returns pricing per chain, input/output schema, and payment requirements. Does NOT make a payment.',
+    description: 'Probe an endpoint for x402 payment requirements without paying. Returns pricing options per chain (Solana, Base, and others if supported), input/output schema, and the payTo address for each chain. Use this to preview costs before calling x402_fetch.',
     inputSchema: {
       url: z.string().url().describe('The URL to check'),
       method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).default('GET').describe('HTTP method to probe with'),
@@ -880,7 +880,7 @@ function createOpenMcpServer() {
 
   server.registerTool('x402_wallet', {
     title: 'x402 Wallet',
-    description: 'OpenDexter session dashboard. Returns or creates the active anonymous spend session, including funding rails and current session balance state.',
+    description: 'Create or resume an OpenDexter multi-chain session. Each session has both a Solana wallet and an EVM wallet (same address on Base, Polygon, Arbitrum, Optimism, Avalanche). Fund either or both — the session tracks USDC balances across all chains. Returns per-chain balances, deposit addresses, and a Solana Pay QR code for funding.',
     inputSchema: {
       sessionToken: z.string().optional().describe('Pass an existing session token to check its status and balance instead of creating a new session.'),
     },
@@ -964,11 +964,11 @@ const httpServer = http.createServer(async (req, res) => {
         'Five tools, no authentication required.',
       version: '1.1.0',
       tools: [
-        { name: 'x402_search', description: 'Search paid APIs with exact+fallback matching and explicit search metadata.' },
-        { name: 'x402_pay', description: 'Canonical x402 pay-and-call flow (same execution path as x402_fetch).' },
-        { name: 'x402_fetch', description: 'Call any x402 API with canonical settlement via funded OpenDexter session (or local key if configured).' },
-        { name: 'x402_check', description: 'Preview endpoint pricing without paying.' },
-        { name: 'x402_wallet', description: 'Create/read active anonymous spend session and funding rails.' },
+        { name: 'x402_search', description: 'Search the x402 marketplace for paid APIs across Solana and EVM chains.' },
+        { name: 'x402_pay', description: 'Alias for x402_fetch. Pays and calls an x402 endpoint.' },
+        { name: 'x402_fetch', description: 'Call any x402 API — auto-selects the best funded chain for payment.' },
+        { name: 'x402_check', description: 'Preview endpoint pricing and payment options per chain without paying.' },
+        { name: 'x402_wallet', description: 'Multi-chain session with Solana + EVM wallets. Fund any chain, pay on any chain.' },
       ],
     }));
     return;

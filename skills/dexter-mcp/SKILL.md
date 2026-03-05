@@ -14,13 +14,13 @@ Payment is automatic — the user's managed Dexter wallet handles all x402 settl
 These five tools work the same as OpenDexter but with automatic payment through the user's Dexter wallet. No session funding needed.
 
 ### `x402_search` — Find paid APIs
-Search the Dexter marketplace for x402 endpoints. Returns quality-ranked results with pricing, verification status, and seller reputation. Always start here when the user wants to find a paid API.
+Search the x402 marketplace for paid endpoints across Solana and EVM chains (Base, Polygon, Arbitrum, Optimism, Avalanche). Returns quality-ranked results with pricing, verification status, and seller reputation. Always start here when the user wants to find a paid API.
 
 ### `x402_check` — Preview pricing
-Probe an endpoint to see payment requirements per chain without paying. Use before `x402_fetch` to show the user what it'll cost.
+Probe an endpoint to see payment requirements per chain without paying. Shows pricing options for each supported chain. Use before `x402_fetch` to show the user what it'll cost.
 
 ### `x402_fetch` — Call and pay automatically
-Call any x402 endpoint with automatic payment from the user's Dexter wallet. No manual funding — it just works. The user gets the API response directly along with a payment receipt.
+Call any x402 endpoint with automatic payment from the user's Dexter wallet on the appropriate chain. No manual funding — it just works. The user gets the API response directly along with a payment receipt.
 
 ### `x402_pay` — Manual payment control
 Lower-level version of `x402_fetch` with explicit settlement control. Most users should use `x402_fetch` instead.
