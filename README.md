@@ -16,7 +16,40 @@
   · <a href="https://github.com/BranchManager69/pumpstreams">PumpStreams</a>
 </p>
 
-Fully managed Model Context Protocol (MCP) bridge for Dexter. The service exposes a curated set of connector tools (wallet resolution, diagnostics, session overrides) over both stdio and HTTPS, reusing the Dexter OAuth infrastructure for user-level access control.
+This repo contains two MCP servers and one npm package:
+
+| Product | Endpoint | Auth | Payment |
+|---------|----------|------|---------|
+| **Dexter MCP** (authenticated) | `mcp.dexter.cash/mcp` | Dexter OAuth | Managed wallet, automatic |
+| **OpenDexter MCP** (public) | `open.dexter.cash/mcp` | None | Session wallets, user-funded |
+| **@dexterai/opendexter** (npm) | Local stdio | None | Local wallet at `~/.dexterai-mcp/wallet.json` |
+
+---
+
+## OpenDexter — Public x402 Gateway
+
+OpenDexter is the public, no-auth MCP server for searching and paying x402 APIs. It powers the "OpenDexter" connector on ChatGPT and Claude.
+
+**How sessions work:** When a user connects, `x402_wallet` creates a session with two addresses — one Solana, one EVM (shared across Base, Polygon, Arbitrum, Optimism, Avalanche). The user sends USDC to either or both. When `x402_fetch` is called, the system checks all chain balances and picks the best-funded chain that the endpoint accepts. Sessions persist for 30 days in PostgreSQL.
+
+**How the npm package differs:** `@dexterai/opendexter` runs as a local stdio MCP server. Instead of ephemeral session wallets, it uses a local signer at `~/.dexterai-mcp/wallet.json`. The user funds their own wallet once and it persists indefinitely. Same five tools (`x402_search`, `x402_check`, `x402_fetch`, `x402_wallet`, `x402_pay`), same marketplace, different payment path.
+
+| | OpenDexter MCP | @dexterai/opendexter npm |
+|---|---|---|
+| Transport | HTTPS (SSE) | stdio |
+| Wallet | Ephemeral session (Solana + EVM) | Local signer file |
+| Funding | User sends USDC to session addresses | User funds local wallet |
+| Session lifetime | 30 days | Indefinite |
+| Multi-chain | Yes (6 chains, auto-select) | Solana (local key) |
+| Best for | ChatGPT, Claude, web agents | Cursor, Codex, CLI agents |
+
+Source: `open-mcp-server.mjs` (server), `packages/mcp/` (npm package).
+
+---
+
+## Dexter MCP — Authenticated Platform
+
+Fully managed MCP bridge for Dexter. Exposes 50+ tools (trading, analytics, media, games, x402 marketplace) over OAuth-authenticated HTTPS, reusing the Dexter wallet infrastructure for automatic payment.
 
 ---
 
