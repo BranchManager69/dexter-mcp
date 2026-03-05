@@ -15,7 +15,15 @@ export function shortenAddress(addr: string): string {
 
 export function formatUsdc(atomic: string | number, decimals = 6): string {
   const n = Number(atomic) / Math.pow(10, decimals);
-  return `$${n.toFixed(n < 0.01 ? 4 : 2)}`;
+  if (n < 0.01) return `$${n.toFixed(4)}`;
+  if (n < 1) return `$${n.toFixed(3)}`;
+  return `$${n.toFixed(2)}`;
+}
+
+export function formatUsdcFloat(value: number): string {
+  if (value < 0.01) return `$${value.toFixed(4)}`;
+  if (value < 1) return `$${value.toFixed(3)}`;
+  return `$${value.toFixed(2)}`;
 }
 
 export function getExplorerUrl(tx: string, network?: string): string {

@@ -457,7 +457,8 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
             signal: AbortSignal.timeout(30000),
           });
           const parsed = await attempt.json().catch(() => null);
-          if (attempt.status !== 404) {
+          const is404PathNotFound = attempt.status === 404 && !parsed?.error;
+          if (!is404PathNotFound) {
             openRes = attempt;
             openBody = parsed;
             break;
@@ -487,10 +488,21 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
             details: openBody || null,
           };
         }
+        const rawError = openBody?.error || 'open_session_fetch_failed';
+        const isExpired = rawError === 'session_expired' || openBody?.state === 'expired';
+        const isNotFound = rawError === 'session_not_found' || openRes?.status === 404;
+        const errorCode = isExpired ? 410 : isNotFound ? 404 : (openRes?.status || 500);
+        const errorMessage = isExpired
+          ? 'Session has expired. Create a new session with x402_wallet().'
+          : isNotFound
+            ? 'Session not found. The token may be invalid or the session may have been cleaned up.'
+            : `Session payment failed: ${rawError}`;
         return {
-          status: openRes?.status || 500,
+          status: errorCode,
           mode: 'session_error',
-          error: openBody?.error || 'open_session_fetch_failed',
+          error: rawError,
+          message: errorMessage,
+          hint: 'Call x402_wallet() with no arguments to create a new session.',
           details: openBody || null,
           requirements,
           merchantSettlement: buildMerchantSettlement(requirements),
@@ -639,6 +651,19 @@ async function x402Wallet(args, extra) {
       rememberOpenSessionHint({ ...session, ...resolved });
       linkSessionToContext(extra, args.sessionToken);
     }
+  }
+
+  // Token was explicitly provided but not found -- return a clear error, never create a new session
+  if (!session && args?.sessionToken) {
+    const isUuidFormat = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(args.sessionToken);
+    return {
+      error: isUuidFormat ? 'invalid_token_format' : 'unknown_session_token',
+      mode: 'session_error',
+      message: isUuidFormat
+        ? 'You passed a sessionId (UUID), not a sessionToken. The sessionToken starts with "open_" and is the bearer credential returned when a session is created.'
+        : 'Session token not recognized. It may have expired or the server may have restarted. Create a new session by calling x402_wallet with no arguments.',
+      hint: 'Call x402_wallet() with no arguments to create a new session, or use a valid sessionToken starting with "open_".',
+    };
   }
 
   // No token provided and no context hint -- create a new session

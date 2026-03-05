@@ -1,11 +1,13 @@
-import '../styles/base.css';
-import '../styles/components.css';
-import '../styles/widgets/x402-fetch-result.css';
+import '../styles/sdk.css';
 
 import { createRoot } from 'react-dom/client';
 import { useState, useEffect, useCallback } from 'react';
+import { Badge } from '@openai/apps-sdk-ui/components/Badge';
+import { Button, CopyButton } from '@openai/apps-sdk-ui/components/Button';
+import { Alert } from '@openai/apps-sdk-ui/components/Alert';
+import { Warning } from '@openai/apps-sdk-ui/components/Icon';
 import { useOpenAIGlobal, useOpenExternal, useMaxHeight, useTheme, useDisplayMode } from '../sdk';
-import { JsonViewer, CopyButton, DebugPanel, useIntrinsicHeight, shortenHash, getExplorerUrl, formatUsdc } from '../components/x402';
+import { JsonViewer, useIntrinsicHeight, DebugPanel } from '../components/x402';
 
 type FetchPayload = {
   status: number;
@@ -28,8 +30,6 @@ type FetchPayload = {
   error?: string;
   mode?: string;
   message?: string;
-  qr?: { solanaPayUrl?: string; nonce?: string; expiresAt?: string };
-  pollUrl?: string;
   session?: {
     sessionId?: string;
     sessionToken?: string;
@@ -73,14 +73,19 @@ function proxyImageUrl(url: string): string {
   return `https://api.dexter.cash/api/img?url=${encodeURIComponent(url)}`;
 }
 
-function FetchRail({ state }: { state: 'success' | 'pending' | 'error' }) {
-  return (
-    <div className="fetch-rail" aria-label="Execution progress">
-      <span className={`fetch-rail__step ${state !== 'error' ? 'is-done' : ''}`}>Challenge</span>
-      <span className={`fetch-rail__step ${state === 'success' ? 'is-done' : state === 'pending' ? 'is-active' : ''}`}>Settle</span>
-      <span className={`fetch-rail__step ${state === 'success' ? 'is-done' : state === 'error' ? 'is-active' : ''}`}>Response</span>
-    </div>
-  );
+function formatUsdc(atomic: string, decimals = 6): string {
+  return `$${(Number(atomic) / Math.pow(10, decimals)).toFixed(2)}`;
+}
+
+function shortenHash(hash: string): string {
+  if (hash.length <= 12) return hash;
+  return `${hash.slice(0, 6)}...${hash.slice(-6)}`;
+}
+
+function getExplorerUrl(tx: string, network?: string): string {
+  if (network?.includes('8453')) return `https://basescan.org/tx/${tx}`;
+  if (network?.includes('137')) return `https://polygonscan.com/tx/${tx}`;
+  return `https://solscan.io/tx/${tx}`;
 }
 
 function QrCountdown({ expiresAt }: { expiresAt: string }) {
@@ -95,7 +100,7 @@ function QrCountdown({ expiresAt }: { expiresAt: string }) {
     }, 1000);
     return () => clearInterval(interval);
   }, [expiresAt]);
-  return <span className="fetch-qr__timer">Expires in {timeLeft}</span>;
+  return <span className="text-xs text-tertiary">Expires in {timeLeft}</span>;
 }
 
 function SessionPanel({ payload }: { payload: FetchPayload }) {
@@ -103,35 +108,46 @@ function SessionPanel({ payload }: { payload: FetchPayload }) {
   const session = payload.session;
   const funding = payload.sessionFunding || session?.funding;
   const walletAddress = funding?.walletAddress || funding?.payTo;
-  const qrUrl = funding?.solanaPayUrl;
+  const qrUrl = funding?.solanaPayUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(funding.solanaPayUrl)}`
+    : null;
 
   return (
-    <>
-      <FetchRail state="pending" />
-      <div className="fetch-status">
-        <span className="fetch-badge fetch-badge--qr">Session Required</span>
-      </div>
-      <div className="fetch-session">
-        <span className="fetch-session__line">{payload.message || 'Fund an anonymous OpenDexter session to execute.'}</span>
-        {funding?.amountUsdc !== undefined && (
-          <span className="fetch-session__line">Funding target: ${Number(funding.amountUsdc).toFixed(2)} USDC</span>
-        )}
-        {walletAddress && (
-          <span className="fetch-session__line">
-            Deposit wallet: {walletAddress}
-            <CopyButton text={walletAddress} className="fetch-session__copy" />
-          </span>
-        )}
+    <div className="flex flex-col gap-3">
+      <Badge color="warning">Session Required</Badge>
+      <p className="text-sm text-secondary">{payload.message || 'Fund an anonymous OpenDexter session to execute.'}</p>
+      {funding?.amountUsdc !== undefined && (
+        <p className="text-sm font-semibold">Funding target: ${Number(funding.amountUsdc).toFixed(2)} USDC</p>
+      )}
+      {walletAddress && (
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs text-tertiary">Deposit:</span>
+          <span className="text-xs font-mono text-secondary truncate flex-1">{walletAddress}</span>
+          <CopyButton copyValue={walletAddress} variant="ghost" color="secondary" size="sm">Copy</CopyButton>
+        </div>
+      )}
+      {qrUrl && (
+        <div className="flex justify-center">
+          <div className="p-2 bg-white rounded-lg inline-block">
+            <img src={qrUrl} alt="Solana Pay QR" width={140} height={140} />
+          </div>
+        </div>
+      )}
+      <div className="flex gap-2">
         {funding?.txUrl && (
-          <button className="fetch-session__action" onClick={() => openExternal(funding.txUrl!)}>Open Funding Link</button>
+          <Button variant="soft" color="secondary" size="sm" onClick={() => openExternal(funding.txUrl!)}>
+            Open Funding Page
+          </Button>
         )}
-        {qrUrl && (
-          <button className="fetch-session__action" onClick={() => openExternal(qrUrl!)}>Open Solana Pay</button>
+        {funding?.solanaPayUrl && (
+          <Button variant="soft" color="secondary" size="sm" onClick={() => openExternal(funding.solanaPayUrl!)}>
+            Solana Pay
+          </Button>
         )}
-        {session?.expiresAt && <QrCountdown expiresAt={session.expiresAt} />}
       </div>
+      {session?.expiresAt && <QrCountdown expiresAt={session.expiresAt} />}
       {payload.requirements && <JsonViewer data={payload.requirements} title="Payment Requirements" />}
-    </>
+    </div>
   );
 }
 
@@ -142,6 +158,8 @@ function FetchResult() {
   const maxHeight = useMaxHeight();
   const displayMode = useDisplayMode();
   const containerRef = useIntrinsicHeight();
+
+  useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
   const isFullscreen = displayMode === 'fullscreen';
 
   const toggleFullscreen = useCallback(() => {
@@ -150,8 +168,24 @@ function FetchResult() {
     } catch {}
   }, [isFullscreen]);
 
+  const [loadingElapsed, setLoadingElapsed] = useState(0);
+  useEffect(() => {
+    if (toolOutput) return;
+    const t = setInterval(() => setLoadingElapsed((e) => e + 1), 1000);
+    return () => clearInterval(t);
+  }, [toolOutput]);
+
   if (!toolOutput) {
-    return <div className="fetch" data-theme={theme} style={{ maxHeight: maxHeight ?? undefined }}><div className="fetch-card"><span>Loading...</span></div></div>;
+    return (
+      <div data-theme={theme} className="p-4 flex flex-col gap-2" style={{ maxHeight: maxHeight ?? undefined }}>
+        <p className="text-sm text-secondary">
+          {loadingElapsed < 3 ? 'Submitting payment...'
+            : loadingElapsed < 8 ? 'Awaiting settlement confirmation...'
+            : 'Still processing — the endpoint may be slow.'}
+        </p>
+        {loadingElapsed >= 3 && <div className="h-1 rounded-full bg-surface-secondary overflow-hidden"><div className="h-full bg-primary/40 rounded-full transition-all duration-1000" style={{ width: `${Math.min(95, loadingElapsed * 8)}%` }} /></div>}
+      </div>
+    );
   }
 
   const isSession = toolOutput.mode === 'session_required';
@@ -162,81 +196,90 @@ function FetchResult() {
   const price = details?.requirements?.amount
     ? formatUsdc(details.requirements.amount, details.requirements.extra?.decimals ?? 6)
     : '';
-
   const dataStr = toolOutput.data !== undefined ? JSON.stringify(toolOutput.data) : '';
   const isLargePayload = dataStr.length > 500;
 
   return (
     <div
-      className={`fetch ${isFullscreen ? 'fetch--fullscreen' : ''}`}
       data-theme={theme}
       ref={containerRef}
+      className={`flex flex-col gap-4 ${isFullscreen ? 'p-6' : 'p-4'} overflow-y-auto`}
       style={{ maxHeight: isFullscreen ? undefined : (maxHeight ?? undefined) }}
     >
-      <div className="fetch-card">
-        <div className="fetch-card__header">
+      <div className="rounded-2xl border border-default bg-surface p-4 flex flex-col gap-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="fetch-card__title">x402 Execution Result</div>
-            <div className="fetch-card__hero">Execution Ledger</div>
+            <span className="text-xs text-tertiary uppercase tracking-wider font-semibold">x402 Execution Result</span>
+            <h2 className="heading-lg">Execution Ledger</h2>
           </div>
           {isLargePayload && (
-            <button className="fetch-expand-btn" onClick={toggleFullscreen}>
+            <Button variant="soft" color="secondary" size="sm" onClick={toggleFullscreen}>
               {isFullscreen ? 'Minimize' : 'Expand'}
-            </button>
+            </Button>
           )}
+        </div>
+
+        {/* Progress rail */}
+        <div className="flex gap-2">
+          <Badge color={isError ? 'danger' : 'success'} variant="soft">Challenge</Badge>
+          <Badge color={isError ? 'danger' : payment?.settled ? 'success' : 'warning'} variant="soft">Settle</Badge>
+          <Badge color={isError ? 'danger' : payment?.settled ? 'success' : 'secondary'} variant="soft">Response</Badge>
         </div>
 
         {isSession ? (
           <SessionPanel payload={toolOutput} />
         ) : isError ? (
-          <>
-            <FetchRail state="error" />
-            <div className="fetch-status">
-              <span className="fetch-badge fetch-badge--error">Error</span>
-            </div>
-            <div className="fetch-error">{toolOutput.error}</div>
-          </>
+          <Alert color="danger" title="Error" description={toolOutput.error} />
         ) : (
           <>
-            <FetchRail state={payment?.settled ? 'success' : 'pending'} />
-            <div className="fetch-status">
+            {/* Status badges */}
+            <div className="flex items-center gap-2 flex-wrap">
               {payment?.settled ? (
-                <span className="fetch-badge fetch-badge--success">Paid</span>
+                <Badge color="success">Paid</Badge>
               ) : (
-                <span className="fetch-badge fetch-badge--success">{toolOutput.status}</span>
+                <Badge color="info">{toolOutput.status}</Badge>
               )}
-              {price && <span className="fetch-badge fetch-badge--network">{price} USDC</span>}
-              {details?.network && <span className="fetch-badge fetch-badge--network">{getNetworkName(details.network)}</span>}
+              {price && <Badge color="info" variant="outline">{price} USDC</Badge>}
+              {details?.network && <Badge color="info" variant="outline">{getNetworkName(details.network)}</Badge>}
             </div>
 
+            {/* Payment receipt */}
             {payment?.settled && details?.transaction && (
-              <div className="fetch-receipt">
-                <div className="fetch-receipt__field">
-                  <span className="fetch-receipt__label">Transaction</span>
-                  <button
-                    className="fetch-receipt__value fetch-receipt__link"
-                    onClick={() => openExternal(getExplorerUrl(details.transaction!, details.network))}
-                  >
-                    {shortenHash(details.transaction)}
-                  </button>
-                  <CopyButton text={details.transaction} label="Copy" className="fetch-receipt__copy" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl bg-surface-secondary">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-tertiary uppercase">Transaction</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="text-sm font-mono text-primary hover:underline cursor-pointer"
+                      onClick={() => openExternal(getExplorerUrl(details.transaction!, details.network))}
+                    >
+                      {shortenHash(details.transaction)}
+                    </button>
+                    <CopyButton copyValue={details.transaction} variant="ghost" color="secondary" size="sm">
+                      Copy
+                    </CopyButton>
+                  </div>
                 </div>
                 {details.payer && (
-                  <div className="fetch-receipt__field">
-                    <span className="fetch-receipt__label">Payer</span>
-                    <span className="fetch-receipt__value">{shortenHash(details.payer)}</span>
-                    <CopyButton text={details.payer} label="Copy" className="fetch-receipt__copy" />
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-tertiary uppercase">Payer</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-mono text-secondary">{shortenHash(details.payer)}</span>
+                      <CopyButton copyValue={details.payer} variant="ghost" color="secondary" size="sm">
+                        Copy
+                      </CopyButton>
+                    </div>
                   </div>
                 )}
               </div>
             )}
 
+            {/* Data */}
             {imageUrl ? (
-              <div className="fetch-data">
-                <div className="fetch-data__header"><span>Image</span></div>
-                <div className="fetch-data__body" style={{ padding: 0 }}>
-                  <img src={proxyImageUrl(imageUrl)} alt="Response" className="fetch-data__image" />
-                </div>
+              <div className="rounded-xl overflow-hidden bg-surface-secondary">
+                <div className="px-3 py-2 text-xs text-tertiary uppercase">Image</div>
+                <img src={proxyImageUrl(imageUrl)} alt="Response" className="w-full" />
               </div>
             ) : toolOutput.data !== undefined ? (
               <JsonViewer data={toolOutput.data} />
@@ -251,7 +294,7 @@ function FetchResult() {
 
 const root = document.getElementById('x402-fetch-result-root');
 if (root) {
-  root.setAttribute('data-widget-build', '2026-03-04.1');
+  root.setAttribute('data-widget-build', '2026-03-04.2');
   createRoot(root).render(<FetchResult />);
 }
 

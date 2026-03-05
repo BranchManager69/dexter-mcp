@@ -49,7 +49,8 @@ const BOOTSTRAP_TEMPLATE = (baseUrl) => `
           var mutation = mutations[i];
           if (mutation.type === 'attributes' && mutation.target === htmlElement) {
             var attrName = mutation.attributeName;
-            if (attrName && attrName.toLowerCase() !== 'suppresshydrationwarning') {
+            var lower = attrName ? attrName.toLowerCase() : '';
+            if (lower !== 'suppresshydrationwarning' && lower !== 'data-theme' && lower !== 'style' && lower !== 'class') {
               htmlElement.removeAttribute(attrName);
             }
           }

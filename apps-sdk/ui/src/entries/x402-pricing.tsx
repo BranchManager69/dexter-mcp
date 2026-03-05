@@ -1,15 +1,17 @@
-import '../styles/base.css';
-import '../styles/components.css';
-import '../styles/widgets/x402-pricing.css';
+import '../styles/sdk.css';
 
 import { createRoot } from 'react-dom/client';
+import { useState, useEffect } from 'react';
+import { Badge } from '@openai/apps-sdk-ui/components/Badge';
+import { Button, CopyButton } from '@openai/apps-sdk-ui/components/Button';
+import { Alert } from '@openai/apps-sdk-ui/components/Alert';
 import { useOpenAIGlobal, useToolInput, useCallToolFn, useMaxHeight, useTheme } from '../sdk';
-import { ChainIcon, getChain, CopyButton, DebugPanel, useIntrinsicHeight, shortenAddress } from '../components/x402';
+import { ChainIcon, getChain, useIntrinsicHeight, DebugPanel } from '../components/x402';
 
 type PaymentOption = {
   price: number;
   priceFormatted: string;
-  network: string;
+  network: string | null;
   scheme: string;
   asset: string;
   payTo: string;
@@ -17,15 +19,22 @@ type PaymentOption = {
 
 type PricingPayload = {
   requiresPayment?: boolean;
-  statusCode: number;
+  statusCode?: number;
   x402Version?: number;
   paymentOptions?: PaymentOption[];
-  resource?: unknown;
   free?: boolean;
-  error?: boolean | string;
   authRequired?: boolean;
   message?: string;
+  error?: boolean | string;
+  resource?: unknown;
+  schema?: unknown;
 };
+
+function shortenAddress(addr: string | null): string {
+  if (!addr) return '';
+  if (addr.length <= 12) return addr;
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
 
 function PricingCheck() {
   const toolOutput = useOpenAIGlobal('toolOutput') as PricingPayload | null;
@@ -35,37 +44,40 @@ function PricingCheck() {
   const maxHeight = useMaxHeight();
   const containerRef = useIntrinsicHeight();
 
-  if (!toolOutput) {
-    return <div className="pricing" data-theme={theme} style={{ maxHeight: maxHeight ?? undefined }}><div className="pricing-card"><span>Checking endpoint...</span></div></div>;
-  }
+  useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
 
-  if (toolOutput.error) {
+  const [loadingElapsed, setLoadingElapsed] = useState(0);
+  useEffect(() => {
+    if (toolOutput) return;
+    const t = setInterval(() => setLoadingElapsed((e) => e + 1), 1000);
+    return () => clearInterval(t);
+  }, [toolOutput]);
+
+  if (!toolOutput) {
     return (
-      <div className="pricing" data-theme={theme} style={{ maxHeight: maxHeight ?? undefined }}>
-        <div className="pricing-card">
-          <div className="pricing-header">
-            <span className="pricing-header__title">Endpoint Check</span>
-            <span className="pricing-badge pricing-badge--error">
-              {toolOutput.authRequired ? 'Auth Required' : `Error ${toolOutput.statusCode}`}
-            </span>
-          </div>
-          <div className="pricing-error">{toolOutput.message || 'Failed to check endpoint'}</div>
-        </div>
+      <div data-theme={theme} className="p-4" style={{ maxHeight: maxHeight ?? undefined }}>
+        <p className="text-sm text-secondary">{loadingElapsed < 5 ? 'Checking pricing...' : 'Still probing endpoint — hang tight.'}</p>
       </div>
     );
   }
 
-  if (toolOutput.free || (!toolOutput.requiresPayment && toolOutput.statusCode >= 200 && toolOutput.statusCode < 300)) {
+  if (toolOutput.authRequired) {
     return (
-      <div className="pricing" data-theme={theme} style={{ maxHeight: maxHeight ?? undefined }}>
-        <div className="pricing-card">
-          <div className="pricing-header">
-            <span className="pricing-header__title">Endpoint Check</span>
-            <span className="pricing-badge pricing-badge--free">Free</span>
+      <div data-theme={theme} className="p-4" style={{ maxHeight: maxHeight ?? undefined }}>
+        <Alert color="warning" title="Authentication Required" description={`This endpoint requires provider authentication before the x402 payment flow.${toolOutput.message ? ' ' + toolOutput.message : ''}`} />
+      </div>
+    );
+  }
+
+  if (toolOutput.free || (!toolOutput.requiresPayment && toolOutput.statusCode && toolOutput.statusCode >= 200 && toolOutput.statusCode < 300)) {
+    return (
+      <div data-theme={theme} className="p-4" style={{ maxHeight: maxHeight ?? undefined }}>
+        <div className="rounded-2xl border border-default bg-surface p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="heading-sm">Endpoint Check</span>
+            <Badge color="success">Free</Badge>
           </div>
-          <div className="pricing-free">
-            <span className="pricing-free__text">No payment required — this endpoint is free to use.</span>
-          </div>
+          <p className="text-sm text-secondary">No payment required -- this endpoint is free to use.</p>
         </div>
       </div>
     );
@@ -89,73 +101,64 @@ function PricingCheck() {
   };
 
   return (
-    <div className="pricing" data-theme={theme} ref={containerRef} style={{ maxHeight: maxHeight ?? undefined }}>
-      <div className="pricing-card">
-        <div className="pricing-header">
-          <div className="pricing-header__title-wrap">
-            <span className="pricing-header__eyebrow">x402 Pricing</span>
-            <span className="pricing-header__title">Payment Required</span>
-            <span className="pricing-header__subtitle">Select the best settlement route before execution.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {toolOutput.x402Version && (
-              <span className="pricing-badge pricing-badge--version">v{toolOutput.x402Version}</span>
-            )}
-            <span className="pricing-badge pricing-badge--paid">402</span>
-          </div>
+    <div data-theme={theme} ref={containerRef} className="p-4 flex flex-col gap-4 overflow-y-auto" style={{ maxHeight: maxHeight ?? undefined }}>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-tertiary uppercase tracking-wider font-semibold">x402 Pricing</span>
+          <span className="heading-lg">Payment Required</span>
         </div>
-
-        {toolInput?.url && <div className="pricing-resource">{toolInput.url}</div>}
-        {!!options.length && (
-          <div className="pricing-summary">
-            <span className="pricing-summary__label">Best route</span>
-            <span className="pricing-summary__value">{selectedPrice ?? '—'}</span>
-          </div>
-        )}
-
-        <div className="pricing-options">
-          {options.map((opt, i) => {
-            const { name: chainName, slug } = getChain(opt.network);
-            return (
-              <div key={i} className={`pricing-option ${i === cheapestIndex ? 'pricing-option--best' : ''}`}>
-                <span className="pricing-option__index">{String(i + 1).padStart(2, '0')}</span>
-                <div className="pricing-option__chain">
-                  <ChainIcon network={opt.network} />
-                </div>
-                <div className="pricing-option__info">
-                  <span className="pricing-option__network">{chainName}</span>
-                  <span className="pricing-option__asset">USDC</span>
-                  <span className="pricing-option__payto">
-                    {shortenAddress(opt.payTo)}
-                    <CopyButton text={opt.payTo} label="" copiedLabel="✓" className="pricing-option__copy" />
-                  </span>
-                </div>
-                {i === cheapestIndex && <span className="pricing-option__best">Best route</span>}
-                <span className="pricing-option__price">{opt.priceFormatted}</span>
-              </div>
-            );
-          })}
+        <div className="flex gap-1.5">
+          {toolOutput.x402Version && <Badge color="info" variant="outline">v{toolOutput.x402Version}</Badge>}
+          <Badge color="warning">402</Badge>
         </div>
-
-        {toolInput?.url && (
-          <>
-            <button className="pricing-fetch-btn" onClick={handleFetch}>
-              Fetch & Pay{selectedPrice ? ` ${selectedPrice}` : ''}
-            </button>
-            <div className="pricing-disclaimer">
-              Route and fee details are resolved live at execution time.
-            </div>
-          </>
-        )}
-        <DebugPanel widgetName="x402-pricing" />
       </div>
+
+      {/* Resource URL */}
+      {toolInput?.url && (
+        <span className="text-xs font-mono text-tertiary truncate">{toolInput.url}</span>
+      )}
+
+      {/* Payment options */}
+      <div className="flex flex-col gap-2">
+        {options.map((opt, i) => {
+          const { name: chainName } = getChain(opt.network);
+          const isBest = i === cheapestIndex;
+          return (
+            <div key={i} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${isBest ? 'bg-surface-secondary' : ''}`}>
+              <ChainIcon network={opt.network} size={20} />
+              <div className="flex flex-col flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{chainName}</span>
+                  {isBest && <Badge color="success" size="sm">Best</Badge>}
+                </div>
+                <div className="flex items-center gap-1 min-w-0">
+                  <span className="text-xs font-mono text-tertiary truncate">{shortenAddress(opt.payTo)}</span>
+                  <CopyButton copyValue={opt.payTo} variant="ghost" color="secondary" size="sm" />
+                </div>
+              </div>
+              <span className="heading-sm flex-shrink-0">{opt.priceFormatted}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Fetch button */}
+      {toolInput?.url && (
+        <Button color="primary" block onClick={handleFetch}>
+          Fetch & Pay{selectedPrice ? ` ${selectedPrice}` : ''}
+        </Button>
+      )}
+
+      <span className="text-3xs text-tertiary">Route and fee details resolved live at execution time.</span>
+      <DebugPanel widgetName="x402-pricing" />
     </div>
   );
 }
 
 const root = document.getElementById('x402-pricing-root');
 if (root) {
-  root.setAttribute('data-widget-build', '2026-03-04.1');
+  root.setAttribute('data-widget-build', '2026-03-04.2');
   createRoot(root).render(<PricingCheck />);
 }
 
