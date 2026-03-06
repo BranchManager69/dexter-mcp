@@ -26,6 +26,7 @@ import { z } from 'zod';
 import dotenv from 'dotenv';
 dotenv.config();
 dotenv.config({ path: '.env.local' });
+import { createOpenSessionResolver } from './lib/open-session-resolution.mjs';
 
 const PORT = parseInt(process.env.OPEN_MCP_PORT || '3931', 10);
 const DEXTER_API = (process.env.X402_API_URL || 'https://x402.dexter.cash').replace(/\/+$/, '');
@@ -66,8 +67,6 @@ const CHECK_META = widgetMeta('ui://dexter/x402-pricing', 'Checking pricing…',
 const WALLET_META = widgetMeta('ui://dexter/x402-wallet', 'Loading wallet…', 'Wallet loaded', 'Shows wallet addresses with copy button, USDC balances across chains, and deposit QR code.');
 
 const ALL_TOOLS = ['x402_search', 'x402_pay', 'x402_fetch', 'x402_check', 'x402_wallet'];
-const OPEN_SESSION_HINTS = new Map();
-const OPEN_SESSION_CONTEXT = new Map();
 const OPEN_SESSION_HINT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 // Set env vars required by registerAppsSdkResources before importing it
@@ -180,70 +179,6 @@ function scoreResourceMatch(resource, queryTokens) {
   return score;
 }
 
-function rememberOpenSessionHint(session) {
-  const token = session?.sessionToken;
-  if (!token) return;
-  OPEN_SESSION_HINTS.set(token, {
-    sessionId: session.sessionId || null,
-    sessionToken: token,
-    funding: normalizeSessionFunding(session.funding),
-    expiresAt: session.expiresAt || null,
-    createdAt: Date.now(),
-  });
-}
-
-function extractMcpSessionId(extra) {
-  // MCP SDK transport session (most reliable, stable across all tool calls)
-  if (extra?.sessionId) return extra.sessionId;
-  // ChatGPT provides an anonymized conversation ID on every tool call
-  if (extra?._meta?.['openai/session']) return extra._meta['openai/session'];
-  // Fallback: read from request headers
-  const headerSources = [
-    extra?.requestInfo?.headers,
-    extra?.httpRequest?.headers,
-    extra?.request?.headers,
-  ].filter(Boolean);
-  for (const headers of headerSources) {
-    const value = headers?.['mcp-session-id'] || headers?.['Mcp-Session-Id'] || headers?.['MCP-SESSION-ID'];
-    if (typeof value === 'string' && value.trim()) return value.trim();
-  }
-  return null;
-}
-
-function linkSessionToContext(extra, sessionToken) {
-  if (!sessionToken) return;
-  const sessionId = extractMcpSessionId(extra);
-  if (sessionId) OPEN_SESSION_CONTEXT.set(sessionId, sessionToken);
-}
-
-function readOpenSessionHint(sessionToken) {
-  const hint = OPEN_SESSION_HINTS.get(sessionToken);
-  if (!hint) return null;
-  if (Date.now() - hint.createdAt > OPEN_SESSION_HINT_TTL_MS) {
-    OPEN_SESSION_HINTS.delete(sessionToken);
-    return null;
-  }
-  return {
-    sessionId: hint.sessionId,
-    sessionToken: hint.sessionToken,
-    funding: hint.funding,
-    expiresAt: hint.expiresAt,
-  };
-}
-
-function readContextSessionHint(extra) {
-  const mcpSessionId = extractMcpSessionId(extra);
-  if (!mcpSessionId) return null;
-  const token = OPEN_SESSION_CONTEXT.get(mcpSessionId);
-  if (!token) return null;
-  const hint = readOpenSessionHint(token);
-  if (!hint) {
-    OPEN_SESSION_CONTEXT.delete(mcpSessionId);
-    return null;
-  }
-  return hint;
-}
-
 function buildMerchantSettlement(requirements) {
   const accepts = requirements?.accepts;
   if (!Array.isArray(accepts)) return [];
@@ -266,28 +201,20 @@ function normalizeSessionFunding(funding) {
   };
 }
 
-async function createOpenSession(targetFundingAtomic, sessionKey) {
-  const bases = [DEXTER_API, API_BASE_FALLBACK].filter(Boolean);
-  const paths = ['/v2/open/session/create', '/v2/pay/open/session/create'];
-  for (const base of bases) {
-    for (const path of paths) {
-      const sessionRes = await fetch(`${base}${path}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetFundingAtomic,
-          sessionKey: sessionKey || undefined,
-        }),
-        signal: AbortSignal.timeout(15000),
-      });
-      const sessionBody = await sessionRes.json().catch(() => null);
-      if (sessionRes.status === 404) continue;
-      if (sessionRes.ok && sessionBody?.ok) return sessionBody;
-      return null;
-    }
-  }
-  return null;
-}
+const sessionResolver = createOpenSessionResolver({
+  dexterApi: DEXTER_API,
+  apiBaseFallback: API_BASE_FALLBACK,
+  openSessionHintTtlMs: OPEN_SESSION_HINT_TTL_MS,
+  normalizeSessionFunding,
+});
+const {
+  extractMcpSessionId,
+  linkSessionToContext,
+  readOpenSessionHint,
+  rememberOpenSessionHint,
+  resolveOrCreateSessionForWallet,
+  resolveSessionForPayment,
+} = sessionResolver;
 
 async function fetchMarketplaceResources({ query, category, network, maxPriceUsdc, verifiedOnly, sort, limit }) {
   const params = new URLSearchParams();
@@ -444,10 +371,17 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
     }
   }
 
-  // Resolve session token: server-side context first (works on ChatGPT without model passing token),
-  // then fall back to explicit parameter (works on Claude, npm package)
-  const resolvedSessionToken = sessionToken || readContextSessionHint(extra)?.sessionToken || null;
+  const paymentSession = await resolveSessionForPayment({ sessionToken, sessionKey }, extra);
+  if (paymentSession.error) {
+    return {
+      ...paymentSession.error,
+      requirements,
+      merchantSettlement: buildMerchantSettlement(requirements),
+      sessionResolution: paymentSession.sessionResolution,
+    };
+  }
 
+  const resolvedSessionToken = paymentSession.session?.sessionToken || null;
   if (resolvedSessionToken) {
     try {
       const bases = [DEXTER_API, API_BASE_FALLBACK].filter(Boolean);
@@ -493,6 +427,7 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
             requirements,
             merchantSettlement: buildMerchantSettlement(requirements),
             sessionFunding: funding,
+            sessionResolution: paymentSession.sessionResolution,
             session: sessionHint ? { ...sessionHint, state: openBody?.state || 'pending_funding' } : {
               sessionToken: resolvedSessionToken,
               state: openBody?.state || 'pending_funding',
@@ -518,6 +453,7 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
           details: openBody || null,
           requirements,
           merchantSettlement: buildMerchantSettlement(requirements),
+          sessionResolution: paymentSession.sessionResolution,
         };
       }
       if (openBody?.session?.sessionToken) {
@@ -536,6 +472,7 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
         session: { ...(openBody.session ?? { sessionToken: resolvedSessionToken }), funding: undefined },
         sessionFunding: normalizeSessionFunding(openBody.session?.funding || readOpenSessionHint(resolvedSessionToken)?.funding),
         merchantSettlement: buildMerchantSettlement(requirements),
+        sessionResolution: paymentSession.sessionResolution,
       };
     } catch (err) {
       console.error(`[open-mcp] x402_fetch exception: url=${url} error=${err?.message || String(err)}`, err?.stack || '');
@@ -545,39 +482,10 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
         error: `Open canonical fetch failed: ${err?.message || String(err)}`,
         requirements,
         merchantSettlement: buildMerchantSettlement(requirements),
+        sessionResolution: paymentSession.sessionResolution,
       };
     }
   }
-
-  const firstAccept = Array.isArray(accepts) ? accepts[0] : null;
-  const baseAtomic = firstAccept ? Number(firstAccept.maxAmountRequired || firstAccept.amount || 0) : 0;
-  const suggestedAtomic = Number.isFinite(baseAtomic) && baseAtomic > 0
-    ? String(Math.max(baseAtomic * 10, 1_000_000))
-    : '1000000';
-  try {
-    const sessionBody = await createOpenSession(suggestedAtomic, sessionKey || extractMcpSessionId(extra));
-    if (sessionBody?.ok) {
-      rememberOpenSessionHint(sessionBody);
-      linkSessionToContext(extra, sessionBody.sessionToken);
-      return {
-        status: 402,
-        mode: 'session_required',
-        message: 'OpenDexter requires an anonymous funded spend session for canonical x402 fetch.',
-        requirements,
-        merchantSettlement: buildMerchantSettlement(requirements),
-        sessionFunding: normalizeSessionFunding(sessionBody.funding),
-        session: sessionBody,
-      };
-    }
-  } catch {}
-
-  return {
-    status: 402,
-    mode: 'session_required',
-    message: 'Payment required. Create or provide a funded OpenDexter session token.',
-    requirements,
-    merchantSettlement: buildMerchantSettlement(requirements),
-  };
 }
 
 // ─── Tool: x402_check (pricing) ──────────────────────────────────────────────
@@ -623,83 +531,16 @@ async function x402Check({ url, method }) {
 
 // ─── Tool: x402_wallet ───────────────────────────────────────────────────────
 
-async function resolveSessionByToken(sessionToken) {
-  const bases = [DEXTER_API, API_BASE_FALLBACK].filter(Boolean);
-  const paths = ['/v2/open/session/resolve', '/v2/pay/open/session/resolve'];
-  for (const base of bases) {
-    for (const path of paths) {
-      try {
-        const res = await fetch(`${base}${path}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ sessionToken }),
-          signal: AbortSignal.timeout(5000),
-        });
-        if (res.ok) {
-          const body = await res.json().catch(() => null);
-          if (body?.ok && body.sessionId) return body;
-        }
-        if (res.status === 404) return null;
-      } catch {}
-    }
-  }
-  return null;
-}
-
 async function x402Wallet(args, extra) {
-  let session = args?.sessionToken ? readOpenSessionHint(args.sessionToken) : readContextSessionHint(extra);
-  if (session && args?.sessionToken) linkSessionToContext(extra, args.sessionToken);
-
-  // If hint not in memory but token was provided, try resolving from dexter-api (DB-backed)
-  if (!session && args?.sessionToken) {
-    const resolved = await resolveSessionByToken(args.sessionToken);
-    if (resolved) {
-      session = {
-        sessionId: resolved.sessionId,
-        sessionToken: args.sessionToken,
-        funding: resolved.funding || null,
-        expiresAt: resolved.expiresAt || null,
-      };
-      rememberOpenSessionHint({ ...session, ...resolved });
-      linkSessionToContext(extra, args.sessionToken);
-    }
-  }
-
-  // Token was explicitly provided but not found -- return a clear error, never create a new session
-  if (!session && args?.sessionToken) {
-    const isUuidFormat = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(args.sessionToken);
+  const resolution = await resolveOrCreateSessionForWallet(args, extra);
+  if (resolution.error) {
     return {
-      error: isUuidFormat ? 'invalid_token_format' : 'unknown_session_token',
-      mode: 'session_error',
-      message: isUuidFormat
-        ? 'You passed a sessionId (UUID), not a sessionToken. The sessionToken starts with "open_" and is the bearer credential returned when a session is created.'
-        : 'Session token not recognized. It may have expired or the server may have restarted. Create a new session by calling x402_wallet with no arguments.',
-      hint: 'Call x402_wallet() with no arguments to create a new session, or use a valid sessionToken starting with "open_".',
+      ...resolution.error,
+      sessionResolution: resolution.sessionResolution,
     };
   }
 
-  // No token provided and no context hint -- create a new session
-  if (!session) {
-    const sessionBody = await createOpenSession('1000000', extractMcpSessionId(extra));
-    if (sessionBody?.ok) {
-      rememberOpenSessionHint(sessionBody);
-      linkSessionToContext(extra, sessionBody.sessionToken);
-      session = {
-        sessionId: sessionBody.sessionId,
-        sessionToken: sessionBody.sessionToken,
-        funding: sessionBody.funding || null,
-        expiresAt: sessionBody.expiresAt || null,
-      };
-    }
-  }
-
-  if (!session) {
-    return {
-      error: 'session_unavailable',
-      mode: 'session_error',
-      message: 'Could not initialize an OpenDexter spend session.',
-    };
-  }
+  const session = resolution.session;
 
   // Query dexter-api for current session state (funding, spend, balance)
   let liveState = null;
@@ -755,9 +596,13 @@ async function x402Wallet(args, extra) {
     mode: state === 'active' || state === 'depleted' ? 'session_ready' : 'session_required',
     sessionId: session.sessionId,
     _sessionToken: session.sessionToken,
+    sessionResolution: resolution.sessionResolution,
     state,
     solanaAddress,
     evmAddress,
+    // This is the canonical wallet payload shape consumed by ChatGPT widgets.
+    // Other wallet-producing surfaces should converge on these field names even
+    // if some optional fields remain null until their backend can resolve them.
     address: solanaAddress,
     network: 'multichain',
     networkName: 'Multi-Chain',
@@ -819,7 +664,7 @@ function createOpenMcpServer() {
 
   server.registerTool('x402_pay', {
     title: 'x402 Pay',
-    description: 'Alias for x402_fetch. Prefer x402_fetch for all paid API calls. This tool exists for backward compatibility and returns identical results.',
+    description: 'Alias for x402_fetch. Prefer x402_fetch for all paid API calls. Requires an active OpenDexter session; use x402_wallet to create or resume one first when needed.',
     inputSchema: {
       url: z.string().url().describe('The x402 resource URL to call'),
       method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).default('GET').describe('HTTP method'),
@@ -842,7 +687,7 @@ function createOpenMcpServer() {
 
   server.registerTool('x402_fetch', {
     title: 'x402 Fetch',
-    description: 'Call any x402-protected API and pay automatically from the active OpenDexter session. The session checks balances across all funded chains (Solana, Base, Polygon, Arbitrum, Optimism, Avalanche) and picks the best-funded chain that the endpoint accepts — no chain parameter needed. Returns the API response data, payment receipt, and updated per-chain balances.',
+    description: 'Call any x402-protected API and pay automatically from the active OpenDexter session. Use x402_wallet to create or resume a session first. The session checks balances across all funded chains (Solana, Base, Polygon, Arbitrum, Optimism, Avalanche) and picks the best-funded chain that the endpoint accepts — no chain parameter needed.',
     inputSchema: {
       url: z.string().url().describe('The x402 resource URL to call'),
       method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).default('GET').describe('HTTP method'),
@@ -892,7 +737,7 @@ function createOpenMcpServer() {
 
   server.registerTool('x402_wallet', {
     title: 'x402 Wallet',
-    description: 'Create or resume an OpenDexter multi-chain session. Each session has both a Solana wallet and an EVM wallet (same address on Base, Polygon, Arbitrum, Optimism, Avalanche). Fund either or both — the session tracks USDC balances across all chains. Returns per-chain balances, deposit addresses, and a Solana Pay QR code for funding.',
+    description: 'Create or resume an OpenDexter multi-chain session. Each session has both a Solana wallet and an EVM wallet (same address on Base, Polygon, Arbitrum, Optimism, Avalanche). Returns whether the session was newly created or resumed, plus balances, deposit addresses, and a Solana Pay QR code for funding.',
     inputSchema: {
       sessionToken: z.string().optional().describe('Pass an existing session token to check its status and balance instead of creating a new session.'),
     },

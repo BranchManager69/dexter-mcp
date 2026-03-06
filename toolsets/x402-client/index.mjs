@@ -450,15 +450,31 @@ async function getWalletSnapshot(extra) {
       const sol = Number(nativeSol?.amountUi ?? 0);
       const usdc = Number(usdcToken?.amountUi ?? 0);
 
+      const availableAtomic = String(Math.max(0, Math.round(usdc * 1e6)));
       return {
         address,
+        solanaAddress: address,
+        evmAddress: null,
         network: 'multichain',
-        chains: {
-          'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': { name: 'Solana', usdc, sol },
+        // The shared ChatGPT wallet widget now normalizes multiple historical
+        // payload shapes, but producers should converge on this canonical shape.
+        // Authenticated MCP only fills chain/address fields it can truthfully
+        // resolve today; we do not fabricate EVM balances or deposit addresses.
+        chainBalances: {
+          'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': {
+            name: 'Solana',
+            available: availableAtomic,
+            tier: 'first',
+          },
         },
-        totalUsdc: usdc,
-        supportedNetworks: ['solana', 'base', 'polygon', 'arbitrum', 'optimism', 'avalanche'],
-        tip: usdc === 0 ? `Deposit USDC to ${address} on Solana or any supported EVM chain to pay for x402 APIs.` : undefined,
+        balances: {
+          usdc,
+          fundedAtomic: availableAtomic,
+          spentAtomic: '0',
+          availableAtomic,
+        },
+        supportedNetworks: ['solana'],
+        tip: usdc === 0 ? `Deposit USDC to ${address} on Solana to pay for x402 APIs.` : undefined,
       };
     }
   } catch (err) {
@@ -468,11 +484,18 @@ async function getWalletSnapshot(extra) {
 
   return {
     address,
+    solanaAddress: address,
+    evmAddress: null,
     network: 'multichain',
-    chains: {},
-    totalUsdc: 0,
-    supportedNetworks: ['solana', 'base', 'polygon', 'arbitrum', 'optimism', 'avalanche'],
-    tip: `Wallet resolved (${address}), but live balances were unavailable. Deposit USDC on Solana or any supported EVM chain.`,
+    chainBalances: {},
+    balances: {
+      usdc: 0,
+      fundedAtomic: '0',
+      spentAtomic: '0',
+      availableAtomic: '0',
+    },
+    supportedNetworks: ['solana'],
+    tip: `Wallet resolved (${address}), but live balances were unavailable. Deposit USDC on Solana.`,
   };
 }
 
@@ -652,7 +675,7 @@ export function registerX402ClientToolset(server) {
   // --- x402_wallet ---
   server.registerTool('x402_wallet', {
     title: 'x402 Wallet',
-    description: 'Show active authenticated wallet address and USDC balances used for x402 payments across Solana and EVM chains.',
+    description: 'Show the active authenticated wallet and any live balances the managed-wallet backend can currently resolve for x402 payments.',
     annotations: { readOnlyHint: true },
     _meta: {
       category: 'x402.payments',

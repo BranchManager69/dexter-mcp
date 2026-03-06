@@ -69,6 +69,18 @@ function PricingCheck() {
     );
   }
 
+  if (toolOutput.error || (toolOutput.requiresPayment && !(toolOutput.paymentOptions || []).length)) {
+    const message =
+      toolOutput.message ||
+      (typeof toolOutput.error === 'string' ? toolOutput.error : undefined) ||
+      'No payment options are currently available for this endpoint.';
+    return (
+      <div data-theme={theme} className="p-4" style={{ maxHeight: maxHeight ?? undefined }}>
+        <Alert color="danger" title="Pricing Unavailable" description={message} />
+      </div>
+    );
+  }
+
   if (toolOutput.free || (!toolOutput.requiresPayment && toolOutput.statusCode && toolOutput.statusCode >= 200 && toolOutput.statusCode < 300)) {
     return (
       <div data-theme={theme} className="p-4" style={{ maxHeight: maxHeight ?? undefined }}>

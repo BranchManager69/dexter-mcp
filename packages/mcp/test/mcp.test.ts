@@ -221,7 +221,7 @@ describe("install config", () => {
     expect(config.configPath).toContain(".cursor");
     expect(config.configPath).toContain("mcp.json");
     expect(config.sectionKey).toBe("mcpServers");
-    expect(config.entry).toEqual({ command: "npx", args: ["-y", "@dexterai/opendexter@latest"] });
+    expect(config.entry).toEqual({ command: "npx", args: ["-y", "@dexterai/x402-discovery@latest"] });
     expect(config.manual).toBeUndefined();
   });
 

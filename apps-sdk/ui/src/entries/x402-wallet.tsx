@@ -7,13 +7,7 @@ import { Button, CopyButton } from '@openai/apps-sdk-ui/components/Button';
 import { Alert } from '@openai/apps-sdk-ui/components/Alert';
 import { Globe } from '@openai/apps-sdk-ui/components/Icon';
 import { useOpenAIGlobal, useMaxHeight, useTheme, useCallToolFn, useOpenExternal } from '../sdk';
-import { ChainIcon, UsdcIcon, useIntrinsicHeight, DebugPanel } from '../components/x402';
-
-type ChainBalance = {
-  available: string;
-  name: string;
-  tier: 'first' | 'second';
-};
+import { ChainIcon, UsdcIcon, useIntrinsicHeight, DebugPanel, normalizeWalletPayload, type WalletChainBalance } from '../components/x402';
 
 type SessionFunding = {
   amountAtomic?: string;
@@ -27,26 +21,6 @@ type SessionFunding = {
   escrowNote?: string;
 };
 
-type WalletPayload = {
-  solanaAddress?: string;
-  evmAddress?: string;
-  address?: string;
-  network?: string;
-  networkName?: string;
-  chainBalances?: Record<string, ChainBalance>;
-  balances?: { usdc?: number; fundedAtomic?: string; spentAtomic?: string; availableAtomic?: string };
-  tip?: string;
-  error?: string;
-  state?: string;
-  sessionId?: string;
-  sessionToken?: string;
-  sessionFunding?: SessionFunding;
-  mode?: string;
-  expiresAt?: string;
-  message?: string;
-  hint?: string;
-};
-
 function formatUsdcDisplay(value: number): string {
   if (value < 0.01) return `$${value.toFixed(4)}`;
   if (value < 1) return `$${value.toFixed(3)}`;
@@ -58,7 +32,7 @@ function formatAtomicUsdc(atomic: string): string {
   return formatUsdcDisplay(n);
 }
 
-function ChainBalanceRow({ caip2, balance }: { caip2: string; balance: ChainBalance }) {
+function ChainBalanceRow({ caip2, balance }: { caip2: string; balance: WalletChainBalance }) {
   const amount = Number(balance.available) / 1e6;
   const hasFunds = amount > 0;
   return (
@@ -149,15 +123,18 @@ function SessionDetails({ sessionToken, sessionId, expiresAt }: {
       </button>
       {expanded && (
         <div className="px-4 py-3 flex flex-col gap-2 border-t border-subtle bg-surface">
+          <span className="text-3xs text-tertiary">
+            Session ID is a reference identifier. Session Token is the secret credential used to resume the session.
+          </span>
           {sessionId && (
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xs font-semibold text-tertiary w-10 flex-shrink-0">ID</span>
+              <span className="text-xs font-semibold text-tertiary w-16 flex-shrink-0">Session ID</span>
               <span className="text-xs font-mono text-secondary truncate flex-1">{sessionId}</span>
               <CopyButton copyValue={sessionId} variant="ghost" color="secondary" size="sm" />
             </div>
           )}
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs font-semibold text-tertiary w-10 flex-shrink-0">Token</span>
+            <span className="text-xs font-semibold text-tertiary w-16 flex-shrink-0">Token</span>
             <span className="text-xs font-mono text-secondary truncate flex-1">{sessionToken}</span>
             <CopyButton copyValue={sessionToken} variant="ghost" color="secondary" size="sm" />
           </div>
@@ -174,7 +151,7 @@ function SessionDetails({ sessionToken, sessionId, expiresAt }: {
 }
 
 function WalletDashboard() {
-  const toolOutput = useOpenAIGlobal('toolOutput') as WalletPayload | null;
+  const rawToolOutput = useOpenAIGlobal('toolOutput') as Record<string, unknown> | null;
   const toolMeta = useOpenAIGlobal('toolResponseMetadata') as Record<string, unknown> | null;
   const widgetState = useOpenAIGlobal('widgetState') as { sessionToken?: string } | null;
   const theme = useTheme();
@@ -183,6 +160,11 @@ function WalletDashboard() {
   const containerRef = useIntrinsicHeight();
   const [refreshing, setRefreshing] = useState(false);
 
+  // Multiple wallet producers existed before the canonical contract landed.
+  // Normalize here so ChatGPT can render legacy, transitional, and canonical
+  // payloads while server-side producers converge on one stable shape.
+  const toolOutput = normalizeWalletPayload(rawToolOutput);
+
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
 
   const metaToken = (toolMeta as any)?.sessionToken as string | undefined;
@@ -190,6 +172,8 @@ function WalletDashboard() {
   const sessionToken = metaToken || storedToken;
 
   useEffect(() => {
+    // Widget state is only a client-side convenience cache for follow-up calls.
+    // The server-side session resolution result remains the source of truth.
     if (sessionToken && sessionToken !== storedToken) {
       try { (window as any).openai?.setWidgetState?.({ sessionToken }); } catch {}
     }
@@ -203,12 +187,12 @@ function WalletDashboard() {
 
   const [loadingElapsed, setLoadingElapsed] = useState(0);
   useEffect(() => {
-    if (toolOutput) return;
+    if (rawToolOutput) return;
     const t = setInterval(() => setLoadingElapsed((e) => e + 1), 1000);
     return () => clearInterval(t);
-  }, [toolOutput]);
+  }, [rawToolOutput]);
 
-  if (!toolOutput) {
+  if (!rawToolOutput) {
     return (
       <div data-theme={theme} className="p-4 flex flex-col gap-2" style={{ maxHeight: maxHeight ?? undefined }}>
         <p className="text-sm text-secondary">{loadingElapsed < 5 ? 'Loading wallet...' : 'Still loading — this is taking longer than expected.'}</p>
@@ -228,9 +212,9 @@ function WalletDashboard() {
           title={isSessionError
             ? (toolOutput.error === 'unknown_session_token' ? 'Session Not Found' : 'Session Error')
             : 'Wallet Not Configured'}
-          description={toolOutput.message || toolOutput.hint || (isSessionError
+          description={toolOutput.message || toolOutput.hint || toolOutput.tip || (isSessionError
             ? 'Call x402_wallet with no arguments to create a new session.'
-            : 'Run npx @dexterai/opendexter wallet or set DEXTER_PRIVATE_KEY environment variable.')}
+            : 'Open the wallet tool on the active MCP surface to create or resolve a usable x402 wallet.')}
         />
       </div>
     );
@@ -241,6 +225,7 @@ function WalletDashboard() {
   const totalUsdc = toolOutput.balances?.usdc ?? 0;
   const hasAnyFunds = totalUsdc > 0;
   const ready = isSession ? (toolOutput.state === 'active') : hasAnyFunds;
+  const sessionResolution = toolOutput.sessionResolution?.mode;
 
   const solanaAddress = toolOutput.solanaAddress || toolOutput.address;
   const evmAddress = toolOutput.evmAddress;
@@ -290,12 +275,37 @@ function WalletDashboard() {
           <SessionDetails sessionToken={sessionToken} sessionId={toolOutput.sessionId} expiresAt={toolOutput.expiresAt} />
         )}
 
+        {isSession && sessionResolution && (
+          <Alert
+            color={sessionResolution === 'created_new' ? 'info' : 'success'}
+            variant="soft"
+            title={
+              sessionResolution === 'created_new'
+                ? 'New session created'
+                : sessionResolution === 'resumed_from_context'
+                  ? 'Resumed from conversation'
+                  : sessionResolution === 'resumed_from_token'
+                    ? 'Resumed from session token'
+                    : 'Session resolved'
+            }
+            description={
+              sessionResolution === 'created_new'
+                ? 'No reusable session was found for this conversation, so OpenDexter created a new one.'
+                : sessionResolution === 'resumed_from_context'
+                  ? 'OpenDexter reused the session already bound to this conversation.'
+                  : sessionResolution === 'resumed_from_token'
+                    ? 'OpenDexter resumed the session from the provided secret token.'
+                    : toolOutput.sessionResolution?.reason
+            }
+          />
+        )}
+
         {/* Deposit section */}
         {isSession && (
           <DepositPanel
             solanaAddress={solanaAddress}
             evmAddress={evmAddress}
-            funding={toolOutput.sessionFunding}
+            funding={toolOutput.sessionFunding as SessionFunding | undefined}
           />
         )}
 

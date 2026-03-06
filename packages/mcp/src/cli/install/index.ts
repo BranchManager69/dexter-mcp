@@ -17,7 +17,7 @@ export async function runInstall(opts: InstallOpts): Promise<void> {
     console.error("Failed to create wallet. Exiting.");
     process.exit(1);
   }
-  console.log(`Solana: ${wallet.info.solanaAddress}`);
+  if (wallet.info.solanaAddress) console.log(`Solana: ${wallet.info.solanaAddress}`);
   if (wallet.info.evmAddress) console.log(`EVM:    ${wallet.info.evmAddress}`);
   console.log();
 
@@ -95,7 +95,7 @@ export async function runInstall(opts: InstallOpts): Promise<void> {
 
   console.log(`Written to ${config.configPath}`);
   console.log(`\nDexter x402 Gateway installed for ${CLIENTS[clientId].name}.`);
-  console.log(`Solana: ${wallet.info.solanaAddress}`);
+  if (wallet.info.solanaAddress) console.log(`Solana: ${wallet.info.solanaAddress}`);
   if (wallet.info.evmAddress) console.log(`EVM:    ${wallet.info.evmAddress}`);
   console.log(`\nDeposit USDC on Solana or any supported EVM chain to start paying for x402 APIs.`);
 }

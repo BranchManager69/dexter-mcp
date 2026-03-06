@@ -7,7 +7,7 @@ import { Button, CopyButton } from '@openai/apps-sdk-ui/components/Button';
 import { Alert } from '@openai/apps-sdk-ui/components/Alert';
 import { Warning } from '@openai/apps-sdk-ui/components/Icon';
 import { useOpenAIGlobal, useOpenExternal, useMaxHeight, useTheme, useDisplayMode } from '../sdk';
-import { JsonViewer, useIntrinsicHeight, DebugPanel } from '../components/x402';
+import { JsonViewer, useIntrinsicHeight, DebugPanel, formatUsdc, shortenHash, getExplorerUrl, getChain } from '../components/x402';
 
 type FetchPayload = {
   status: number;
@@ -52,15 +52,6 @@ type SessionFunding = {
   reference?: string;
 };
 
-function getNetworkName(network?: string): string {
-  if (!network) return '';
-  if (network.includes('solana')) return 'Solana';
-  if (network.includes('8453')) return 'Base';
-  if (network.includes('137')) return 'Polygon';
-  if (network.includes('42161')) return 'Arbitrum';
-  return network;
-}
-
 function isImageUrl(data: unknown): string | null {
   if (typeof data !== 'object' || !data) return null;
   const obj = data as Record<string, unknown>;
@@ -71,21 +62,6 @@ function isImageUrl(data: unknown): string | null {
 
 function proxyImageUrl(url: string): string {
   return `https://api.dexter.cash/api/img?url=${encodeURIComponent(url)}`;
-}
-
-function formatUsdc(atomic: string, decimals = 6): string {
-  return `$${(Number(atomic) / Math.pow(10, decimals)).toFixed(2)}`;
-}
-
-function shortenHash(hash: string): string {
-  if (hash.length <= 12) return hash;
-  return `${hash.slice(0, 6)}...${hash.slice(-6)}`;
-}
-
-function getExplorerUrl(tx: string, network?: string): string {
-  if (network?.includes('8453')) return `https://basescan.org/tx/${tx}`;
-  if (network?.includes('137')) return `https://polygonscan.com/tx/${tx}`;
-  return `https://solscan.io/tx/${tx}`;
 }
 
 function QrCountdown({ expiresAt }: { expiresAt: string }) {
@@ -192,6 +168,7 @@ function FetchResult() {
   const isError = !!toolOutput.error && !isSession;
   const payment = toolOutput.payment;
   const details = payment?.details;
+  const networkName = details?.network ? getChain(details.network).name : '';
   const imageUrl = isImageUrl(toolOutput.data);
   const price = details?.requirements?.amount
     ? formatUsdc(details.requirements.amount, details.requirements.extra?.decimals ?? 6)
@@ -241,7 +218,7 @@ function FetchResult() {
                 <Badge color="info">{toolOutput.status}</Badge>
               )}
               {price && <Badge color="info" variant="outline">{price} USDC</Badge>}
-              {details?.network && <Badge color="info" variant="outline">{getNetworkName(details.network)}</Badge>}
+              {networkName && <Badge color="info" variant="outline">{networkName}</Badge>}
             </div>
 
             {/* Payment receipt */}

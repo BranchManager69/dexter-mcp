@@ -9,7 +9,7 @@ You are adding three separate MCP servers:
 2. **OpenDexter** (`user-OpenDexter`)  
    Hosted MCP with no user login requirement (open/public flow).
 3. **dexter-x402** (`user-dexter-x402`)  
-   Local command-based MCP (`@dexterai/opendexter`) using a local wallet/key for direct x402 payments.
+   Local command-based MCP (`@dexterai/x402-discovery`) using a local wallet/key for direct x402 payments.
 
 ---
 
@@ -28,7 +28,7 @@ Edit `~/.cursor/mcp.json` and add:
     },
     "dexter-x402": {
       "command": "npx",
-      "args": ["-y", "@dexterai/opendexter@latest"]
+      "args": ["-y", "@dexterai/x402-discovery@latest"]
     }
   }
 }
@@ -91,7 +91,7 @@ Use this exact 3-tool flow on each connector:
 "Add these three MCPs:  
 1) `https://mcp.dexter.cash/mcp` (Dexter, login required),  
 2) `https://open.dexter.cash/mcp` (OpenDexter, no login),  
-3) local `npx -y @dexterai/opendexter@latest` (dexter-x402).  
+3) local `npx -y @dexterai/x402-discovery@latest` (dexter-x402).  
 Then run `x402_wallet`, `x402_search` for `nansen`, and `x402_fetch` on a cheap endpoint in each one."
 
 ---

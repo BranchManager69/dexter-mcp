@@ -2,14 +2,14 @@
   <img src="https://raw.githubusercontent.com/Dexter-DAO/dexter-x402-sdk/main/assets/dexter-wordmark.svg" alt="Dexter" width="360">
 </p>
 
-<h1 align="center">@dexterai/opendexter</h1>
+<h1 align="center">@dexterai/x402-discovery</h1>
 
 <p align="center">
   <strong>x402 gateway for AI agents. Search, pay, and call any paid API.</strong>
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@dexterai/opendexter"><img src="https://img.shields.io/npm/v/@dexterai/opendexter.svg" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/@dexterai/x402-discovery"><img src="https://img.shields.io/npm/v/@dexterai/x402-discovery.svg" alt="npm"></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E=18-brightgreen.svg" alt="Node"></a>
   <a href="https://dexter.cash/opendexter"><img src="https://img.shields.io/badge/Marketplace-dexter.cash-blueviolet" alt="Marketplace"></a>
 </p>
@@ -29,8 +29,10 @@
 ## Install
 
 ```bash
-npx @dexterai/opendexter install
+npx @dexterai/x402-discovery install
 ```
+
+OpenDexter remains the product brand. `@dexterai/x402-discovery` is the descriptive install name for developers.
 
 Supports **Cursor**, **Claude Code**, **Codex**, **VS Code**, **Windsurf**, and **Gemini CLI**.
 
@@ -45,7 +47,20 @@ The installer creates a local Solana wallet at `~/.dexterai-mcp/wallet.json` and
   "mcpServers": {
     "dexter-x402": {
       "command": "npx",
-      "args": ["-y", "@dexterai/opendexter@latest"]
+      "args": ["-y", "@dexterai/x402-discovery@latest"]
+    }
+  }
+}
+```
+
+Descriptive alias:
+
+```json
+{
+  "mcpServers": {
+    "dexter-x402": {
+      "command": "npx",
+      "args": ["-y", "@dexterai/x402-discovery@latest"]
     }
   }
 }
@@ -54,7 +69,7 @@ The installer creates a local Solana wallet at `~/.dexterai-mcp/wallet.json` and
 **Claude Code:**
 
 ```bash
-claude mcp add dexter-x402 -- npx -y @dexterai/opendexter@latest
+claude mcp add dexter-x402 -- npx -y @dexterai/x402-discovery@latest
 ```
 
 **Codex** — `~/.codex/config.toml`:
@@ -62,7 +77,7 @@ claude mcp add dexter-x402 -- npx -y @dexterai/opendexter@latest
 ```toml
 [mcp_servers.dexter-x402]
 command = "npx"
-args = ["-y", "@dexterai/opendexter@latest"]
+args = ["-y", "@dexterai/x402-discovery@latest"]
 ```
 
 ---
@@ -185,9 +200,9 @@ Show the wallet address, SOL and USDC balances, and the wallet file location. If
 Every tool is also available as a standalone command:
 
 ```bash
-npx @dexterai/opendexter wallet
-npx @dexterai/opendexter search "token analysis"
-npx @dexterai/opendexter fetch "https://x402.dexter.cash/api/v2-test" --method POST
+npx @dexterai/x402-discovery wallet
+npx @dexterai/x402-discovery search "token analysis"
+npx @dexterai/x402-discovery fetch "https://x402.dexter.cash/api/v2-test" --method POST
 ```
 
 ---
@@ -208,7 +223,7 @@ export DEXTER_PRIVATE_KEY="your-base58-private-key"
 
 ## Payment Model
 
-`@dexterai/opendexter` is the **local-wallet** OpenDexter surface:
+`@dexterai/x402-discovery` is the **local-wallet** OpenDexter surface:
 
 - transport: local stdio MCP server
 - signer: local Solana wallet file or `DEXTER_PRIVATE_KEY`

@@ -22,7 +22,7 @@ This repo contains two MCP servers and one npm package:
 |---------|----------|------|---------|
 | **Dexter MCP** (authenticated) | `mcp.dexter.cash/mcp` | Dexter OAuth | Managed wallet, automatic |
 | **OpenDexter MCP** (public) | `open.dexter.cash/mcp` | None | Session wallets, user-funded |
-| **@dexterai/opendexter** (npm) | Local stdio | None | Local wallet at `~/.dexterai-mcp/wallet.json` |
+| **@dexterai/x402-discovery** (npm) | Local stdio | None | Local wallet at `~/.dexterai-mcp/wallet.json` |
 
 ---
 
@@ -32,9 +32,11 @@ OpenDexter is the public, no-auth MCP server for searching and paying x402 APIs.
 
 **How sessions work:** When a user connects, `x402_wallet` creates a session with two addresses — one Solana, one EVM (shared across Base, Polygon, Arbitrum, Optimism, Avalanche). The user sends USDC to either or both. When `x402_fetch` is called, the system checks all chain balances and picks the best-funded chain that the endpoint accepts. Sessions persist for 30 days in PostgreSQL.
 
-**How the npm package differs:** `@dexterai/opendexter` runs as a local stdio MCP server. Instead of ephemeral session wallets, it uses a local signer at `~/.dexterai-mcp/wallet.json`. The user funds their own wallet once and it persists indefinitely. It ships the same canonical five-tool story (`x402_search`, `x402_check`, `x402_fetch`, `x402_wallet`, `x402_pay`), but the local signing path is currently optimized around the persistent Solana wallet.
+**How the npm package differs:** `@dexterai/x402-discovery` runs as a local stdio MCP server. Instead of ephemeral session wallets, it uses a local signer at `~/.dexterai-mcp/wallet.json`. The user funds their own wallet once and it persists indefinitely. It ships the same canonical five-tool story (`x402_search`, `x402_check`, `x402_fetch`, `x402_wallet`, `x402_pay`), but the local signing path is currently optimized around the persistent Solana wallet.
 
-| | OpenDexter MCP | @dexterai/opendexter npm |
+OpenDexter remains the product brand. `@dexterai/x402-discovery` is the descriptive install name for developers.
+
+| | OpenDexter MCP | @dexterai/x402-discovery npm |
 |---|---|---|
 | Transport | HTTPS (SSE) | stdio |
 | Wallet | Ephemeral session (Solana + EVM) | Local signer file |

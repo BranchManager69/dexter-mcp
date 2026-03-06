@@ -4,3 +4,5 @@ export { JsonViewer } from './JsonViewer';
 export { useIntrinsicHeight } from './useIntrinsicHeight';
 export { formatCalls, shortenHash, shortenAddress, formatUsdc, formatUsdcFloat, getExplorerUrl } from './format';
 export { DebugPanel } from './DebugPanel';
+export { normalizeWalletPayload } from './walletPayload';
+export type { CanonicalWalletPayload, WalletChainBalance } from './walletPayload';

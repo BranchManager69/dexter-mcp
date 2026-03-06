@@ -252,7 +252,9 @@ async function handlePaymentRequired(url, response, init, options) {
   const preferredNetworks =
     options?.preferredNetworks && options.preferredNetworks.length
       ? options.preferredNetworks
-      : ['solana', 'eip155:8453', 'eip155:137', 'eip155:42161', 'eip155:10', 'eip155:43114'];
+      // Prefer canonical Solana v2 first, but keep the legacy short name during
+      // transition so mixed v1/v2 requirement sets still bias toward the SVM path.
+      : ['solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'solana', 'eip155:8453', 'eip155:137', 'eip155:42161', 'eip155:10', 'eip155:43114'];
 
   const selectedRequirement =
     selectPaymentRequirements(payload.accepts, preferredNetworks, 'exact') ?? payload.accepts[0];

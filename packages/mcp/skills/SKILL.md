@@ -1,9 +1,9 @@
 ---
-name: opendexter
-description: "Use @dexterai/opendexter to search, price-check, and pay for any x402 API. Trigger this skill whenever the user wants to find paid APIs, call an x402 endpoint, check pricing, see their wallet balance, or do anything involving x402 payments, paid APIs, USDC payments for APIs, the x402 marketplace, or agent commerce."
+name: x402-discovery
+description: "Use @dexterai/x402-discovery to search, price-check, and pay for any x402 API. Trigger this skill whenever the user wants to find paid APIs, call an x402 endpoint, check pricing, see their wallet balance, or do anything involving x402 payments, paid APIs, USDC payments for APIs, the x402 marketplace, or agent commerce."
 ---
 
-# @dexterai/opendexter — x402 Search Engine for AI Agents
+# @dexterai/x402-discovery — x402 Search Engine for AI Agents
 
 This package gives you a local MCP server connected to the x402 marketplace. Search 5,000+ paid API endpoints, preview pricing, and call them with automatic USDC payment on Solana and EVM chains.
 
@@ -28,14 +28,14 @@ Shows your Solana and EVM wallet addresses with USDC balances across all support
 ## Quick Start
 
 ```bash
-npx @dexterai/opendexter
+npx @dexterai/x402-discovery
 ```
 
 Or install globally:
 
 ```bash
-npm install -g @dexterai/opendexter
-opendexter
+npm install -g @dexterai/x402-discovery
+x402-discovery
 ```
 
 Then add to your MCP client config:
@@ -45,7 +45,7 @@ Then add to your MCP client config:
   "mcpServers": {
     "opendexter": {
       "command": "npx",
-      "args": ["-y", "@dexterai/opendexter"]
+      "args": ["-y", "@dexterai/x402-discovery"]
     }
   }
 }

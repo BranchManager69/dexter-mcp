@@ -242,38 +242,50 @@ function generateEvmWallet() {
   const account = privateKeyToAccount(pk);
   return { evmPrivateKey: pk, evmAddress: account.address };
 }
+function persistWalletFile(info) {
+  mkdirSync(DATA_DIR, { recursive: true, mode: 448 });
+  writeFileSync(WALLET_FILE, JSON.stringify(info, null, 2), { mode: 384 });
+}
+function buildLoadedWallet(info) {
+  return {
+    info,
+    solanaKeypair: info.solanaPrivateKey ? keypairFromString(info.solanaPrivateKey) : void 0
+  };
+}
 async function loadOrCreateWallet() {
   const envKey = process.env.DEXTER_PRIVATE_KEY || process.env.SOLANA_PRIVATE_KEY;
   const envEvmKey = process.env.EVM_PRIVATE_KEY;
-  if (envKey) {
-    const keypair2 = keypairFromString(envKey);
+  if (envKey || envEvmKey) {
     const info2 = {
-      solanaPrivateKey: bs58.encode(keypair2.secretKey),
-      solanaAddress: keypair2.publicKey.toBase58(),
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     };
+    if (envKey) {
+      const keypair2 = keypairFromString(envKey);
+      info2.solanaPrivateKey = bs58.encode(keypair2.secretKey);
+      info2.solanaAddress = keypair2.publicKey.toBase58();
+    }
     if (envEvmKey) {
       const account = privateKeyToAccount(envEvmKey);
       info2.evmPrivateKey = envEvmKey;
       info2.evmAddress = account.address;
     }
-    return { info: info2, solanaKeypair: keypair2 };
+    return buildLoadedWallet(info2);
   }
   if (existsSync(WALLET_FILE)) {
     try {
       const raw = readFileSync2(WALLET_FILE, "utf-8");
       const data = JSON.parse(raw);
-      if (!data.solanaPrivateKey) throw new Error("Missing solanaPrivateKey");
-      const keypair2 = keypairFromString(data.solanaPrivateKey);
-      if (keypair2.secretKey.length !== 64) throw new Error("Invalid key length");
+      if (!data.solanaPrivateKey && !data.evmPrivateKey) {
+        throw new Error("Missing wallet private keys");
+      }
       if (!data.evmPrivateKey) {
         const evm2 = generateEvmWallet();
         data.evmPrivateKey = evm2.evmPrivateKey;
         data.evmAddress = evm2.evmAddress;
-        writeFileSync(WALLET_FILE, JSON.stringify(data, null, 2), { mode: 384 });
+        persistWalletFile(data);
         console.error(`[opendexter] Added EVM wallet to existing file: ${evm2.evmAddress}`);
       }
-      return { info: data, solanaKeypair: keypair2 };
+      return buildLoadedWallet(data);
     } catch (err) {
       console.error(`[opendexter] Corrupted wallet file: ${err.message}`);
       console.error(`[opendexter] Backing up to ${WALLET_FILE}.bak and creating fresh wallet.`);
@@ -283,8 +295,8 @@ async function loadOrCreateWallet() {
       }
     }
   }
-  const keypair = Keypair.generate();
   const evm = generateEvmWallet();
+  const keypair = Keypair.generate();
   const info = {
     solanaPrivateKey: bs58.encode(keypair.secretKey),
     solanaAddress: keypair.publicKey.toBase58(),
@@ -292,14 +304,13 @@ async function loadOrCreateWallet() {
     evmAddress: evm.evmAddress,
     createdAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  mkdirSync(DATA_DIR, { recursive: true, mode: 448 });
-  writeFileSync(WALLET_FILE, JSON.stringify(info, null, 2), { mode: 384 });
+  persistWalletFile(info);
   console.error(`[opendexter] New dual wallet created:`);
   console.error(`[opendexter]   Solana: ${info.solanaAddress}`);
   console.error(`[opendexter]   EVM:    ${evm.evmAddress}`);
   console.error(`[opendexter] Saved to ${WALLET_FILE}`);
   console.error(`[opendexter] Deposit USDC on Solana or any supported EVM chain to start paying for x402 APIs.`);
-  return { info, solanaKeypair: keypair };
+  return buildLoadedWallet(info);
 }
 function keypairFromString(key) {
   try {
@@ -360,9 +371,9 @@ async function getEvmUsdcBalance(address, chainId) {
 }
 async function getAllBalances(wallet) {
   const chains = {};
-  const solPromise = getSolanaBalance(wallet.solanaAddress).then((b) => {
+  const solPromise = wallet.solanaAddress ? getSolanaBalance(wallet.solanaAddress).then((b) => {
     chains["solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"] = { name: "Solana", usdc: b.usdc };
-  });
+  }) : Promise.resolve();
   const evmPromises = wallet.evmAddress ? Object.entries(VIEM_CHAINS).map(async ([chainId]) => {
     const usdc = await getEvmUsdcBalance(wallet.evmAddress, chainId);
     const meta = CHAIN_NAMES[chainId];
@@ -380,15 +391,31 @@ async function showWalletInfo(opts) {
   }
   const { totalUsdc, chains } = await getAllBalances(wallet.info);
   const result = {
-    solanaAddress: wallet.info.solanaAddress,
+    address: wallet.info.solanaAddress || wallet.info.evmAddress || null,
+    solanaAddress: wallet.info.solanaAddress || null,
     evmAddress: wallet.info.evmAddress || null,
     network: "multichain",
-    totalUsdc,
-    chains,
+    chainBalances: Object.fromEntries(
+      Object.entries(chains).map(([caip2, data]) => [
+        caip2,
+        {
+          available: String(Math.round(data.usdc * 1e6)),
+          name: data.name,
+          tier: caip2 === "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" || caip2 === "eip155:8453" ? "first" : "second"
+        }
+      ])
+    ),
+    balances: {
+      usdc: totalUsdc,
+      fundedAtomic: String(Math.round(totalUsdc * 1e6)),
+      spentAtomic: "0",
+      availableAtomic: String(Math.round(totalUsdc * 1e6))
+    },
+    supportedNetworks: Object.keys(chains).length > 0 ? Object.keys(chains).map((caip2) => CHAIN_NAMES[caip2]?.name?.toLowerCase() || caip2) : ["solana", "base", "polygon", "arbitrum", "optimism", "avalanche"],
     walletFile: WALLET_FILE
   };
   if (totalUsdc === 0) {
-    result.tip = `Deposit USDC to ${wallet.info.solanaAddress} (Solana) or ${wallet.info.evmAddress} (Base/Polygon/Arbitrum/Optimism/Avalanche) to start paying for x402 APIs.`;
+    result.tip = `Deposit USDC to ${wallet.info.solanaAddress || "your Solana wallet"}${wallet.info.evmAddress ? ` or ${wallet.info.evmAddress}` : ""} to start paying for x402 APIs.`;
   }
   console.log(JSON.stringify(result, null, 2));
 }
@@ -696,7 +723,7 @@ function registerWalletTool(server, wallet, opts) {
               type: "text",
               text: JSON.stringify({
                 error: "No wallet configured",
-                tip: "Set DEXTER_PRIVATE_KEY (Solana) or EVM_PRIVATE_KEY (EVM) env var, or run `npx @dexterai/opendexter wallet` to create one."
+                tip: "Set DEXTER_PRIVATE_KEY (Solana) or EVM_PRIVATE_KEY (EVM) env var, or run `npx @dexterai/x402-discovery wallet` to create one."
               }, null, 2)
             }
           ]
@@ -704,16 +731,35 @@ function registerWalletTool(server, wallet, opts) {
       }
       try {
         const { totalUsdc, chains } = await getAllBalances(wallet.info);
+        const chainBalances = Object.fromEntries(
+          Object.entries(chains).map(([caip2, chain]) => [
+            caip2,
+            {
+              available: String(Math.round(chain.usdc * 1e6)),
+              name: chain.name,
+              tier: caip2 === "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" || caip2 === "eip155:8453" ? "first" : "second"
+            }
+          ])
+        );
         const data = {
+          address: wallet.info.solanaAddress || wallet.info.evmAddress || null,
           solanaAddress: wallet.info.solanaAddress,
           evmAddress: wallet.info.evmAddress || null,
           network: "multichain",
-          totalUsdc,
-          chains,
+          // Keep the wallet contract aligned with the hosted MCP surfaces so
+          // ChatGPT widgets can normalize once and render every producer safely.
+          chainBalances,
+          balances: {
+            usdc: totalUsdc,
+            fundedAtomic: String(Math.round(totalUsdc * 1e6)),
+            spentAtomic: "0",
+            availableAtomic: String(Math.round(totalUsdc * 1e6))
+          },
+          supportedNetworks: Object.keys(chainBalances).length > 0 ? Object.keys(chainBalances) : ["solana", "base", "polygon", "arbitrum", "optimism", "avalanche"],
           walletFile: WALLET_FILE
         };
         if (totalUsdc === 0) {
-          data.tip = `Deposit USDC to ${wallet.info.solanaAddress} (Solana) or ${wallet.info.evmAddress || "configure EVM key"} (Base/Polygon/Arbitrum/Optimism/Avalanche) to start paying.`;
+          data.tip = `Deposit USDC to ${wallet.info.solanaAddress || "your Solana wallet"}${wallet.info.evmAddress ? ` or ${wallet.info.evmAddress}` : ""} to start paying.`;
         }
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
@@ -884,7 +930,7 @@ var init_clients = __esm({
     };
     SERVER_CMD = {
       command: "npx",
-      args: ["-y", "@dexterai/opendexter@latest"]
+      args: ["-y", "@dexterai/x402-discovery@latest"]
     };
     SERVER_CMD_DEV = {
       command: "node",
@@ -907,7 +953,7 @@ async function runInstall(opts) {
     console.error("Failed to create wallet. Exiting.");
     process.exit(1);
   }
-  console.log(`Solana: ${wallet.info.solanaAddress}`);
+  if (wallet.info.solanaAddress) console.log(`Solana: ${wallet.info.solanaAddress}`);
   if (wallet.info.evmAddress) console.log(`EVM:    ${wallet.info.evmAddress}`);
   console.log();
   let clientId = opts.client;
@@ -973,7 +1019,7 @@ Installing into ${CLIENTS[clientId].name}...`);
   console.log(`Written to ${config.configPath}`);
   console.log(`
 Dexter x402 Gateway installed for ${CLIENTS[clientId].name}.`);
-  console.log(`Solana: ${wallet.info.solanaAddress}`);
+  if (wallet.info.solanaAddress) console.log(`Solana: ${wallet.info.solanaAddress}`);
   if (wallet.info.evmAddress) console.log(`EVM:    ${wallet.info.evmAddress}`);
   console.log(`
 Deposit USDC on Solana or any supported EVM chain to start paying for x402 APIs.`);

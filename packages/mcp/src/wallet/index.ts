@@ -8,8 +8,8 @@ import bs58 from "bs58";
 import { DATA_DIR, WALLET_FILE, SOLANA_RPC_URL, EVM_RPC_URLS, EVM_USDC_ADDRESSES, CHAIN_NAMES } from "../config.js";
 
 export interface WalletInfo {
-  solanaPrivateKey: string;
-  solanaAddress: string;
+  solanaPrivateKey?: string;
+  solanaAddress?: string;
   evmPrivateKey?: string;
   evmAddress?: string;
   createdAt: string;
@@ -17,7 +17,7 @@ export interface WalletInfo {
 
 export interface LoadedWallet {
   info: WalletInfo;
-  solanaKeypair: Keypair;
+  solanaKeypair?: Keypair;
 }
 
 export type ChainBalances = Record<string, { name: string; usdc: number }>;
@@ -38,43 +38,58 @@ function generateEvmWallet(): { evmPrivateKey: string; evmAddress: string } {
   return { evmPrivateKey: pk, evmAddress: account.address };
 }
 
+function persistWalletFile(info: WalletInfo): void {
+  mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
+  writeFileSync(WALLET_FILE, JSON.stringify(info, null, 2), { mode: 0o600 });
+}
+
+function buildLoadedWallet(info: WalletInfo): LoadedWallet {
+  return {
+    info,
+    solanaKeypair: info.solanaPrivateKey ? keypairFromString(info.solanaPrivateKey) : undefined,
+  };
+}
+
 export async function loadOrCreateWallet(): Promise<LoadedWallet | null> {
   const envKey = process.env.DEXTER_PRIVATE_KEY || process.env.SOLANA_PRIVATE_KEY;
   const envEvmKey = process.env.EVM_PRIVATE_KEY;
 
-  if (envKey) {
-    const keypair = keypairFromString(envKey);
+  if (envKey || envEvmKey) {
     const info: WalletInfo = {
-      solanaPrivateKey: bs58.encode(keypair.secretKey),
-      solanaAddress: keypair.publicKey.toBase58(),
       createdAt: new Date().toISOString(),
     };
+    if (envKey) {
+      const keypair = keypairFromString(envKey);
+      info.solanaPrivateKey = bs58.encode(keypair.secretKey);
+      info.solanaAddress = keypair.publicKey.toBase58();
+    }
     if (envEvmKey) {
       const account = privateKeyToAccount(envEvmKey as `0x${string}`);
       info.evmPrivateKey = envEvmKey;
       info.evmAddress = account.address;
     }
-    return { info, solanaKeypair: keypair };
+    return buildLoadedWallet(info);
   }
 
   if (existsSync(WALLET_FILE)) {
     try {
       const raw = readFileSync(WALLET_FILE, "utf-8");
       const data = JSON.parse(raw) as WalletInfo;
-      if (!data.solanaPrivateKey) throw new Error("Missing solanaPrivateKey");
-      const keypair = keypairFromString(data.solanaPrivateKey);
-      if (keypair.secretKey.length !== 64) throw new Error("Invalid key length");
-
-      // Backfill EVM wallet for existing Solana-only wallets
+      if (!data.solanaPrivateKey && !data.evmPrivateKey) {
+        throw new Error("Missing wallet private keys");
+      }
+      // Persist a one-time dual-wallet normalization so future processes read the
+      // same addresses, but keep the migration logic explicit instead of hiding
+      // shape changes in downstream tool code.
       if (!data.evmPrivateKey) {
         const evm = generateEvmWallet();
         data.evmPrivateKey = evm.evmPrivateKey;
         data.evmAddress = evm.evmAddress;
-        writeFileSync(WALLET_FILE, JSON.stringify(data, null, 2), { mode: 0o600 });
+        persistWalletFile(data);
         console.error(`[opendexter] Added EVM wallet to existing file: ${evm.evmAddress}`);
       }
 
-      return { info: data, solanaKeypair: keypair };
+      return buildLoadedWallet(data);
     } catch (err: any) {
       console.error(`[opendexter] Corrupted wallet file: ${err.message}`);
       console.error(`[opendexter] Backing up to ${WALLET_FILE}.bak and creating fresh wallet.`);
@@ -82,8 +97,8 @@ export async function loadOrCreateWallet(): Promise<LoadedWallet | null> {
     }
   }
 
-  const keypair = Keypair.generate();
   const evm = generateEvmWallet();
+  const keypair = Keypair.generate();
   const info: WalletInfo = {
     solanaPrivateKey: bs58.encode(keypair.secretKey),
     solanaAddress: keypair.publicKey.toBase58(),
@@ -92,8 +107,7 @@ export async function loadOrCreateWallet(): Promise<LoadedWallet | null> {
     createdAt: new Date().toISOString(),
   };
 
-  mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
-  writeFileSync(WALLET_FILE, JSON.stringify(info, null, 2), { mode: 0o600 });
+  persistWalletFile(info);
 
   console.error(`[opendexter] New dual wallet created:`);
   console.error(`[opendexter]   Solana: ${info.solanaAddress}`);
@@ -101,7 +115,7 @@ export async function loadOrCreateWallet(): Promise<LoadedWallet | null> {
   console.error(`[opendexter] Saved to ${WALLET_FILE}`);
   console.error(`[opendexter] Deposit USDC on Solana or any supported EVM chain to start paying for x402 APIs.`);
 
-  return { info, solanaKeypair: keypair };
+  return buildLoadedWallet(info);
 }
 
 function keypairFromString(key: string): Keypair {
@@ -177,9 +191,11 @@ export async function getEvmUsdcBalance(
 export async function getAllBalances(wallet: WalletInfo): Promise<{ totalUsdc: number; chains: ChainBalances }> {
   const chains: ChainBalances = {};
 
-  const solPromise = getSolanaBalance(wallet.solanaAddress).then(b => {
-    chains["solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"] = { name: "Solana", usdc: b.usdc };
-  });
+  const solPromise = wallet.solanaAddress
+    ? getSolanaBalance(wallet.solanaAddress).then(b => {
+        chains["solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"] = { name: "Solana", usdc: b.usdc };
+      })
+    : Promise.resolve();
 
   const evmPromises = wallet.evmAddress
     ? Object.entries(VIEM_CHAINS).map(async ([chainId]) => {
@@ -205,15 +221,33 @@ export async function showWalletInfo(opts: { dev: boolean }): Promise<void> {
   const { totalUsdc, chains } = await getAllBalances(wallet.info);
 
   const result: Record<string, unknown> = {
-    solanaAddress: wallet.info.solanaAddress,
+    address: wallet.info.solanaAddress || wallet.info.evmAddress || null,
+    solanaAddress: wallet.info.solanaAddress || null,
     evmAddress: wallet.info.evmAddress || null,
     network: "multichain",
-    totalUsdc,
-    chains,
+    chainBalances: Object.fromEntries(
+      Object.entries(chains).map(([caip2, data]) => [
+        caip2,
+        {
+          available: String(Math.round(data.usdc * 1e6)),
+          name: data.name,
+          tier: caip2 === "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" || caip2 === "eip155:8453" ? "first" : "second",
+        },
+      ]),
+    ),
+    balances: {
+      usdc: totalUsdc,
+      fundedAtomic: String(Math.round(totalUsdc * 1e6)),
+      spentAtomic: "0",
+      availableAtomic: String(Math.round(totalUsdc * 1e6)),
+    },
+    supportedNetworks: Object.keys(chains).length > 0
+      ? Object.keys(chains).map((caip2) => CHAIN_NAMES[caip2]?.name?.toLowerCase() || caip2)
+      : ["solana", "base", "polygon", "arbitrum", "optimism", "avalanche"],
     walletFile: WALLET_FILE,
   };
   if (totalUsdc === 0) {
-    result.tip = `Deposit USDC to ${wallet.info.solanaAddress} (Solana) or ${wallet.info.evmAddress} (Base/Polygon/Arbitrum/Optimism/Avalanche) to start paying for x402 APIs.`;
+    result.tip = `Deposit USDC to ${wallet.info.solanaAddress || "your Solana wallet"}${wallet.info.evmAddress ? ` or ${wallet.info.evmAddress}` : ""} to start paying for x402 APIs.`;
   }
 
   console.log(JSON.stringify(result, null, 2));
