@@ -134,6 +134,11 @@ const TOOLSET_REGISTRY = {
 };
 
 const DEFAULT_TOOLSET_KEYS = Object.keys(TOOLSET_REGISTRY);
+const TOOLSET_PROFILES = {
+  full: DEFAULT_TOOLSET_KEYS,
+  opendexter: ['x402-client'],
+  'x402-only': ['x402-client'],
+};
 
 function normalizeSelection(selection) {
   if (!selection) return [];
@@ -151,10 +156,28 @@ function normalizeSelection(selection) {
   return [];
 }
 
+function normalizeProfile(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized || null;
+}
+
+function resolveProfileSelection(profile) {
+  const key = normalizeProfile(profile);
+  if (!key) return null;
+  return TOOLSET_PROFILES[key] ? { key, keys: TOOLSET_PROFILES[key] } : null;
+}
+
 function resolveSelectedKeys(preferred) {
+  const requestedProfile = normalizeProfile(preferred?.profile);
+  const envProfile = normalizeProfile(process.env.TOKEN_AI_MCP_PROFILE);
+  const profileSelection = resolveProfileSelection(requestedProfile || envProfile);
   const envSelection = normalizeSelection(process.env.TOKEN_AI_MCP_TOOLSETS);
   const requested = normalizeSelection(preferred);
-  const rawKeys = requested.length ? requested : (envSelection.length ? envSelection : DEFAULT_TOOLSET_KEYS);
+  const rawKeys = requested.length
+    ? requested
+    : profileSelection
+      ? profileSelection.keys
+      : (envSelection.length ? envSelection : DEFAULT_TOOLSET_KEYS);
   const uniqueKeys = new Set(rawKeys.map((key) => key.toLowerCase()));
 
   if (uniqueKeys.has('all')) {
@@ -174,7 +197,7 @@ function resolveSelectedKeys(preferred) {
     // Fallback to defaults if nothing valid was requested.
     return { keys: DEFAULT_TOOLSET_KEYS, unknown };
   }
-  return { keys: known, unknown };
+  return { keys: known, unknown, profile: profileSelection?.key || null };
 }
 
 function listToolNames(server) {
@@ -230,7 +253,7 @@ export function logToolsetGroups(label, groups, color = getColor()) {
 }
 
 export async function registerSelectedToolsets(server, selection) {
-  const { keys, unknown } = resolveSelectedKeys(selection);
+  const { keys, unknown, profile } = resolveSelectedKeys(selection);
 
   const color = getColor();
   const label = color.cyan('[mcp-toolsets]');
@@ -258,6 +281,7 @@ export async function registerSelectedToolsets(server, selection) {
 
   server.__dexterLoadedToolsets = [...keys];
   server.__dexterToolGroups = groups;
+  server.__dexterToolProfile = profile;
 
   try {
     const allTools = [];
@@ -317,4 +341,8 @@ export async function registerSelectedToolsets(server, selection) {
 
 export function listAvailableToolsets() {
   return Object.keys(TOOLSET_REGISTRY);
+}
+
+export function listAvailableToolsetProfiles() {
+  return Object.keys(TOOLSET_PROFILES);
 }

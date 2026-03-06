@@ -1309,6 +1309,8 @@ const server = http.createServer(async (req, res) => {
         issuer: prov?.issuer || base,
         base,
         port: PORT,
+        toolProfile: process.env.TOKEN_AI_MCP_PROFILE || null,
+        toolsetsEnv: process.env.TOKEN_AI_MCP_TOOLSETS || null,
         sessions: {
           transports: Array.isArray(transports) ? transports.length : (typeof transports?.size === 'number' ? transports.size : undefined),
           servers: typeof servers?.size === 'number' ? servers.size : undefined
@@ -1610,11 +1612,14 @@ const server = http.createServer(async (req, res) => {
     };
   }
       let includeToolsets = undefined;
+      let profile = undefined;
       try {
         const tools = url.searchParams.get('tools');
         if (tools) includeToolsets = tools;
+        const requestedProfile = url.searchParams.get('profile');
+        if (requestedProfile) profile = requestedProfile;
       } catch {}
-      const mcpServer = await buildMcpServer({ includeToolsets });
+      const mcpServer = await buildMcpServer({ includeToolsets, profile });
       await mcpServer.connect(transport);
       // Propagate x-user-token on initialization, too
       try {
@@ -1757,7 +1762,10 @@ server.listen(PORT, () => {
       });
 
     try {
-      const diagServer = await buildMcpServer({ includeToolsets: process.env.TOKEN_AI_MCP_TOOLSETS });
+      const diagServer = await buildMcpServer({
+        includeToolsets: process.env.TOKEN_AI_MCP_TOOLSETS,
+        profile: process.env.TOKEN_AI_MCP_PROFILE,
+      });
       const groups = Array.isArray(diagServer?.__dexterToolGroups) ? diagServer.__dexterToolGroups : null;
       server.__dexterToolGroups = groups || [];
       if (groups && groups.length) {

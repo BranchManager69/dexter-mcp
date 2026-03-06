@@ -32,7 +32,7 @@ OpenDexter is the public, no-auth MCP server for searching and paying x402 APIs.
 
 **How sessions work:** When a user connects, `x402_wallet` creates a session with two addresses — one Solana, one EVM (shared across Base, Polygon, Arbitrum, Optimism, Avalanche). The user sends USDC to either or both. When `x402_fetch` is called, the system checks all chain balances and picks the best-funded chain that the endpoint accepts. Sessions persist for 30 days in PostgreSQL.
 
-**How the npm package differs:** `@dexterai/opendexter` runs as a local stdio MCP server. Instead of ephemeral session wallets, it uses a local signer at `~/.dexterai-mcp/wallet.json`. The user funds their own wallet once and it persists indefinitely. Same five tools (`x402_search`, `x402_check`, `x402_fetch`, `x402_wallet`, `x402_pay`), same marketplace, different payment path.
+**How the npm package differs:** `@dexterai/opendexter` runs as a local stdio MCP server. Instead of ephemeral session wallets, it uses a local signer at `~/.dexterai-mcp/wallet.json`. The user funds their own wallet once and it persists indefinitely. It ships the same canonical five-tool story (`x402_search`, `x402_check`, `x402_fetch`, `x402_wallet`, `x402_pay`), but the local signing path is currently optimized around the persistent Solana wallet.
 
 | | OpenDexter MCP | @dexterai/opendexter npm |
 |---|---|---|
@@ -49,7 +49,15 @@ Source: `open-mcp-server.mjs` (server), `packages/mcp/` (npm package).
 
 ## Dexter MCP — Authenticated Platform
 
-Fully managed MCP bridge for Dexter. Exposes 50+ tools (trading, analytics, media, games, x402 marketplace) over OAuth-authenticated HTTPS, reusing the Dexter wallet infrastructure for automatic payment.
+Fully managed MCP bridge for Dexter. By default it can expose the broader Dexter platform surface over OAuth-authenticated HTTPS, reusing the Dexter wallet infrastructure for automatic payment.
+
+For OpenDexter launch mode, set:
+
+```bash
+TOKEN_AI_MCP_PROFILE=opendexter
+```
+
+That narrows the authenticated server to the clean `x402-client` bundle so the public story stays focused on search, discovery, pricing, wallet context, and x402 payment execution.
 
 ---
 
@@ -179,8 +187,10 @@ The `/tools` API simply relays this metadata so UIs (including `dexter-fe`) pick
 Selection options:
 
 - **Environment default:** leave `TOKEN_AI_MCP_TOOLSETS` unset to load every registered bundle (general, pumpstream, wallet, solana, markets, stream, codex, onchain, x402, hyperliquid). Set it (comma-separated) to restrict the selection, e.g. `TOKEN_AI_MCP_TOOLSETS=wallet`.
+- **Launch profile shortcut:** set `TOKEN_AI_MCP_PROFILE=opendexter` to load only the x402 discovery/payment surface on the authenticated server.
 - **CLI/stdio:** `node server.mjs --tools=wallet`.
-- **HTTP query:** `POST /mcp?tools=wallet`.
+- **CLI/stdio profile:** `node server.mjs --profile=opendexter`.
+- **HTTP query:** `POST /mcp?tools=wallet` or `POST /mcp?profile=opendexter`.
 - **Codex:** set `TOKEN_AI_MCP_TOOLSETS` in the env before launching, or add `includeToolsets` when invoking `buildMcpServer` manually.
 
 Public-facing descriptions and metadata belong in the MCP specs; reserve deep orchestration notes, guardrails, and internal guidance for the realtime agent prompts/configs so clients only see the high-level contract.

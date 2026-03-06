@@ -83,7 +83,11 @@ export async function buildMcpServer(options = {}) {
   wrapRegisterTool(server);
 
   const requestedToolsets = options.includeToolsets;
-  const loaded = await registerSelectedToolsets(server, requestedToolsets);
+  const requestedProfile = options.profile;
+  const loaded = await registerSelectedToolsets(server, {
+    ...(requestedToolsets ? { toolsets: requestedToolsets } : {}),
+    ...(requestedProfile ? { profile: requestedProfile } : {}),
+  });
 
   try {
     registerAppsSdkResources(server);
@@ -94,7 +98,8 @@ export async function buildMcpServer(options = {}) {
     const color = getColor();
     const label = color.cyan('[mcp-toolsets]');
     const separator = color.dim ? color.dim(', ') : ', ';
-    console.log(`${label} active: ${loaded.map((key) => color.cyanBright(key)).join(separator)}`);
+    const profileLabel = server.__dexterToolProfile ? ` profile=${color.magentaBright(server.__dexterToolProfile)}` : '';
+    console.log(`${label}${profileLabel} active: ${loaded.map((key) => color.cyanBright(key)).join(separator)}`);
   } catch {}
 
   return server;

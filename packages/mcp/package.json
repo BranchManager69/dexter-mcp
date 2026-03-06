@@ -1,7 +1,7 @@
 {
   "name": "@dexterai/opendexter",
   "version": "1.0.1",
-  "description": "OpenDexter - x402 search engine for AI agents. Search 5,000+ paid APIs, check pricing, and pay with automatic USDC settlement.",
+  "description": "OpenDexter - x402 search and discovery layer for AI agents. Search the OpenDexter catalog, check pricing, and pay with automatic USDC settlement.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

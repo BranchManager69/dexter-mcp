@@ -86,6 +86,26 @@ async function main() {
         });
       },
     )
+    .command(
+      "pay <url>",
+      "Alias of fetch for clients that want an explicit payment verb",
+      (y) =>
+        y
+          .positional("url", { type: "string", demandOption: true })
+          .option("method", {
+            choices: ["GET", "POST", "PUT", "DELETE"] as const,
+            default: "GET" as const,
+          })
+          .option("body", { type: "string", description: "JSON request body" }),
+      async (args) => {
+        const { cliFetch } = await import("./tools/fetch.js");
+        await cliFetch(args.url!, {
+          method: args.method,
+          body: args.body,
+          dev: args.dev,
+        });
+      },
+    )
     .strict()
     .help()
     .parseAsync();

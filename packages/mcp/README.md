@@ -34,7 +34,7 @@ npx @dexterai/opendexter install
 
 Supports **Cursor**, **Claude Code**, **Codex**, **VS Code**, **Windsurf**, and **Gemini CLI**.
 
-The installer creates a local Solana wallet at `~/.dexterai-mcp/wallet.json` and writes the MCP config for your client. Fund the wallet with USDC and your agent can start paying for APIs.
+The installer creates a local Solana wallet at `~/.dexterai-mcp/wallet.json` and writes the MCP config for your client. Fund the wallet with USDC and your agent can start paying for APIs from your own machine.
 
 ### Manual Configuration
 
@@ -134,6 +134,20 @@ Response includes the API data plus on-chain settlement proof:
 
 ---
 
+### `x402_pay`
+
+Alias of `x402_fetch` for clients that want an explicit payment verb.
+
+Use it when you want the model or user flow to think in terms of:
+
+1. discover
+2. inspect
+3. pay and call
+
+The request schema and settlement behavior are the same as `x402_fetch`.
+
+---
+
 ### `x402_check`
 
 Probe an endpoint to see its pricing and payment options without spending anything. Returns the full 402 requirements including price per chain, accepted assets, and input/output schemas when available.
@@ -192,19 +206,29 @@ export DEXTER_PRIVATE_KEY="your-base58-private-key"
 
 ---
 
+## Payment Model
+
+`@dexterai/opendexter` is the **local-wallet** OpenDexter surface:
+
+- transport: local stdio MCP server
+- signer: local Solana wallet file or `DEXTER_PRIVATE_KEY`
+- best for: Cursor, Codex, Claude Code, CLI agents, and local workflows
+
+If you want a no-install hosted flow with session wallets, use `OpenDexter MCP` at `https://open.dexter.cash/mcp`.
+
 ## Supported Chains
 
-| Chain | Network ID | Gas Token |
-|-------|------------|-----------|
-| Solana | `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` | SOL |
-| Base | `eip155:8453` | ETH |
-| Polygon | `eip155:137` | POL |
-| Arbitrum | `eip155:42161` | ETH |
-| Optimism | `eip155:10` | ETH |
-| Avalanche | `eip155:43114` | AVAX |
-| SKALE Europa | `eip155:2046399126` | sFUEL (free) |
+| Chain | Network ID | Local signing status |
+|-------|------------|----------------------|
+| Solana | `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` | Local wallet signing supported |
+| Base | `eip155:8453` | Search / discovery surfaced through marketplace data |
+| Polygon | `eip155:137` | Search / discovery surfaced through marketplace data |
+| Arbitrum | `eip155:42161` | Search / discovery surfaced through marketplace data |
+| Optimism | `eip155:10` | Search / discovery surfaced through marketplace data |
+| Avalanche | `eip155:43114` | Search / discovery surfaced through marketplace data |
+| SKALE Europa | `eip155:2046399126` | Search / discovery surfaced through marketplace data |
 
-The MCP auto-detects which chain a 402 response requires and signs with the appropriate method. Powered by [`@dexterai/x402`](https://www.npmjs.com/package/@dexterai/x402).
+The local package is optimized around a persistent Solana signer today. The marketplace search results still surface broader x402 network support so agents can discover what exists across the ecosystem.
 
 ---
 

@@ -29,17 +29,20 @@ function getFlag(name, def){
   return def;
 }
 
-// Allow per-process toolset selection: `--tools=wallet,web` (same groups as HTTP)
-// Recognized groups: wallet, program, runs, reports, voice, web, trading, or all
+// Allow per-process toolset selection: `--tools=x402-client`
 const includeToolsets = (() => {
   const t = String(getFlag('tools', '') || '').trim();
   return t ? t : undefined; // pass through to common.mjs for parsing
+})();
+const profile = (() => {
+  const p = String(getFlag('profile', '') || '').trim();
+  return p ? p : undefined;
 })();
 
 const transport = new StdioServerTransport();
 (async () => {
   try {
-    const server = await buildMcpServer({ includeToolsets });
+    const server = await buildMcpServer({ includeToolsets, profile });
     await server.connect(transport);
     process.stdin.resume();
   } catch (e) {
