@@ -452,10 +452,13 @@ async function getWalletSnapshot(extra) {
 
       return {
         address,
-        network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
-        networkName: 'Solana Mainnet',
-        balances: { sol, usdc },
-        tip: usdc === 0 ? `Deposit USDC to ${address} to pay for x402 APIs.` : undefined,
+        network: 'multichain',
+        chains: {
+          'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': { name: 'Solana', usdc, sol },
+        },
+        totalUsdc: usdc,
+        supportedNetworks: ['solana', 'base', 'polygon', 'arbitrum', 'optimism', 'avalanche'],
+        tip: usdc === 0 ? `Deposit USDC to ${address} on Solana or any supported EVM chain to pay for x402 APIs.` : undefined,
       };
     }
   } catch (err) {
@@ -465,10 +468,11 @@ async function getWalletSnapshot(extra) {
 
   return {
     address,
-    network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
-    networkName: 'Solana Mainnet',
-    balances: { sol: 0, usdc: 0 },
-    tip: `Wallet resolved (${address}), but live balances were unavailable.`,
+    network: 'multichain',
+    chains: {},
+    totalUsdc: 0,
+    supportedNetworks: ['solana', 'base', 'polygon', 'arbitrum', 'optimism', 'avalanche'],
+    tip: `Wallet resolved (${address}), but live balances were unavailable. Deposit USDC on Solana or any supported EVM chain.`,
   };
 }
 
@@ -535,7 +539,7 @@ export function registerX402ClientToolset(server) {
   server.registerTool('x402_pay', {
     title: 'x402 Pay & Call',
     description:
-      'Call any x402-enabled paid API with automatic USDC payment. ' +
+      'Call any x402-enabled paid API with automatic USDC payment on Solana, Base, Polygon, Arbitrum, Optimism, or Avalanche. ' +
       'Payment is settled through the Dexter facilitator using your authenticated wallet. ' +
       'Supports any x402 resource URL — use x402_search to discover available endpoints.',
     annotations: { destructiveHint: true },
@@ -648,7 +652,7 @@ export function registerX402ClientToolset(server) {
   // --- x402_wallet ---
   server.registerTool('x402_wallet', {
     title: 'x402 Wallet',
-    description: 'Show active authenticated wallet address and SOL/USDC balances used for x402 payments.',
+    description: 'Show active authenticated wallet address and USDC balances used for x402 payments across Solana and EVM chains.',
     annotations: { readOnlyHint: true },
     _meta: {
       category: 'x402.payments',

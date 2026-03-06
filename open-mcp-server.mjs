@@ -31,8 +31,6 @@ const PORT = parseInt(process.env.OPEN_MCP_PORT || '3931', 10);
 const DEXTER_API = (process.env.X402_API_URL || 'https://x402.dexter.cash').replace(/\/+$/, '');
 const API_BASE_FALLBACK = (process.env.API_BASE_URL || 'http://127.0.0.1:3030').replace(/\/+$/, '');
 const MARKETPLACE_PATH = '/api/facilitator/marketplace/resources';
-const SOLANA_RPC = process.env.SOLANA_RPC_URL || 'https://api.dexter.cash/api/solana/rpc';
-const USDC_MINT_STR = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const WIDGET_DOMAIN = 'https://dexter.cash';
 const WIDGET_CSP = {
   resource_domains: [
@@ -65,7 +63,7 @@ function widgetMeta(templateUri, invoking, invoked, description) {
 const SEARCH_META = widgetMeta('ui://dexter/x402-marketplace-search', 'Searching marketplace…', 'Results ready', 'Shows paid API search results as interactive cards with quality rings, prices, and fetch buttons.');
 const FETCH_META = widgetMeta('ui://dexter/x402-fetch-result', 'Calling API…', 'Response received', 'Shows API response data with payment receipt, transaction link, and settlement status.');
 const CHECK_META = widgetMeta('ui://dexter/x402-pricing', 'Checking pricing…', 'Pricing loaded', 'Shows endpoint pricing per blockchain with payment amounts and a pay button.');
-const WALLET_META = widgetMeta('ui://dexter/x402-wallet', 'Loading wallet…', 'Wallet loaded', 'Shows wallet address with copy button, USDC/SOL balances, and deposit QR code.');
+const WALLET_META = widgetMeta('ui://dexter/x402-wallet', 'Loading wallet…', 'Wallet loaded', 'Shows wallet addresses with copy button, USDC balances across chains, and deposit QR code.');
 
 const ALL_TOOLS = ['x402_search', 'x402_pay', 'x402_fetch', 'x402_check', 'x402_wallet'];
 const OPEN_SESSION_HINTS = new Map();
@@ -80,6 +78,20 @@ if (!process.env.TOKEN_AI_APPS_SDK_ASSET_BASE) process.env.TOKEN_AI_APPS_SDK_ASS
 import { registerAppsSdkResources } from './apps-sdk/register.mjs';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+const SESSION_SUPPORTED_NETWORKS = new Set([
+  'solana', 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+  'base', 'eip155:8453',
+  'polygon', 'eip155:137',
+  'arbitrum', 'eip155:42161',
+  'optimism', 'eip155:10',
+  'avalanche', 'eip155:43114',
+]);
+
+function isSessionSupportedNetwork(network) {
+  if (!network) return true;
+  return SESSION_SUPPORTED_NETWORKS.has(network.toLowerCase().trim());
+}
 
 function formatPrice(r) {
   if (r.priceLabel) return r.priceLabel;
@@ -105,7 +117,7 @@ function formatResource(r) {
     authRequired: Boolean(r.authRequired),
     authType: r.authType || null,
     authHint: r.authHint || null,
-    sessionCompatible: !r.priceNetwork || r.priceNetwork === 'solana' || (r.priceNetwork || '').startsWith('solana:'),
+    sessionCompatible: !r.priceNetwork || isSessionSupportedNetwork(r.priceNetwork),
   };
 }
 

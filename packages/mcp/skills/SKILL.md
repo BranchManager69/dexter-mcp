@@ -21,7 +21,7 @@ Probe an endpoint for payment requirements per chain without paying. Shows price
 Calls any x402 endpoint with automatic settlement from your local wallet. Returns the API response and payment receipt.
 
 ### `x402_wallet` — Check balance
-Shows your wallet address and USDC balance. Fund this address with USDC on Solana to enable payments.
+Shows your Solana and EVM wallet addresses with USDC balances across all supported chains (Solana, Base, Polygon, Arbitrum, Optimism, Avalanche). Fund either address with USDC to enable payments.
 
 ### `x402_pay` — Alias for `x402_fetch`
 

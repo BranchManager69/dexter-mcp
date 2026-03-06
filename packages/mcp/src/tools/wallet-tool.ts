@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { LoadedWallet } from "../wallet/index.js";
-import { getSolanaBalance } from "../wallet/index.js";
+import { getAllBalances } from "../wallet/index.js";
 import { WALLET_FILE } from "../config.js";
 import { WALLET_META } from "../widget-meta.js";
 
@@ -16,8 +16,8 @@ export function registerWalletTool(
 ): void {
   server.tool(
     "x402_wallet",
-    "Show wallet address, USDC balance, and deposit instructions. " +
-      "The wallet is used to automatically pay for x402 API calls.",
+    "Show wallet addresses (Solana + EVM), USDC balances across all chains, and deposit instructions. " +
+      "The wallet is used to automatically pay for x402 API calls on Solana, Base, Polygon, Arbitrum, Optimism, and Avalanche.",
     {},
     async () => {
       if (!wallet) {
@@ -27,7 +27,7 @@ export function registerWalletTool(
               type: "text" as const,
               text: JSON.stringify({
                 error: "No wallet configured",
-                tip: "Set DEXTER_PRIVATE_KEY env var or run `npx @dexterai/opendexter wallet` to create one.",
+                tip: "Set DEXTER_PRIVATE_KEY (Solana) or EVM_PRIVATE_KEY (EVM) env var, or run `npx @dexterai/opendexter wallet` to create one.",
               }, null, 2),
             },
           ],
@@ -35,17 +35,18 @@ export function registerWalletTool(
       }
 
       try {
-        const balance = await getSolanaBalance(wallet.info.solanaAddress);
-        const data = {
-          address: wallet.info.solanaAddress,
-          network: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
-          networkName: "Solana Mainnet",
-          balances: { sol: balance.sol, usdc: balance.usdc },
+        const { totalUsdc, chains } = await getAllBalances(wallet.info);
+        const data: Record<string, unknown> = {
+          solanaAddress: wallet.info.solanaAddress,
+          evmAddress: wallet.info.evmAddress || null,
+          network: "multichain",
+          totalUsdc,
+          chains,
           walletFile: WALLET_FILE,
-          tip: balance.usdc === 0
-            ? `Deposit USDC (Solana) to ${wallet.info.solanaAddress} to start paying for x402 APIs.`
-            : undefined,
         };
+        if (totalUsdc === 0) {
+          data.tip = `Deposit USDC to ${wallet.info.solanaAddress} (Solana) or ${wallet.info.evmAddress || "configure EVM key"} (Base/Polygon/Arbitrum/Optimism/Avalanche) to start paying.`;
+        }
         return {
           content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
           structuredContent: data,

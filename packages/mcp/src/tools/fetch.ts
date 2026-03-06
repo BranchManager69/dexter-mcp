@@ -69,6 +69,7 @@ async function x402Fetch(
       const { wrapFetch } = await import("@dexterai/x402/client");
       const x402FetchFn = wrapFetch(fetch, {
         walletPrivateKey: wallet.info.solanaPrivateKey,
+        evmPrivateKey: wallet.info.evmPrivateKey,
       });
 
       const paidRes = await x402FetchFn(params.url, fetchOpts);
@@ -89,7 +90,7 @@ async function x402Fetch(
   // Clients must settle using x402 payment-signature flow and retry.
   return {
     status: 402,
-    message: "Payment required. Configure DEXTER_PRIVATE_KEY for canonical x402 settlement or provide payment-signature manually.",
+    message: "Payment required. Configure DEXTER_PRIVATE_KEY (Solana) or EVM_PRIVATE_KEY (Base/Polygon/etc) for automatic settlement, or provide payment-signature manually.",
     requirements,
   };
 }
@@ -100,41 +101,54 @@ export function registerFetchTool(
   opts: FetchOpts,
 ): void {
   const hasWallet = wallet !== null;
+  const description = hasWallet
+    ? "Call any x402-protected API with automatic USDC payment across Solana, Base, Polygon, Arbitrum, Optimism, and Avalanche. " +
+      "Signs and pays using your local wallet. Returns the API response directly."
+    : "Call any x402-protected API. Returns payment requirements. " +
+      "Configure DEXTER_PRIVATE_KEY (Solana) or EVM_PRIVATE_KEY (EVM chains) to enable automatic payment.";
+
+  const inputSchema = {
+    url: z.string().url().describe("The x402 resource URL to call"),
+    method: z
+      .enum(["GET", "POST", "PUT", "DELETE"])
+      .default("GET")
+      .describe("HTTP method"),
+    body: z.string().optional().describe("JSON request body for POST/PUT"),
+  };
+
+  const runFetch = async (args: { url: string; method: "GET" | "POST" | "PUT" | "DELETE"; body?: string }) => {
+    try {
+      const result = await x402Fetch(
+        { url: args.url, method: args.method, body: args.body },
+        wallet,
+        opts,
+      );
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+        structuredContent: result,
+        _meta: FETCH_META,
+      } as any;
+    } catch (err: any) {
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ error: err.message }) }],
+        isError: true,
+      };
+    }
+  };
 
   server.tool(
     "x402_fetch",
-    hasWallet
-      ? "Call any x402-protected API with automatic payment. " +
-        "Signs and pays using your local wallet. Returns the API response directly."
-      : "Call any x402-protected API. Returns payment requirements. " +
-        "Configure DEXTER_PRIVATE_KEY to enable automatic payment.",
-    {
-      url: z.string().url().describe("The x402 resource URL to call"),
-      method: z
-        .enum(["GET", "POST", "PUT", "DELETE"])
-        .default("GET")
-        .describe("HTTP method"),
-      body: z.string().optional().describe("JSON request body for POST/PUT"),
-    },
-    async (args) => {
-      try {
-        const result = await x402Fetch(
-          { url: args.url, method: args.method, body: args.body },
-          wallet,
-          opts,
-        );
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-          structuredContent: result,
-          _meta: FETCH_META,
-        } as any;
-      } catch (err: any) {
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: err.message }) }],
-          isError: true,
-        };
-      }
-    },
+    description,
+    inputSchema,
+    runFetch,
+  );
+
+  server.tool(
+    "x402_pay",
+    "Alias of x402_fetch for clients that want an explicit payment verb. " +
+      "Uses the same local-wallet x402 payment flow and returns the same settlement/result payload.",
+    inputSchema,
+    runFetch,
   );
 }
 

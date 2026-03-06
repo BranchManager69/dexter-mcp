@@ -252,7 +252,7 @@ async function handlePaymentRequired(url, response, init, options) {
   const preferredNetworks =
     options?.preferredNetworks && options.preferredNetworks.length
       ? options.preferredNetworks
-      : ['solana'];
+      : ['solana', 'eip155:8453', 'eip155:137', 'eip155:42161', 'eip155:10', 'eip155:43114'];
 
   const selectedRequirement =
     selectPaymentRequirements(payload.accepts, preferredNetworks, 'exact') ?? payload.accepts[0];
