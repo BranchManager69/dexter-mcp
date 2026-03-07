@@ -62,6 +62,7 @@ function widgetMeta(templateUri, invoking, invoked, description) {
 }
 
 const SEARCH_META = widgetMeta('ui://dexter/x402-marketplace-search', 'Searching marketplace…', 'Results ready', 'Shows paid API search results as interactive cards with quality rings, prices, and fetch buttons.');
+const PAY_META = widgetMeta('ui://dexter/x402-fetch-result', 'Processing payment…', 'Payment complete', 'Shows API response data with payment receipt, transaction link, and settlement status.');
 const FETCH_META = widgetMeta('ui://dexter/x402-fetch-result', 'Calling API…', 'Response received', 'Shows API response data with payment receipt, transaction link, and settlement status.');
 const CHECK_META = widgetMeta('ui://dexter/x402-pricing', 'Checking pricing…', 'Pricing loaded', 'Shows endpoint pricing per blockchain with payment amounts and a pay button.');
 const WALLET_META = widgetMeta('ui://dexter/x402-wallet', 'Loading wallet…', 'Wallet loaded', 'Shows wallet addresses with copy button, USDC balances across chains, and deposit QR code.');
@@ -672,16 +673,21 @@ function createOpenMcpServer() {
       sessionToken: z.string().optional().describe('Anonymous OpenDexter session token for canonical x402 settlement when no local key is configured.'),
       sessionKey: z.string().optional().describe('Optional stable session key for reusable OpenDexter sessions (for example, caller-hash on phone).'),
     },
+    _meta: PAY_META,
   }, async (args, extra) => {
     try {
       const result = await x402Pay(args, extra);
+      const meta = { ...PAY_META };
       if (result.session?.sessionToken) {
+        meta.sessionToken = result.session.sessionToken;
         const { sessionToken: _drop, ...cleanSession } = result.session;
         result.session = cleanSession;
       }
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], structuredContent: result, _meta: meta };
     } catch (err) {
-      return { content: [{ type: 'text', text: JSON.stringify({ error: err.message }) }], isError: true };
+      const msg = err?.cause?.code === 'ENOTFOUND' ? `Could not reach ${args.url}` : err?.message || String(err);
+      const data = { status: 500, error: msg };
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }], structuredContent: data, isError: true, _meta: PAY_META };
     }
   });
 
