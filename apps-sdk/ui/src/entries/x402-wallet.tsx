@@ -9,6 +9,9 @@ import { Globe } from '@openai/apps-sdk-ui/components/Icon';
 import { useOpenAIGlobal, useMaxHeight, useTheme, useCallToolFn, useOpenExternal } from '../sdk';
 import { ChainIcon, UsdcIcon, useIntrinsicHeight, DebugPanel, normalizeWalletPayload, type WalletChainBalance } from '../components/x402';
 
+const WORDMARK_URL = 'https://dexter.cash/wordmarks/dexter-wordmark.svg';
+const LOGO_MARK_URL = 'https://dexter.cash/assets/pokedexter/dexter-logo.svg';
+
 type SessionFunding = {
   amountAtomic?: string;
   amountUsdc?: number;
@@ -55,9 +58,12 @@ function DepositPanel({ solanaAddress, evmAddress, funding }: {
   const qrUrl = funding?.solanaPayUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(funding.solanaPayUrl)}`
     : null;
+  const evmQrUrl = evmAddress
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(evmAddress)}`
+    : null;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 rounded-2xl bg-surface-secondary p-4">
       <span className="text-xs text-tertiary uppercase font-semibold text-center">Deposit USDC</span>
 
       {/* Solana deposit */}
@@ -73,7 +79,7 @@ function DepositPanel({ solanaAddress, evmAddress, funding }: {
           </div>
           {qrUrl && (
             <div className="flex justify-center">
-              <div className="p-2 bg-white rounded-lg inline-block">
+              <div className="p-2 bg-white rounded-2xl inline-block shadow-sm">
                 <img src={qrUrl} alt="Solana Pay QR" width={120} height={120} />
               </div>
             </div>
@@ -100,6 +106,14 @@ function DepositPanel({ solanaAddress, evmAddress, funding }: {
             <span className="text-xs font-mono text-secondary truncate flex-1">{evmAddress}</span>
             <CopyButton copyValue={evmAddress} variant="ghost" color="secondary" size="sm" />
           </div>
+          {evmQrUrl && (
+            <div className="flex justify-center">
+              <div className="p-2 bg-white rounded-2xl inline-block shadow-sm">
+                <img src={evmQrUrl} alt="EVM address QR" width={120} height={120} />
+              </div>
+            </div>
+          )}
+          <span className="text-3xs text-tertiary text-center">Scan to copy or fund this shared EVM address on supported chains.</span>
         </div>
       )}
     </div>
@@ -235,18 +249,33 @@ function WalletDashboard() {
 
   return (
     <div data-theme={theme} ref={containerRef} className="p-4 overflow-y-auto" style={{ maxHeight: maxHeight ?? undefined }}>
-      <div className="rounded-2xl border border-default bg-surface p-4 flex flex-col gap-4">
+      <div
+        className="rounded-2xl border border-default bg-surface p-4 flex flex-col gap-4"
+        style={{ background: 'linear-gradient(135deg, rgba(209,63,0,0.08) 0%, rgba(255,107,0,0.04) 52%, transparent 100%)' }}
+      >
         {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-tertiary uppercase tracking-wider font-semibold">
-              {isSession ? 'OpenDexter Session' : 'x402 Settlement Wallet'}
-            </span>
-            <span className="heading-lg">Wallet Overview</span>
+        <div className="relative overflow-hidden rounded-xl px-4 pt-4 pb-3 bg-surface/70">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <img src={LOGO_MARK_URL} alt="Dexter logo" width={24} height={24} style={{ width: 24, height: 24, flexShrink: 0 }} />
+              <img src={WORDMARK_URL} alt="Dexter" height={22} style={{ height: 22, width: 'auto', opacity: 0.9 }} />
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-tertiary uppercase tracking-wider font-semibold">
+                  {isSession ? 'OpenDexter Session' : 'x402 Settlement Wallet'}
+                </span>
+                <span className="heading-lg">Wallet Overview</span>
+              </div>
+            </div>
+            <Button variant="soft" color="secondary" size="sm" onClick={handleRefresh} disabled={refreshing}>
+              {refreshing ? '...' : 'Refresh'}
+            </Button>
           </div>
-          <Button variant="soft" color="secondary" size="sm" onClick={handleRefresh} disabled={refreshing}>
-            {refreshing ? '...' : 'Refresh'}
-          </Button>
+          <div className="mt-2">
+            <span className="text-sm text-secondary">
+              {ready ? 'Session funded and ready to pay x402 endpoints.' : 'Fund this session to start making x402 calls.'}
+            </span>
+          </div>
+          <div className="absolute bottom-0 left-4 right-4 h-px" style={{ background: 'linear-gradient(90deg, #ff6b00 0%, transparent 100%)', opacity: 0.18 }} />
         </div>
 
         {/* Total balance */}

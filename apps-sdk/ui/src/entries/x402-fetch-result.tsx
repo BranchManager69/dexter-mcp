@@ -9,6 +9,9 @@ import { Warning } from '@openai/apps-sdk-ui/components/Icon';
 import { useOpenAIGlobal, useOpenExternal, useMaxHeight, useTheme, useDisplayMode } from '../sdk';
 import { JsonViewer, useIntrinsicHeight, DebugPanel, formatUsdc, shortenHash, getExplorerUrl, getChain } from '../components/x402';
 
+const WORDMARK_URL = 'https://dexter.cash/wordmarks/dexter-wordmark.svg';
+const LOGO_MARK_URL = 'https://dexter.cash/assets/pokedexter/dexter-logo.svg';
+
 type FetchPayload = {
   status: number;
   data?: unknown;
@@ -183,18 +186,28 @@ function FetchResult() {
       className={`flex flex-col gap-4 ${isFullscreen ? 'p-6' : 'p-4'} overflow-y-auto`}
       style={{ maxHeight: isFullscreen ? undefined : (maxHeight ?? undefined) }}
     >
-      <div className="rounded-2xl border border-default bg-surface p-4 flex flex-col gap-4">
+      <div
+        className="rounded-2xl border border-default bg-surface p-4 flex flex-col gap-4"
+        style={{ background: 'linear-gradient(135deg, rgba(209,63,0,0.08) 0%, rgba(255,107,0,0.04) 52%, transparent 100%)' }}
+      >
         {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <span className="text-xs text-tertiary uppercase tracking-wider font-semibold">x402 Execution Result</span>
-            <h2 className="heading-lg">Execution Ledger</h2>
+        <div className="relative overflow-hidden rounded-xl px-4 pt-4 pb-3 bg-surface/70">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <img src={LOGO_MARK_URL} alt="Dexter logo" width={24} height={24} style={{ width: 24, height: 24, flexShrink: 0 }} />
+              <img src={WORDMARK_URL} alt="Dexter" height={22} style={{ height: 22, width: 'auto', opacity: 0.9 }} />
+              <div>
+                <span className="text-xs text-tertiary uppercase tracking-wider font-semibold">x402 Execution Result</span>
+                <h2 className="heading-lg">Execution Ledger</h2>
+              </div>
+            </div>
+            {isLargePayload && (
+              <Button variant="soft" color="secondary" size="sm" onClick={toggleFullscreen}>
+                {isFullscreen ? 'Minimize' : 'Expand'}
+              </Button>
+            )}
           </div>
-          {isLargePayload && (
-            <Button variant="soft" color="secondary" size="sm" onClick={toggleFullscreen}>
-              {isFullscreen ? 'Minimize' : 'Expand'}
-            </Button>
-          )}
+          <div className="absolute bottom-0 left-4 right-4 h-px" style={{ background: 'linear-gradient(90deg, #ff6b00 0%, transparent 100%)', opacity: 0.18 }} />
         </div>
 
         {/* Progress rail */}
@@ -254,7 +267,7 @@ function FetchResult() {
 
             {/* Data */}
             {imageUrl ? (
-              <div className="rounded-xl overflow-hidden bg-surface-secondary">
+              <div className="rounded-2xl overflow-hidden bg-surface-secondary">
                 <div className="px-3 py-2 text-xs text-tertiary uppercase">Image</div>
                 <img src={proxyImageUrl(imageUrl)} alt="Response" className="w-full" />
               </div>

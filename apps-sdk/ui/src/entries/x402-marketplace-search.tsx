@@ -25,6 +25,7 @@ import {
 } from '../components/x402';
 
 const WORDMARK_URL = 'https://dexter.cash/wordmarks/dexter-wordmark.svg';
+const LOGO_MARK_URL = 'https://dexter.cash/assets/pokedexter/dexter-logo.svg';
 
 type Resource = {
   name: string;
@@ -230,6 +231,7 @@ function MarketplaceSearch() {
       >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
+            <img src={LOGO_MARK_URL} alt="Dexter logo" width={24} height={24} style={{ width: 24, height: 24, flexShrink: 0 }} />
             <img src={WORDMARK_URL} alt="Dexter" height={22} style={{ height: 22, width: 'auto', opacity: 0.9 }} />
             <span className="text-xs text-tertiary">Marketplace</span>
           </div>

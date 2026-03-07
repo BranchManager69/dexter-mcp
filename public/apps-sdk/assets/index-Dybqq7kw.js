@@ -1,0 +1,1 @@
+import{j as i}from"./use-openai-global-D7K5F0u7.js";import{w as n,c}from"./Button-zA0mNU-b.js";const g="_Badge_1viyg_1",l={Badge:g},x=({children:a,className:s,variant:e="soft",color:t="secondary",size:d="sm",pill:o,...r})=>i.jsx("div",{className:c(l.Badge,s),"data-color":t,"data-size":d,"data-pill":o?"":void 0,"data-variant":e,...r,children:n(a)});export{x as B};
