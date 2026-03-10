@@ -65,57 +65,65 @@ function DepositPanel({ solanaAddress, evmAddress, funding }: {
   return (
     <div className="flex flex-col gap-3 rounded-2xl bg-surface-secondary p-4">
       <span className="text-xs text-tertiary uppercase font-semibold text-center">Deposit USDC</span>
-
-      {/* Solana deposit */}
-      {solanaAddress && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <ChainIcon network="solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" size={16} />
-            <span className="text-xs font-semibold">Solana</span>
-          </div>
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs font-mono text-secondary truncate flex-1">{solanaAddress}</span>
-            <CopyButton copyValue={solanaAddress} variant="ghost" color="secondary" size="sm" />
-          </div>
-          {qrUrl && (
-            <div className="flex justify-center">
-              <div className="p-2 bg-white rounded-2xl inline-block shadow-sm">
-                <img src={qrUrl} alt="Solana Pay QR" width={120} height={120} />
-              </div>
+      <div className={`grid gap-3 ${solanaAddress && evmAddress ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+        {/* Solana deposit */}
+        {solanaAddress && (
+          <div className="rounded-2xl border border-subtle bg-surface p-4 flex flex-col gap-3 min-w-0">
+            <div className="flex items-center gap-2">
+              <ChainIcon network="solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" size={16} />
+              <span className="text-xs font-semibold">Solana</span>
+              <span className="text-3xs text-tertiary">Smart pay QR</span>
             </div>
-          )}
-          <div className="grid grid-cols-1 gap-2">
-            {funding?.txUrl && (
-              <Button variant="soft" color="secondary" size="sm" block onClick={() => openExternal(funding.txUrl!)}>
-                Open Funding Page
-              </Button>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs font-mono text-secondary truncate flex-1">{solanaAddress}</span>
+              <CopyButton copyValue={solanaAddress} variant="ghost" color="secondary" size="sm" />
+            </div>
+            {qrUrl && (
+              <div className="flex justify-center">
+                <div className="p-2 bg-white rounded-2xl inline-block shadow-sm">
+                  <img src={qrUrl} alt="Solana Pay QR" width={120} height={120} />
+                </div>
+              </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* EVM deposit */}
-      {evmAddress && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <ChainIcon network="eip155:8453" size={16} />
-            <span className="text-xs font-semibold">EVM Chains</span>
-            <span className="text-3xs text-tertiary">(Base, Polygon, Arbitrum, Optimism, Avalanche)</span>
-          </div>
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs font-mono text-secondary truncate flex-1">{evmAddress}</span>
-            <CopyButton copyValue={evmAddress} variant="ghost" color="secondary" size="sm" />
-          </div>
-          {evmQrUrl && (
-            <div className="flex justify-center">
-              <div className="p-2 bg-white rounded-2xl inline-block shadow-sm">
-                <img src={evmQrUrl} alt="EVM address QR" width={120} height={120} />
-              </div>
+            <div className="grid grid-cols-1 gap-2">
+              {funding?.txUrl && (
+                <Button variant="soft" color="secondary" size="sm" block onClick={() => openExternal(funding.txUrl!)}>
+                  Open Funding Page
+                </Button>
+              )}
+              {funding?.solanaPayUrl && (
+                <Button variant="soft" color="secondary" size="sm" block onClick={() => openExternal(funding.solanaPayUrl!)}>
+                  Solana Pay
+                </Button>
+              )}
             </div>
-          )}
-          <span className="text-3xs text-tertiary text-center">Scan to copy or fund this shared EVM address on supported chains.</span>
-        </div>
-      )}
+          </div>
+        )}
+
+        {/* EVM deposit */}
+        {evmAddress && (
+          <div className="rounded-2xl border border-subtle bg-surface p-4 flex flex-col gap-3 min-w-0">
+            <div className="flex items-center gap-2">
+              <ChainIcon network="eip155:8453" size={16} />
+              <span className="text-xs font-semibold">EVM Chains</span>
+              <span className="text-3xs text-tertiary">Address QR</span>
+            </div>
+            <span className="text-3xs text-tertiary">(Base, Polygon, Arbitrum, Optimism, Avalanche)</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs font-mono text-secondary truncate flex-1">{evmAddress}</span>
+              <CopyButton copyValue={evmAddress} variant="ghost" color="secondary" size="sm" />
+            </div>
+            {evmQrUrl && (
+              <div className="flex justify-center">
+                <div className="p-2 bg-white rounded-2xl inline-block shadow-sm">
+                  <img src={evmQrUrl} alt="EVM address QR" width={120} height={120} />
+                </div>
+              </div>
+            )}
+            <span className="text-3xs text-tertiary text-center">Scan to copy or fund the shared EVM address on any supported chain.</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

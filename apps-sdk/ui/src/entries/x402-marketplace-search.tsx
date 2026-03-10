@@ -1,9 +1,8 @@
 import '../styles/sdk.css';
 
 import { createRoot } from 'react-dom/client';
-import { useState, useCallback, useEffect } from 'react';
-import { Badge } from '@openai/apps-sdk-ui/components/Badge';
-import { Button, CopyButton } from '@openai/apps-sdk-ui/components/Button';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { Button } from '@openai/apps-sdk-ui/components/Button';
 import { EmptyMessage } from '@openai/apps-sdk-ui/components/EmptyMessage';
 import { Search, Warning } from '@openai/apps-sdk-ui/components/Icon';
 import {
@@ -13,134 +12,23 @@ import {
   useCallToolFn,
   useMaxHeight,
   useDisplayMode,
+  useRequestDisplayMode,
+  useSendFollowUp,
+  useWidgetState,
 } from '../sdk';
-import {
-  ChainIcon,
-  getChain,
-  QualityBadge,
-  VerifiedBadge,
-  formatCalls,
-  useIntrinsicHeight,
-  DebugPanel,
-} from '../components/x402';
-
-const WORDMARK_URL = 'https://dexter.cash/wordmarks/dexter-wordmark.svg';
-const LOGO_MARK_URL = 'https://dexter.cash/assets/pokedexter/dexter-logo.svg';
-
-type Resource = {
-  name: string;
-  url: string;
-  method: string;
-  price: string;
-  network: string | null;
-  description: string;
-  category: string;
-  qualityScore: number | null;
-  verified: boolean;
-  totalCalls: number;
-  seller: string | null;
-  authRequired?: boolean;
-  authType?: string | null;
-  authHint?: string | null;
-};
+import { useIntrinsicHeight, DebugPanel } from '../components/x402';
+import { MarketplaceSummaryHeader } from '../components/x402/search/MarketplaceSummaryHeader';
+import { SearchResultCard } from '../components/x402/search/SearchResultCard';
+import { SearchResourceDetail } from '../components/x402/search/SearchResourceDetail';
+import type { SearchResource, SearchWidgetState } from '../components/x402/search/types';
 
 type SearchPayload = {
   success: boolean;
   count: number;
-  resources: Resource[];
+  resources: SearchResource[];
   tip?: string;
   error?: string;
 };
-
-function ApiCard({ resource, index, featured = false, onSelect }: {
-  resource: Resource;
-  index: number;
-  featured?: boolean;
-  onSelect: (r: Resource) => void;
-}) {
-  const callTool = useCallToolFn();
-  const [checking, setChecking] = useState(false);
-  const [visible, setVisible] = useState(false);
-  const { name: networkName } = getChain(resource.network);
-
-  useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 60 + index * 40);
-    return () => clearTimeout(t);
-  }, [index]);
-
-  const handleFetch = useCallback(async () => {
-    await callTool('x402_fetch', { url: resource.url, method: resource.method || 'GET' });
-  }, [callTool, resource.url, resource.method]);
-
-  const handleCheck = useCallback(async () => {
-    setChecking(true);
-    try {
-      await callTool('x402_check', { url: resource.url, method: resource.method || 'GET' });
-    } finally {
-      setChecking(false);
-    }
-  }, [callTool, resource.url, resource.method]);
-
-  return (
-    <div
-      className={`rounded-2xl border bg-surface p-4 flex flex-col gap-3 cursor-pointer transition-all duration-300 ${
-        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
-      } ${featured ? 'border-[#ff6b00]/25 shadow-[0_0_20px_rgba(255,107,0,0.06)]' : 'border-default'} hover:border-[#ff6b00]/40`}
-      onClick={() => onSelect(resource)}
-      role="button"
-      tabIndex={0}
-    >
-      <div className="flex items-start justify-between gap-3 min-w-0">
-        <div className="flex flex-col gap-1 min-w-0 flex-1">
-          <span className="heading-sm truncate">{resource.name}</span>
-          {resource.seller && <span className="text-xs text-secondary">by {resource.seller}</span>}
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Badge color="success" variant="soft" pill>
-            <ChainIcon network={resource.network} size={12} />
-            {resource.price}
-          </Badge>
-          {networkName && <Badge color="info" variant="outline" size="sm">{networkName}</Badge>}
-          <QualityBadge score={resource.qualityScore} />
-        </div>
-      </div>
-
-      {resource.description && (
-        <p className="text-sm text-secondary line-clamp-2">{resource.description}</p>
-      )}
-
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Badge variant="outline" size="sm">{resource.category}</Badge>
-        <Badge variant="outline" size="sm">{resource.method}</Badge>
-        <VerifiedBadge verified={resource.verified} />
-        {resource.authRequired && (
-          <Badge color="warning" size="sm" title={resource.authHint || 'Provider auth required.'}>
-            Auth{resource.authType ? ` (${resource.authType.toUpperCase()})` : ''}
-          </Badge>
-        )}
-        {resource.totalCalls > 0 && (
-          <span className="text-3xs text-tertiary">{formatCalls(resource.totalCalls)} calls</span>
-        )}
-      </div>
-
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-3xs text-tertiary font-mono truncate flex-1">{resource.url}</span>
-        <CopyButton copyValue={resource.url} variant="ghost" color="secondary" size="sm" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-          Copy
-        </CopyButton>
-      </div>
-
-      <div className="flex gap-2">
-        <Button variant="soft" color="secondary" size="sm" onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleCheck(); }} disabled={checking}>
-          {checking ? '...' : 'Check Price'}
-        </Button>
-        <Button color="primary" size="sm" onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleFetch(); }}>
-          Fetch {resource.price}
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 function MarketplaceSearch() {
   const toolOutput = useOpenAIGlobal('toolOutput') as SearchPayload | null;
@@ -148,34 +36,67 @@ function MarketplaceSearch() {
   const theme = useTheme();
   const maxHeight = useMaxHeight();
   const displayMode = useDisplayMode();
+  const requestDisplayMode = useRequestDisplayMode();
+  const sendFollowUp = useSendFollowUp();
+  const callTool = useCallToolFn();
   const containerRef = useIntrinsicHeight();
   const isFullscreen = displayMode === 'fullscreen';
+  const [widgetState, setWidgetState] = useWidgetState<SearchWidgetState>({});
 
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
 
-  const handleSelectResource = useCallback((r: Resource) => {
-    try {
-      (window as any).openai?.setWidgetState?.({ selectedUrl: r.url });
-      (window as any).openai?.sendFollowUpMessage?.({
-        prompt: `The user selected: ${r.name} at ${r.url} (${r.price})`,
-        scrollToBottom: false,
-      });
-    } catch {}
-  }, []);
+  useEffect(() => {
+    const firstUrl = toolOutput?.resources?.[0]?.url;
+    if (!firstUrl) return;
+    if (widgetState.selectedUrl && toolOutput?.resources?.some((resource) => resource.url === widgetState.selectedUrl)) {
+      return;
+    }
+    void setWidgetState((prev) => ({ ...prev, selectedUrl: firstUrl, detailOpen: prev.detailOpen ?? false }));
+  }, [setWidgetState, toolOutput?.resources, widgetState.selectedUrl]);
+
+  const resources = toolOutput?.resources ?? [];
+  const selectedResource = useMemo(
+    () => resources.find((resource) => resource.url === widgetState.selectedUrl) ?? resources[0] ?? null,
+    [resources, widgetState.selectedUrl],
+  );
+
+  const runCheckPrice = useCallback(async (resource: SearchResource) => {
+    await callTool('x402_check', { url: resource.url, method: resource.method || 'GET' });
+  }, [callTool]);
+
+  const runFetch = useCallback(async (resource: SearchResource) => {
+    await callTool('x402_fetch', { url: resource.url, method: resource.method || 'GET' });
+  }, [callTool]);
+
+  const handleInspectResource = useCallback(async (resource: SearchResource) => {
+    const shouldSendPrompt = widgetState.lastPromptedUrl !== resource.url;
+    await setWidgetState((prev) => ({
+      ...prev,
+      selectedUrl: resource.url,
+      detailOpen: true,
+      lastPromptedUrl: shouldSendPrompt ? resource.url : prev.lastPromptedUrl,
+    }));
+    if (shouldSendPrompt) {
+      await sendFollowUp(`The user is inspecting ${resource.name} at ${resource.url} on ${resource.network ?? 'an unknown network'} and is evaluating whether it is worth paying for.`);
+    }
+  }, [sendFollowUp, setWidgetState, widgetState.lastPromptedUrl]);
+
+  const handleCloseDetail = useCallback(async () => {
+    await setWidgetState((prev) => ({ ...prev, detailOpen: false }));
+  }, [setWidgetState]);
 
   const toggleFullscreen = useCallback(() => {
-    try {
-      (window as any).openai?.requestDisplayMode?.({ mode: isFullscreen ? 'inline' : 'fullscreen' });
-    } catch {}
-  }, [isFullscreen]);
+    if (!requestDisplayMode) return;
+    void requestDisplayMode({ mode: isFullscreen ? 'inline' : 'fullscreen' });
+  }, [isFullscreen, requestDisplayMode]);
 
-  const qualityValues = (toolOutput?.resources ?? [])
+  const qualityValues = resources
     .map((r) => r.qualityScore)
     .filter((q): q is number => q !== null);
   const avgQuality = qualityValues.length
     ? Math.round(qualityValues.reduce((sum, q) => sum + q, 0) / qualityValues.length)
     : null;
-  const verifiedCount = (toolOutput?.resources ?? []).filter((r) => r.verified).length;
+  const verifiedCount = resources.filter((r) => r.verified).length;
 
   const [loadingElapsed, setLoadingElapsed] = useState(0);
   useEffect(() => {
@@ -187,9 +108,12 @@ function MarketplaceSearch() {
   if (!toolOutput) {
     return (
       <div data-theme={theme} className="p-4" style={{ maxHeight: maxHeight ?? undefined }}>
-        <EmptyMessage>
+        <EmptyMessage className="rounded-2xl border border-subtle bg-surface px-4 py-8">
           <EmptyMessage.Icon><Search /></EmptyMessage.Icon>
-          <EmptyMessage.Title>{loadingElapsed < 5 ? 'Loading results...' : 'Still searching — hang tight.'}</EmptyMessage.Title>
+          <EmptyMessage.Title>{loadingElapsed < 5 ? 'Building the market board…' : 'Dexter is still surveying the market.'}</EmptyMessage.Title>
+          <EmptyMessage.Description>
+            {loadingElapsed < 5 ? 'Ranking paid APIs and trust signals.' : 'This is taking longer than usual, but the search is still in flight.'}
+          </EmptyMessage.Description>
         </EmptyMessage>
       </div>
     );
@@ -198,9 +122,10 @@ function MarketplaceSearch() {
   if (toolOutput.error) {
     return (
       <div data-theme={theme} className="p-4" style={{ maxHeight: maxHeight ?? undefined }}>
-        <EmptyMessage>
+        <EmptyMessage className="rounded-2xl border border-subtle bg-surface px-4 py-8">
           <EmptyMessage.Icon color="danger"><Warning /></EmptyMessage.Icon>
           <EmptyMessage.Title color="danger">{toolOutput.error}</EmptyMessage.Title>
+          <EmptyMessage.Description>Dexter could not build the marketplace view for this request.</EmptyMessage.Description>
         </EmptyMessage>
       </div>
     );
@@ -209,10 +134,10 @@ function MarketplaceSearch() {
   if (toolOutput.count === 0) {
     return (
       <div data-theme={theme} className="p-4" style={{ maxHeight: maxHeight ?? undefined }}>
-        <EmptyMessage>
+        <EmptyMessage className="rounded-2xl border border-subtle bg-surface px-4 py-8">
           <EmptyMessage.Icon><Search /></EmptyMessage.Icon>
           <EmptyMessage.Title>No x402 APIs found{toolInput?.query ? ` for "${toolInput.query}"` : ''}</EmptyMessage.Title>
-          <EmptyMessage.Description>Try a broader search term.</EmptyMessage.Description>
+          <EmptyMessage.Description>Try a broader query or a different provider/category angle.</EmptyMessage.Description>
         </EmptyMessage>
       </div>
     );
@@ -222,46 +147,73 @@ function MarketplaceSearch() {
     <div
       data-theme={theme}
       ref={containerRef}
-      className={`flex flex-col ${isFullscreen ? 'p-6' : 'p-0'} overflow-y-auto`}
+      className={`flex flex-col overflow-y-auto ${isFullscreen ? 'p-5 sm:p-6' : 'p-0'}`}
       style={{ maxHeight: isFullscreen ? undefined : (maxHeight ?? undefined) }}
     >
-      {/* Branded header */}
-      <div className="relative overflow-hidden rounded-t-2xl px-4 pt-4 pb-3"
-        style={{ background: 'linear-gradient(135deg, rgba(209,63,0,0.08) 0%, rgba(255,107,0,0.04) 50%, transparent 100%)' }}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <img src={LOGO_MARK_URL} alt="Dexter logo" width={24} height={24} style={{ width: 24, height: 24, flexShrink: 0 }} />
-            <img src={WORDMARK_URL} alt="Dexter" height={22} style={{ height: 22, width: 'auto', opacity: 0.9 }} />
-            <span className="text-xs text-tertiary">Marketplace</span>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {toolInput?.query && <Badge variant="outline" size="sm">&quot;{toolInput.query}&quot;</Badge>}
-            <Button variant="soft" color="secondary" size="sm" onClick={toggleFullscreen}>
-              {isFullscreen ? 'Minimize' : 'Expand'}
-            </Button>
-          </div>
-        </div>
-        <div className="flex items-baseline gap-2 mt-2">
-          <span className="heading-lg">{toolOutput.count}</span>
-          <span className="text-sm text-secondary">result{toolOutput.count !== 1 ? 's' : ''}</span>
-          <span className="text-3xs text-tertiary ml-auto">{verifiedCount} verified · avg quality {avgQuality ?? 'n/a'}</span>
-        </div>
-        {/* Subtle orange accent line */}
-        <div className="absolute bottom-0 left-4 right-4 h-px" style={{ background: 'linear-gradient(90deg, #ff6b00 0%, transparent 100%)', opacity: 0.15 }} />
+      <div className="px-4 pt-4">
+        <MarketplaceSummaryHeader
+          query={toolInput?.query}
+          resultCount={toolOutput.count}
+          verifiedCount={verifiedCount}
+          avgQuality={avgQuality}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
+        />
       </div>
 
-      {/* Results */}
-      <div className={`flex flex-col gap-3 px-4 py-3 ${isFullscreen ? 'grid grid-cols-1 sm:grid-cols-2' : ''}`}>
-        {toolOutput.resources.map((r, i) => (
-          <ApiCard
-            key={r.url + i}
-            resource={r}
-            index={i}
-            featured={i === 0 && !isFullscreen}
-            onSelect={handleSelectResource}
+      {!isFullscreen && widgetState.detailOpen && selectedResource && (
+        <div className="px-4 pt-4">
+          <SearchResourceDetail
+            resource={selectedResource}
+            inline
+            onClose={handleCloseDetail}
+            onCheckPrice={runCheckPrice}
+            onFetch={runFetch}
           />
-        ))}
+        </div>
+      )}
+
+      <div className={`px-4 py-4 ${isFullscreen ? 'grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]' : ''}`}>
+        <div className={`grid gap-3 ${isFullscreen ? 'xl:grid-cols-2' : 'grid-cols-1'}`}>
+          {resources.map((resource, index) => (
+            <SearchResultCard
+              key={`${resource.url}-${index}`}
+              resource={resource}
+              index={index}
+              featured={index === 0}
+              selected={selectedResource?.url === resource.url}
+              onInspect={handleInspectResource}
+              onCheckPrice={runCheckPrice}
+              onFetch={runFetch}
+            />
+          ))}
+        </div>
+
+        {isFullscreen && (
+          <div className="min-w-0">
+            {widgetState.detailOpen && selectedResource ? (
+              <SearchResourceDetail
+                resource={selectedResource}
+                onClose={handleCloseDetail}
+                onCheckPrice={runCheckPrice}
+                onFetch={runFetch}
+              />
+            ) : (
+              <div className="sticky top-4 rounded-[22px] border border-dashed border-subtle bg-surface px-4 py-6">
+                <div className="text-[10px] uppercase tracking-[0.22em] text-tertiary">Inspection Deck</div>
+                <h3 className="mt-2 text-lg font-semibold text-primary">Select a result to inspect</h3>
+                <p className="mt-2 text-sm leading-6 text-secondary">
+                  Fullscreen mode now supports a dedicated review surface. Pick any candidate to compare pricing, trust signals, and endpoint context without losing the market board.
+                </p>
+                {selectedResource && (
+                  <Button className="mt-4" variant="soft" color="secondary" size="sm" onClick={() => handleInspectResource(selectedResource)}>
+                    Open {selectedResource.name}
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {toolOutput.tip && (
@@ -274,7 +226,7 @@ function MarketplaceSearch() {
 
 const root = document.getElementById('x402-marketplace-search-root');
 if (root) {
-  root.setAttribute('data-widget-build', '2026-03-05.2');
+  root.setAttribute('data-widget-build', '2026-03-07.1');
   createRoot(root).render(<MarketplaceSearch />);
 }
 
