@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
 import { buildWidgetBootstrapScript } from './bootstrap.js';
+import { resolveAppsSdkRelease } from '../scripts/apps-sdk-release.mjs';
 
 const SKYBRIDGE_MIME = 'text/html+skybridge';
 const APPS_SDK_DIR = path.resolve(new URL('.', import.meta.url).pathname, '../public/apps-sdk');
@@ -98,6 +99,16 @@ function buildWidgetCsp(assetBase) {
     connectDomains.push('https://x402.dexter.cash');
   }
 
+  const sentryDsn = resolveWidgetSentryDsn();
+  if (sentryDsn) {
+    try {
+      const sentryOrigin = new URL(sentryDsn).origin;
+      if (!connectDomains.includes(sentryOrigin)) {
+        connectDomains.push(sentryOrigin);
+      }
+    } catch {}
+  }
+
   // OpenAI's CDN for static assets (fonts, etc.)
   resourceDomains.push('https://*.oaistatic.com');
   // External assets used by x402 widgets (chain logos + QR images)
@@ -128,12 +139,42 @@ function buildWidgetCsp(assetBase) {
   };
 }
 
-function injectBootstrap(html, baseHref) {
+function resolveWidgetSentryDsn() {
+  return (
+    String(process.env.TOKEN_AI_WIDGET_SENTRY_DSN || '').trim() ||
+    String(process.env.NEXT_PUBLIC_SENTRY_DSN || '').trim() ||
+    'https://129d5ac57e470d7e2d16ffd8fab09fb4@o4510869152923648.ingest.us.sentry.io/4510871946330112'
+  );
+}
+
+function buildWidgetRuntimeConfig(entry, assetBase) {
+  return {
+    entryName: entry.name,
+    templateUri: entry.templateUri,
+    widgetDescription: entry.widgetDescription || entry.description,
+    widgetDomain: resolveWidgetDomain(),
+    assetBase,
+    release: resolveAppsSdkRelease(),
+    sentry: {
+      dsn: resolveWidgetSentryDsn(),
+      org: process.env.SENTRY_ORG || 'dexter-ai',
+      project: process.env.SENTRY_PROJECT || 'dexter-fe',
+      environment: process.env.NODE_ENV || 'production',
+      enabled: true,
+      tracesSampleRate: 1,
+      replaysSessionSampleRate: 0.1,
+      replaysOnErrorSampleRate: 1,
+      sendDefaultPii: true,
+    },
+  };
+}
+
+function injectBootstrap(html, baseHref, runtimeConfig) {
   const normalizedBase = baseHref.endsWith('/') ? baseHref : `${baseHref}/`;
   // NOTE: We do NOT inject a <base> tag because ChatGPT's CSP blocks base-uri
   // to external domains. Asset URLs are already rewritten to absolute paths
   // by rewriteHtmlForAssets(), so the base tag is unnecessary.
-  const bootstrapScript = buildWidgetBootstrapScript(normalizedBase);
+  const bootstrapScript = buildWidgetBootstrapScript(normalizedBase, runtimeConfig);
 
   if (html.includes('<head>')) {
     return html.replace('<head>', `<head>\n${bootstrapScript}\n`);
@@ -505,7 +546,7 @@ export function registerAppsSdkResources(server, options = {}) {
     },
     {
       name: 'dexter_x402_marketplace_search',
-      templateUri: 'ui://dexter/x402-marketplace-search',
+      templateUri: 'ui://dexter/x402-marketplace-search-v2',
       file: 'x402-marketplace-search.html',
       title: 'x402 Marketplace Search',
       description: 'Displays x402 API marketplace search results with pricing, quality scores, and verification status.',
@@ -576,7 +617,7 @@ export function registerAppsSdkResources(server, options = {}) {
       async () => {
         const rawHtml = await fsp.readFile(assetPath, 'utf8');
         const rewritten = tagEntryScript(rewriteHtmlForAssets(rawHtml, assetBase), entry.name);
-        const html = injectBootstrap(rewritten, MCP_PUBLIC_URL);
+        const html = injectBootstrap(rewritten, MCP_PUBLIC_URL, buildWidgetRuntimeConfig(entry, assetBase));
 
         return {
           contents: [

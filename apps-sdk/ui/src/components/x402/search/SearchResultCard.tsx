@@ -1,21 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Badge } from '@openai/apps-sdk-ui/components/Badge';
 import { Button, CopyButton } from '@openai/apps-sdk-ui/components/Button';
-import { ChainIcon, QualityBadge, VerifiedBadge, formatCalls, getChain } from '..';
+import { ChainIcon, UsdcIcon } from '..';
 import type { SearchResource } from './types';
-
-function getDexterRead(resource: SearchResource) {
-  if (resource.verified && (resource.qualityScore ?? 0) >= 85) {
-    return 'Strong verified signal';
-  }
-  if (resource.authRequired) {
-    return 'Needs provider auth';
-  }
-  if ((resource.totalCalls ?? 0) > 1000) {
-    return 'Active market usage';
-  }
-  return 'Worth inspecting';
-}
+import { SearchIdentityIcon } from './SearchIdentityIcon';
+import { SearchScoreBadge } from './SearchScoreBadge';
+import { formatCompactNumber, providerDisplayName, shortenUrl } from './utils';
 
 export function SearchResultCard({
   resource,
@@ -37,14 +26,11 @@ export function SearchResultCard({
   const [visible, setVisible] = useState(false);
   const [checking, setChecking] = useState(false);
   const [fetching, setFetching] = useState(false);
-  const { name: networkName } = getChain(resource.network);
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 50 + index * 35);
     return () => clearTimeout(t);
   }, [index]);
-
-  const dexterRead = getDexterRead(resource);
 
   async function handleCheckPrice(e: React.MouseEvent) {
     e.stopPropagation();
@@ -66,9 +52,18 @@ export function SearchResultCard({
     }
   }
 
+  const providerName = providerDisplayName(resource);
+  const compactUrl = shortenUrl(resource.url);
+  const chainOptions = resource.chains?.length ? resource.chains : [{ network: resource.network ?? null }];
+  const visibleChainOptions = chainOptions.filter((chain, chainIndex, list) => {
+    const key = chain.network ?? 'unknown';
+    return list.findIndex((item) => (item.network ?? 'unknown') === key) === chainIndex;
+  });
+  const fetchLabel = resource.price === 'free' ? 'Fetch free' : resource.price.replace(/^\$/, '');
+
   return (
     <div
-      className={`group rounded-[22px] border p-4 transition-all duration-300 ${
+      className={`group relative rounded-[24px] border p-4 transition-all duration-300 ${
         visible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
       } ${
         selected
@@ -81,85 +76,89 @@ export function SearchResultCard({
       role="button"
       tabIndex={0}
     >
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="heading-sm leading-tight text-primary">{resource.name}</span>
-                  {featured && <Badge color="warning" variant="soft" size="sm">Lead signal</Badge>}
-                </div>
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary">
-                  <span>{resource.seller ? `Provider: ${resource.seller}` : 'Provider: Independent'}</span>
-                  <span>Method: {resource.method}</span>
-                  {resource.totalCalls > 0 && <span>{formatCalls(resource.totalCalls)} calls</span>}
-                </div>
-              </div>
+      <div className="absolute right-4 top-4 z-10">
+        <SearchScoreBadge score={resource.qualityScore} variant="card" />
+      </div>
 
-              <div className="hidden xl:flex xl:items-center xl:gap-2 xl:flex-shrink-0">
-                <Badge color="success" variant="soft" pill>
-                  <ChainIcon network={resource.network} size={12} />
-                  {resource.price}
-                </Badge>
-                {networkName && <Badge variant="outline" size="sm">{networkName}</Badge>}
-                <QualityBadge score={resource.qualityScore} />
+      <div className="flex flex-col gap-5">
+        <div className="flex items-start gap-3 pr-14 sm:pr-16">
+          <SearchIdentityIcon resource={resource} />
+          <div className="min-w-0 flex-1">
+            <div className="min-w-0">
+              <h3 className="pr-1 text-lg font-semibold leading-snug text-primary [overflow-wrap:anywhere]">
+                {resource.name}
+              </h3>
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-secondary">
+                <span className="font-medium text-primary/90">{providerName}</span>
+                {resource.verified && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300">
+                    <span aria-hidden="true">✓</span>
+                    <span>Verified</span>
+                  </span>
+                )}
+                {resource.totalCalls > 0 && (
+                  <span className="text-xs text-tertiary">{formatCompactNumber(resource.totalCalls)} calls</span>
+                )}
+              </div>
+              <div className="mt-1 flex items-center gap-2 text-[11px] text-tertiary">
+                <span className="truncate max-w-full">{compactUrl}</span>
+                <CopyButton
+                  copyValue={resource.url}
+                  variant="ghost"
+                  color="secondary"
+                  size="sm"
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                >
+                  Copy
+                </CopyButton>
               </div>
             </div>
 
-            <p className="mt-3 text-sm leading-6 text-secondary">
+            <p className="mt-3 text-sm leading-6 text-secondary sm:pr-4">
               {resource.description || 'No description yet. Inspect the endpoint before paying.'}
             </p>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2 xl:hidden">
-            <Badge color="success" variant="soft" pill>
-              <ChainIcon network={resource.network} size={12} />
-              {resource.price}
-            </Badge>
-            {networkName && <Badge variant="outline" size="sm">{networkName}</Badge>}
-            <QualityBadge score={resource.qualityScore} />
-          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="outline" size="sm">{resource.category}</Badge>
-          <VerifiedBadge verified={resource.verified} />
-          <Badge variant="outline" size="sm">{dexterRead}</Badge>
-          {resource.authRequired && (
-            <Badge color="warning" size="sm" title={resource.authHint || 'Provider authentication required.'}>
-              Auth{resource.authType ? ` (${resource.authType.toUpperCase()})` : ''}
-            </Badge>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            {visibleChainOptions.map((chain, chainIndex) => (
+              <span key={`${chain.network ?? 'unknown'}-${chainIndex}`} className="inline-flex items-center justify-center rounded-full bg-surface-secondary/90 p-1.5 ring-1 ring-white/5">
+                <ChainIcon network={chain.network} size={16} />
+              </span>
+            ))}
+            {resource.authRequired && (
+              <span className="text-xs text-amber-300" title={resource.authHint || 'Provider authentication required.'}>
+                Auth required
+              </span>
+            )}
+          </div>
+
+          {featured && (
+            <span className="text-[11px] uppercase tracking-[0.16em] text-[#ff9a52]">
+              Lead result
+            </span>
           )}
         </div>
 
-        <div className="rounded-2xl border border-subtle bg-surface-secondary px-3.5 py-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-tertiary">Endpoint</div>
-              <div className="mt-1 font-mono text-xs leading-5 text-secondary break-all">{resource.url}</div>
-            </div>
-            <CopyButton
-              copyValue={resource.url}
-              variant="ghost"
-              color="secondary"
-              size="sm"
-              onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            >
-              Copy URL
-            </CopyButton>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button variant="soft" color="secondary" size="sm" onClick={() => onInspect(resource)}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Button variant="soft" color="secondary" size="sm" onClick={(e: React.MouseEvent) => { e.stopPropagation(); onInspect(resource); }}>
             Inspect
           </Button>
           <Button variant="soft" color="secondary" size="sm" onClick={handleCheckPrice} disabled={checking}>
             {checking ? 'Checking…' : 'Check Price'}
           </Button>
-          <Button color="primary" size="sm" onClick={handleFetch} disabled={fetching}>
-            {fetching ? 'Fetching…' : `Fetch ${resource.price}`}
+          <Button className="sm:ml-auto" color="primary" size="sm" onClick={handleFetch} disabled={fetching}>
+            <span className="inline-flex items-center gap-1.5">
+              <span>{fetching ? 'Fetching…' : 'Fetch'}</span>
+              {!fetching && resource.price !== 'free' && (
+                <>
+                  <UsdcIcon size={14} />
+                  <span>{fetchLabel}</span>
+                </>
+              )}
+              {!fetching && resource.price === 'free' && <span>{fetchLabel.replace(/^Fetch /, '')}</span>}
+            </span>
           </Button>
         </div>
       </div>

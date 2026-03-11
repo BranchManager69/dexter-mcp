@@ -1,4 +1,4 @@
-const BOOTSTRAP_TEMPLATE = (baseUrl) => `
+const BOOTSTRAP_TEMPLATE = (baseUrl, runtimeConfig) => `
   (function () {
     try {
       // Some browserified deps still reference Node global.
@@ -8,6 +8,34 @@ const BOOTSTRAP_TEMPLATE = (baseUrl) => `
       }
 
       var PROVIDED_BASE = ${JSON.stringify(baseUrl)};
+      window.__DEXTER_WIDGET_RUNTIME__ = ${JSON.stringify(runtimeConfig)};
+      window.__DEXTER_WIDGET_PREINIT_ERRORS__ = window.__DEXTER_WIDGET_PREINIT_ERRORS__ || [];
+
+      function dexterPushPreinitError(kind, payload) {
+        try {
+          window.__DEXTER_WIDGET_PREINIT_ERRORS__.push({
+            kind: kind,
+            payload: payload,
+            timestamp: Date.now(),
+          });
+        } catch (_preinitErr) {}
+      }
+
+      window.addEventListener('error', function (event) {
+        dexterPushPreinitError('error', {
+          message: event && event.message,
+          filename: event && event.filename,
+          lineno: event && event.lineno,
+          colno: event && event.colno,
+        });
+      }, true);
+
+      window.addEventListener('unhandledrejection', function (event) {
+        dexterPushPreinitError('unhandledrejection', {
+          reason: event && event.reason ? String(event.reason && event.reason.message ? event.reason.message : event.reason) : 'unknown',
+        });
+      });
+
       var normalizedBase = (typeof PROVIDED_BASE === 'string' && PROVIDED_BASE.trim().length)
         ? PROVIDED_BASE.trim()
         : '';
@@ -152,6 +180,6 @@ const BOOTSTRAP_TEMPLATE = (baseUrl) => `
   })();
 `;
 
-export function buildWidgetBootstrapScript(baseUrl) {
-  return `<script>${BOOTSTRAP_TEMPLATE(baseUrl)}</script>`;
+export function buildWidgetBootstrapScript(baseUrl, runtimeConfig = {}) {
+  return `<script>${BOOTSTRAP_TEMPLATE(baseUrl, runtimeConfig)}</script>`;
 }

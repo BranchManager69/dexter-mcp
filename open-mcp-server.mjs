@@ -61,7 +61,7 @@ function widgetMeta(templateUri, invoking, invoked, description) {
   };
 }
 
-const SEARCH_META = widgetMeta('ui://dexter/x402-marketplace-search', 'Searching marketplace…', 'Results ready', 'Shows paid API search results as interactive cards with quality rings, prices, and fetch buttons.');
+const SEARCH_META = widgetMeta('ui://dexter/x402-marketplace-search-v2', 'Searching marketplace…', 'Results ready', 'Shows paid API search results as interactive cards with quality rings, prices, and fetch buttons.');
 const PAY_META = widgetMeta('ui://dexter/x402-fetch-result', 'Processing payment…', 'Payment complete', 'Shows API response data with payment receipt, transaction link, and settlement status.');
 const FETCH_META = widgetMeta('ui://dexter/x402-fetch-result', 'Calling API…', 'Response received', 'Shows API response data with payment receipt, transaction link, and settlement status.');
 const CHECK_META = widgetMeta('ui://dexter/x402-pricing', 'Checking pricing…', 'Pricing loaded', 'Shows endpoint pricing per blockchain with payment amounts and a pay button.');
@@ -99,20 +99,71 @@ function formatPrice(r) {
   return 'free';
 }
 
+function encodeMarketplaceResourceId(payTo, resourceUrl) {
+  return Buffer.from(`${payTo}:${resourceUrl}`).toString('base64');
+}
+
+function formatChainOptions(r) {
+  const accepts = Array.isArray(r.accepts) ? r.accepts : [];
+  if (!accepts.length) {
+    return [{
+      network: r.priceNetwork || null,
+      asset: r.priceAsset || null,
+      priceAtomic: r.priceAtomic ?? null,
+      priceUsdc: r.priceUsdc ?? null,
+      priceLabel: r.priceLabel ?? formatPrice(r),
+    }];
+  }
+
+  return accepts.map((accept) => {
+    const atomic = accept?.maxAmountRequired ?? accept?.amount ?? null;
+    const numericAtomic = atomic != null ? Number(atomic) : null;
+    const derivedPriceUsdc = numericAtomic != null && Number.isFinite(numericAtomic)
+      ? numericAtomic / 1_000_000
+      : null;
+    return {
+      network: accept?.network || null,
+      asset: accept?.asset || r.priceAsset || null,
+      priceAtomic: atomic != null ? String(atomic) : null,
+      priceUsdc: derivedPriceUsdc ?? r.priceUsdc ?? null,
+      priceLabel: derivedPriceUsdc != null
+        ? `$${derivedPriceUsdc.toFixed(derivedPriceUsdc < 0.01 ? 4 : 2)}`
+        : (r.priceLabel ?? formatPrice(r)),
+    };
+  });
+}
+
 function formatResource(r) {
   return {
+    resourceId: encodeMarketplaceResourceId(r.payTo || r.seller?.payTo || 'unknown', r.resourceUrl),
     name: r.displayName || r.resourceUrl,
     url: r.resourceUrl,
     method: r.method || 'GET',
     price: formatPrice(r),
+    priceAtomic: r.priceAtomic ?? null,
+    priceUsdc: r.priceUsdc ?? null,
+    priceAsset: r.priceAsset ?? null,
     network: r.priceNetwork || null,
+    chains: formatChainOptions(r),
     description: r.description || '',
     category: r.category || 'uncategorized',
     qualityScore: r.qualityScore ?? null,
     verified: r.verificationStatus === 'pass',
+    verificationStatus: r.verificationStatus ?? null,
+    verificationNotes: r.verificationNotes ?? null,
+    verificationFixInstructions: r.verificationFixInstructions ?? null,
+    lastVerifiedAt: r.lastVerifiedAt ?? null,
     totalCalls: r.totalSettlements ?? 0,
     totalVolume: r.totalVolumeUsdc != null ? `$${Number(r.totalVolumeUsdc).toLocaleString()}` : null,
-    seller: r.seller?.displayName || 'Independent',
+    totalVolumeUsdc: r.totalVolumeUsdc ?? null,
+    iconUrl: r.iconUrl ?? null,
+    seller: r.seller?.displayName || null,
+    sellerMeta: {
+      payTo: r.seller?.payTo || r.payTo || null,
+      displayName: r.seller?.displayName || null,
+      logoUrl: r.seller?.logoUrl || null,
+      twitterHandle: r.seller?.twitterHandle || null,
+    },
     sellerReputation: r.reputationScore ?? null,
     authRequired: Boolean(r.authRequired),
     authType: r.authType || null,
@@ -767,7 +818,7 @@ function createOpenMcpServer() {
   try {
     registerAppsSdkResources(server, {
       allowedTemplateUris: [
-        'ui://dexter/x402-marketplace-search',
+        'ui://dexter/x402-marketplace-search-v2',
         'ui://dexter/x402-fetch-result',
         'ui://dexter/x402-pricing',
         'ui://dexter/x402-wallet',

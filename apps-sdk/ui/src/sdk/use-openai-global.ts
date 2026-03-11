@@ -5,23 +5,35 @@
 import { useSyncExternalStore } from 'react';
 import { SET_GLOBALS_EVENT_TYPE, SetGlobalsEvent, type OpenAIGlobals } from './types';
 
-// Debug: log on module load
-console.log('[sdk] use-openai-global module loaded', { 
-  hasWindow: typeof window !== 'undefined',
-  hasOpenai: typeof window !== 'undefined' && !!window.openai,
-  openaiKeys: typeof window !== 'undefined' && window.openai ? Object.keys(window.openai) : []
-});
+const snapshotCache = new Map<string, { serialized: string; value: unknown }>();
+
+function getStableSnapshot<K extends keyof OpenAIGlobals>(key: K): OpenAIGlobals[K] | null {
+  const value = typeof window !== 'undefined' ? window.openai?.[key] ?? null : null;
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'object') return value as OpenAIGlobals[K];
+
+  try {
+    const serialized = JSON.stringify(value);
+    const cacheKey = String(key);
+    const cached = snapshotCache.get(cacheKey);
+    if (cached && cached.serialized === serialized) {
+      return cached.value as OpenAIGlobals[K];
+    }
+    snapshotCache.set(cacheKey, { serialized, value });
+    return value as OpenAIGlobals[K];
+  } catch {
+    return value as OpenAIGlobals[K];
+  }
+}
 
 export function useOpenAIGlobal<K extends keyof OpenAIGlobals>(key: K): OpenAIGlobals[K] | null {
-  const value = useSyncExternalStore(
+  return useSyncExternalStore(
     (onStoreChange) => {
       if (typeof window === 'undefined') {
-        console.log('[sdk] useOpenAIGlobal subscribe: no window (SSR)');
         return () => {};
       }
 
       const handler = (event: SetGlobalsEvent) => {
-        console.log('[sdk] SET_GLOBALS_EVENT received', { key, hasKey: Object.prototype.hasOwnProperty.call(event.detail.globals, key), globals: event.detail.globals });
         if (Object.prototype.hasOwnProperty.call(event.detail.globals, key)) {
           onStoreChange();
         }
@@ -30,14 +42,7 @@ export function useOpenAIGlobal<K extends keyof OpenAIGlobals>(key: K): OpenAIGl
       window.addEventListener(SET_GLOBALS_EVENT_TYPE, handler, { passive: true });
       return () => window.removeEventListener(SET_GLOBALS_EVENT_TYPE, handler);
     },
-    () => {
-      const val = typeof window !== 'undefined' ? window.openai?.[key] ?? null : null;
-      console.log('[sdk] useOpenAIGlobal getSnapshot', { key, value: val, hasOpenai: !!window?.openai });
-      return val;
-    },
+    () => getStableSnapshot(key),
     () => null,
   );
-  
-  console.log('[sdk] useOpenAIGlobal return', { key, value });
-  return value;
 }

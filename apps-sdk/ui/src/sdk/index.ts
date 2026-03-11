@@ -1,3 +1,5 @@
+import './init-sentry';
+
 export * from './types';
 export * from './use-openai-global';
 export * from './use-widget-props';
