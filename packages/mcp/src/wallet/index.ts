@@ -15,9 +15,14 @@ export interface WalletInfo {
   createdAt: string;
 }
 
+export function saveWalletInfo(info: WalletInfo): void {
+  persistWalletFile(info);
+}
+
 export interface LoadedWallet {
   info: WalletInfo;
   solanaKeypair?: Keypair;
+  status?: "env" | "existing" | "migrated" | "created";
 }
 
 export type ChainBalances = Record<string, { name: string; usdc: number }>;
@@ -43,14 +48,16 @@ function persistWalletFile(info: WalletInfo): void {
   writeFileSync(WALLET_FILE, JSON.stringify(info, null, 2), { mode: 0o600 });
 }
 
-function buildLoadedWallet(info: WalletInfo): LoadedWallet {
+function buildLoadedWallet(info: WalletInfo, status: LoadedWallet["status"] = "existing"): LoadedWallet {
   return {
     info,
     solanaKeypair: info.solanaPrivateKey ? keypairFromString(info.solanaPrivateKey) : undefined,
+    status,
   };
 }
 
-export async function loadOrCreateWallet(): Promise<LoadedWallet | null> {
+export async function loadOrCreateWallet(opts: { quiet?: boolean } = {}): Promise<LoadedWallet | null> {
+  const quiet = opts.quiet === true;
   const envKey = process.env.DEXTER_PRIVATE_KEY || process.env.SOLANA_PRIVATE_KEY;
   const envEvmKey = process.env.EVM_PRIVATE_KEY;
 
@@ -68,7 +75,7 @@ export async function loadOrCreateWallet(): Promise<LoadedWallet | null> {
       info.evmPrivateKey = envEvmKey;
       info.evmAddress = account.address;
     }
-    return buildLoadedWallet(info);
+    return buildLoadedWallet(info, "env");
   }
 
   if (existsSync(WALLET_FILE)) {
@@ -86,13 +93,18 @@ export async function loadOrCreateWallet(): Promise<LoadedWallet | null> {
         data.evmPrivateKey = evm.evmPrivateKey;
         data.evmAddress = evm.evmAddress;
         persistWalletFile(data);
-        console.error(`[opendexter] Added EVM wallet to existing file: ${evm.evmAddress}`);
+        if (!quiet) {
+          console.error(`[opendexter] Added EVM wallet to existing file: ${evm.evmAddress}`);
+        }
+        return buildLoadedWallet(data, "migrated");
       }
 
-      return buildLoadedWallet(data);
+      return buildLoadedWallet(data, "existing");
     } catch (err: any) {
-      console.error(`[opendexter] Corrupted wallet file: ${err.message}`);
-      console.error(`[opendexter] Backing up to ${WALLET_FILE}.bak and creating fresh wallet.`);
+      if (!quiet) {
+        console.error(`[opendexter] Corrupted wallet file: ${err.message}`);
+        console.error(`[opendexter] Backing up to ${WALLET_FILE}.bak and creating fresh wallet.`);
+      }
       try { copyFileSync(WALLET_FILE, WALLET_FILE + ".bak"); } catch {}
     }
   }
@@ -111,14 +123,16 @@ export async function loadOrCreateWallet(): Promise<LoadedWallet | null> {
 
   persistWalletFile(info);
 
-  console.error(`[opendexter] New dual wallet created:`);
-  console.error(`[opendexter]   Solana: ${info.solanaAddress}`);
-  console.error(`[opendexter]   EVM:    ${evm.evmAddress}`);
-  console.error(`[opendexter] Saved to ${WALLET_FILE}`);
-  console.error(`[opendexter] Tip: Run \`opendexter wallet --vanity\` to regenerate with a branded dex/0x402 prefix.`);
-  console.error(`[opendexter] Deposit USDC on Solana or any supported EVM chain to start paying for x402 APIs.`);
+  if (!quiet) {
+    console.error(`[opendexter] New dual wallet created:`);
+    console.error(`[opendexter]   Solana: ${info.solanaAddress}`);
+    console.error(`[opendexter]   EVM:    ${evm.evmAddress}`);
+    console.error(`[opendexter] Saved to ${WALLET_FILE}`);
+    console.error(`[opendexter] Tip: Run \`opendexter wallet --vanity\` to regenerate with a branded dex/0x402 prefix.`);
+    console.error(`[opendexter] Deposit USDC on Solana or any supported EVM chain to start paying for x402 APIs.`);
+  }
 
-  return buildLoadedWallet(info);
+  return buildLoadedWallet(info, "created");
 }
 
 function keypairFromString(key: string): Keypair {

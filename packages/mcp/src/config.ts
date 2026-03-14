@@ -36,6 +36,15 @@ export const CHAIN_NAMES: Record<string, { name: string; family: "svm" | "evm"; 
   "eip155:43114": { name: "Avalanche", family: "evm", tier: "second" },
 };
 
+export const SUPPORTED_CHAIN_LABELS = [
+  "Solana",
+  "Base",
+  "Polygon",
+  "Arbitrum",
+  "Optimism",
+  "Avalanche",
+] as const;
+
 export const MARKETPLACE_PATH = "/api/facilitator/marketplace/resources";
 
 export function getApiBase(dev: boolean): string {

@@ -4,6 +4,7 @@ import { VERSION } from "../config.js";
 import { registerSearchTool } from "../tools/search.js";
 import { registerFetchTool } from "../tools/fetch.js";
 import { registerCheckTool } from "../tools/check.js";
+import { registerSettingsTool } from "../tools/settings.js";
 import { registerWalletTool } from "../tools/wallet-tool.js";
 import { loadOrCreateWallet } from "../wallet/index.js";
 
@@ -30,6 +31,7 @@ export async function startServer(opts: ServerOptions): Promise<void> {
   registerSearchTool(server, opts);
   registerFetchTool(server, wallet, opts);
   registerCheckTool(server, opts);
+  registerSettingsTool(server);
   registerWalletTool(server, wallet, opts);
 
   if (opts.transport !== "stdio") {

@@ -1,11 +1,78 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { LoadedWallet } from "../wallet/index.js";
+import { getSolanaBalance, getEvmUsdcBalance } from "../wallet/index.js";
 import { getApiBase } from "../config.js";
 import { FETCH_META } from "../widget-meta.js";
+import { loadSettings } from "../settings.js";
 
 interface FetchOpts {
   dev: boolean;
+  maxAmountUsdc?: number;
+}
+
+function extractPriceUsdc(accept: Record<string, unknown>): number | null {
+  const amount = Number(accept.amount || 0);
+  const extra = (accept.extra && typeof accept.extra === "object") ? accept.extra as Record<string, unknown> : null;
+  const decimals = Number(extra?.decimals ?? 6);
+  if (!Number.isFinite(amount) || !Number.isFinite(decimals)) return null;
+  return amount / Math.pow(10, decimals);
+}
+
+async function getAvailableUsdcForNetwork(wallet: LoadedWallet, network: string): Promise<number> {
+  if (network.startsWith("solana:") && wallet.info.solanaAddress) {
+    const { usdc } = await getSolanaBalance(wallet.info.solanaAddress);
+    return usdc;
+  }
+  if (network.startsWith("eip155:") && wallet.info.evmAddress) {
+    return await getEvmUsdcBalance(wallet.info.evmAddress, network);
+  }
+  return 0;
+}
+
+async function evaluatePaymentRequirements(
+  wallet: LoadedWallet,
+  requirements: Record<string, unknown> | null,
+  maxAmountUsdc?: number,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const accepts = Array.isArray(requirements?.accepts) ? requirements.accepts as Array<Record<string, unknown>> : [];
+  if (accepts.length === 0) return { ok: true };
+
+  const settings = loadSettings();
+  const effectiveMaxAmount = maxAmountUsdc ?? settings.maxAmountUsdc;
+  const evaluated = await Promise.all(
+    accepts.map(async (accept) => {
+      const network = String(accept.network || "");
+      const priceUsdc = extractPriceUsdc(accept);
+      const availableUsdc = network ? await getAvailableUsdcForNetwork(wallet, network) : 0;
+      return { network, priceUsdc, availableUsdc };
+    }),
+  );
+
+  const withinPolicy = evaluated.filter((row) => row.priceUsdc != null && row.priceUsdc <= effectiveMaxAmount);
+  if (withinPolicy.length === 0) {
+    const prices = evaluated
+      .filter((row) => row.priceUsdc != null)
+      .map((row) => `$${row.priceUsdc!.toFixed(2)} on ${row.network}`)
+      .join(", ");
+    return {
+      ok: false,
+      error: `Payment policy blocked this call. Available options: ${prices}. Current maxAmountUsdc is $${effectiveMaxAmount.toFixed(2)}. Use x402_settings to raise it.`,
+    };
+  }
+
+  const funded = withinPolicy.filter((row) => row.priceUsdc != null && row.availableUsdc >= row.priceUsdc);
+  if (funded.length === 0) {
+    const balances = withinPolicy
+      .map((row) => `${row.network}: have $${row.availableUsdc.toFixed(2)}, need $${row.priceUsdc!.toFixed(2)}`)
+      .join("; ");
+    return {
+      ok: false,
+      error: `Insufficient balance for this call. ${balances}`,
+    };
+  }
+
+  return { ok: true };
 }
 
 async function parseResponse(res: Response): Promise<unknown> {
@@ -66,6 +133,11 @@ async function x402Fetch(
   // Mode 1: Local wallet auto-pay
   if (wallet) {
     try {
+      const policyCheck = await evaluatePaymentRequirements(wallet, requirements, opts.maxAmountUsdc);
+      if (!policyCheck.ok) {
+        return { status: 402, error: policyCheck.error, requirements };
+      }
+
       const { wrapFetch } = await import("@dexterai/x402/client");
       const x402FetchFn = wrapFetch(fetch, {
         walletPrivateKey: wallet.info.solanaPrivateKey,
@@ -114,14 +186,15 @@ export function registerFetchTool(
       .default("GET")
       .describe("HTTP method"),
     body: z.string().optional().describe("JSON request body for POST/PUT"),
+    maxAmountUsdc: z.number().positive().optional().describe("Optional per-call spend cap override in USDC."),
   };
 
-  const runFetch = async (args: { url: string; method: "GET" | "POST" | "PUT" | "DELETE"; body?: string }) => {
+  const runFetch = async (args: { url: string; method: "GET" | "POST" | "PUT" | "DELETE"; body?: string; maxAmountUsdc?: number }) => {
     try {
       const result = await x402Fetch(
         { url: args.url, method: args.method, body: args.body },
         wallet,
-        opts,
+        { ...opts, maxAmountUsdc: args.maxAmountUsdc },
       );
       return {
         content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -154,7 +227,7 @@ export function registerFetchTool(
 
 export async function cliFetch(
   url: string,
-  opts: { method: string; body?: string; dev: boolean },
+  opts: { method: string; body?: string; dev: boolean; maxAmountUsdc?: number },
 ): Promise<void> {
   try {
     const { loadOrCreateWallet } = await import("../wallet/index.js");

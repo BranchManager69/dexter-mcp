@@ -42,6 +42,22 @@ export const CLIENTS: Record<ClientId, ClientMeta> = {
   },
 };
 
+export function detectInstalledClients(): ClientId[] {
+  const configDir = getConfigDir();
+  const codexHome = process.env.CODEX_HOME || join(homedir(), ".codex");
+
+  const checks: Array<[ClientId, boolean]> = [
+    ["cursor", existsSync(join(homedir(), ".cursor"))],
+    ["claude-code", existsSync(join(homedir(), ".claude.json")) || existsSync(join(homedir(), ".claude"))],
+    ["codex", existsSync(codexHome)],
+    ["vscode", existsSync(join(configDir, "Code")) || existsSync(join(configDir, "Code - Insiders"))],
+    ["windsurf", existsSync(join(homedir(), ".codeium", "windsurf"))],
+    ["gemini-cli", existsSync(join(homedir(), ".gemini"))],
+  ];
+
+  return checks.filter(([, present]) => present).map(([id]) => id);
+}
+
 interface ClientConfig {
   configPath: string;
   sectionKey: string;

@@ -36,6 +36,32 @@ Supports **Cursor**, **Claude Code**, **Codex**, **VS Code**, **Windsurf**, and 
 
 The installer creates a local Solana wallet at `~/.dexterai-mcp/wallet.json` and writes the MCP config for your client. Fund the wallet with USDC and your agent can start paying for APIs from your own machine.
 
+## Fastest Start
+
+If you want the cleanest first-run flow, use:
+
+```bash
+npx @dexterai/opendexter setup
+```
+
+`setup`:
+
+1. creates or loads your local Solana + EVM wallet
+2. detects supported AI clients already installed on your machine
+3. installs OpenDexter into all detected clients at once
+4. shows live settlement rails and the funding path if your treasury is empty
+5. prints the fastest first-use workflow (`search` → `check` → `fetch`)
+
+If you already know exactly which client you want, `install` is still the narrower option. If you just want to get moving quickly, use `setup`.
+
+### Install Into All Detected Clients
+
+```bash
+npx @dexterai/opendexter install --all
+```
+
+This scans your machine for supported MCP clients and installs OpenDexter into every one it finds.
+
 ### Manual Configuration
 
 **Cursor** — `~/.cursor/mcp.json`:
@@ -187,13 +213,34 @@ Show wallet addresses (Solana + EVM), USDC balances across all supported chains,
 
 ---
 
+### Vanity Wallets
+
+If you want a more recognizable wallet identity, you can mint a vanity address locally:
+
+```bash
+# guided presets
+npx @dexterai/opendexter wallet --vanity
+
+# direct prefixes
+npx @dexterai/opendexter wallet --vanity --solana-prefix Dex
+npx @dexterai/opendexter wallet --vanity --evm-prefix 402dd
+```
+
+OpenDexter uses the generated wallet for future local payments. This is optional — `setup` stays fast and operational even if you skip vanity generation.
+
+---
+
 ## CLI
 
 Every tool is also available as a standalone command:
 
 ```bash
 npx @dexterai/opendexter wallet
+npx @dexterai/opendexter setup
+npx @dexterai/opendexter wallet --vanity
 npx @dexterai/opendexter search "token analysis"
+npx @dexterai/opendexter check "https://x402.dexter.cash/api/v2-test"
+npx @dexterai/opendexter settings --max-amount 2.50
 npx @dexterai/opendexter fetch "https://x402.dexter.cash/api/v2-test" --method POST
 ```
 
@@ -237,6 +284,25 @@ If you want a no-install hosted flow with session wallets, use `OpenDexter MCP` 
 | Avalanche | `eip155:43114` | Local wallet signing + balance queries |
 
 The local wallet generates both a Solana keypair and an EVM private key. `@dexterai/x402` handles chain detection and signing automatically — when a 402 response specifies an EVM chain, the SDK signs with your EVM key; for Solana endpoints, it signs with the Solana keypair.
+
+---
+
+## Spend Controls
+
+OpenDexter supports a persistent default max spend per paid call.
+
+```bash
+# read current settings
+npx @dexterai/opendexter settings
+
+# set a new default cap
+npx @dexterai/opendexter settings --max-amount 2.50
+
+# override for one call only
+npx @dexterai/opendexter fetch "https://x402.dexter.cash/api/v2-test" --method POST --max-amount 10
+```
+
+If an endpoint requests more than your configured max, OpenDexter rejects the payment before signing and tells you why. It also checks that you have enough balance on a compatible rail before attempting settlement.
 
 ---
 

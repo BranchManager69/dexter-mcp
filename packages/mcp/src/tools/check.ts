@@ -126,3 +126,16 @@ export function registerCheckTool(server: McpServer, opts: CheckOpts): void {
     },
   );
 }
+
+export async function cliCheck(
+  url: string,
+  opts: { method: "GET" | "POST" | "PUT" | "DELETE"; dev: boolean },
+): Promise<void> {
+  try {
+    const result = await checkEndpoint(url, opts.method);
+    console.log(JSON.stringify(result, null, 2));
+  } catch (err: any) {
+    console.log(JSON.stringify({ error: err.message || String(err) }, null, 2));
+    process.exit(1);
+  }
+}
