@@ -16,6 +16,11 @@ const LOGO_MARK_URL = 'https://dexter.cash/assets/pokedexter/dexter-logo.svg';
 type FetchPayload = {
   status: number;
   data?: unknown;
+  auth?: {
+    mode?: string;
+    network?: string;
+    signedAddress?: string;
+  } | null;
   payment?: {
     settled: boolean;
     details?: {
@@ -174,8 +179,10 @@ function FetchResult() {
   const isSession = toolOutput.mode === 'session_required';
   const isError = !!toolOutput.error && !isSession;
   const payment = toolOutput.payment;
+  const auth = toolOutput.auth;
   const details = payment?.details;
   const networkName = details?.network ? getChain(details.network).name : '';
+  const authNetworkName = auth?.network ? getChain(auth.network).name : '';
   const imageUrl = isImageUrl(toolOutput.data);
   const price = details?.requirements?.amount
     ? formatUsdc(details.requirements.amount, details.requirements.extra?.decimals ?? 6)
@@ -217,7 +224,9 @@ function FetchResult() {
         {/* Progress rail */}
         <div className="flex gap-2">
           <Badge color={isError ? 'danger' : 'success'} variant="soft">Challenge</Badge>
-          <Badge color={isError ? 'danger' : payment?.settled ? 'success' : 'warning'} variant="soft">Settle</Badge>
+          <Badge color={isError ? 'danger' : auth ? 'info' : payment?.settled ? 'success' : 'warning'} variant="soft">
+            {auth ? 'Access' : 'Settle'}
+          </Badge>
           <Badge color={isError ? 'danger' : payment?.settled ? 'success' : 'secondary'} variant="soft">Response</Badge>
         </div>
 
@@ -231,11 +240,14 @@ function FetchResult() {
             <div className="flex items-center gap-2 flex-wrap">
               {payment?.settled ? (
                 <Badge color="success">Paid</Badge>
+              ) : auth ? (
+                <Badge color="info">Wallet Proof</Badge>
               ) : (
                 <Badge color="info">{toolOutput.status}</Badge>
               )}
               {price && <Badge color="info" variant="outline">{price} USDC</Badge>}
               {networkName && <Badge color="info" variant="outline">{networkName}</Badge>}
+              {!networkName && authNetworkName && <Badge color="info" variant="outline">{authNetworkName}</Badge>}
             </div>
 
             {/* Payment receipt */}
@@ -261,6 +273,27 @@ function FetchResult() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-mono text-secondary">{shortenHash(details.payer)}</span>
                       <CopyButton copyValue={details.payer} variant="ghost" color="secondary" size="sm">
+                        Copy
+                      </CopyButton>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Access proof receipt */}
+            {auth?.mode && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl bg-surface-secondary">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-tertiary uppercase">Access Mode</span>
+                  <span className="text-sm font-semibold text-secondary">{auth.mode.toUpperCase()}</span>
+                </div>
+                {auth.signedAddress && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-tertiary uppercase">Signed Address</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-mono text-secondary">{shortenHash(auth.signedAddress)}</span>
+                      <CopyButton copyValue={auth.signedAddress} variant="ghost" color="secondary" size="sm">
                         Copy
                       </CopyButton>
                     </div>
