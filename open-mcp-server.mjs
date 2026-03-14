@@ -9,6 +9,7 @@ import './instrument.open-mcp.mjs';
  *   - x402_pay:    Call any x402 resource with canonical settlement (alias of x402_fetch)
  *   - x402_fetch:  Call any x402 resource with automatic payment
  *   - x402_check:  Preview endpoint pricing without paying
+ *   - x402_access: Access identity-gated endpoints with wallet proof
  *   - x402_wallet: Session dashboard for anonymous spend funding/status
  *
  * Completely separate from the authenticated MCP server (http-server-oauth.mjs).
@@ -64,10 +65,11 @@ function widgetMeta(templateUri, invoking, invoked, description) {
 const SEARCH_META = widgetMeta('ui://dexter/x402-marketplace-search-v2', 'Searching marketplace…', 'Results ready', 'Shows paid API search results as interactive cards with quality rings, prices, and fetch buttons.');
 const PAY_META = widgetMeta('ui://dexter/x402-fetch-result', 'Processing payment…', 'Payment complete', 'Shows API response data with payment receipt, transaction link, and settlement status.');
 const FETCH_META = widgetMeta('ui://dexter/x402-fetch-result', 'Calling API…', 'Response received', 'Shows API response data with payment receipt, transaction link, and settlement status.');
+const ACCESS_META = widgetMeta('ui://dexter/x402-fetch-result', 'Signing access proof…', 'Access response ready', 'Shows identity-gated API responses with wallet proof details and any follow-up requirements.');
 const CHECK_META = widgetMeta('ui://dexter/x402-pricing', 'Checking pricing…', 'Pricing loaded', 'Shows endpoint pricing per blockchain with payment amounts and a pay button.');
 const WALLET_META = widgetMeta('ui://dexter/x402-wallet', 'Loading wallet…', 'Wallet loaded', 'Shows wallet addresses with copy button, USDC balances across chains, and deposit QR code.');
 
-const ALL_TOOLS = ['x402_search', 'x402_pay', 'x402_fetch', 'x402_check', 'x402_wallet'];
+const ALL_TOOLS = ['x402_search', 'x402_pay', 'x402_fetch', 'x402_check', 'x402_access', 'x402_wallet'];
 const OPEN_SESSION_HINT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 // Set env vars required by registerAppsSdkResources before importing it
@@ -540,6 +542,96 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
   }
 }
 
+// ─── Tool: x402_access (wallet-proof auth) ──────────────────────────────────
+
+async function x402Access({ url, method, body, sessionToken, sessionKey, network }, extra) {
+  const fetchOpts = { method: method || 'GET', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(15000) };
+  if (body && method && method.toUpperCase() !== 'GET') {
+    fetchOpts.body = typeof body === 'string' ? body : JSON.stringify(body);
+  }
+
+  const sessionResolution = await resolveOrCreateSessionForWallet({ sessionToken, sessionKey }, extra);
+  if (sessionResolution.error) {
+    return {
+      ...sessionResolution.error,
+      sessionResolution: sessionResolution.sessionResolution,
+    };
+  }
+
+  const resolvedSessionToken = sessionResolution.session?.sessionToken || null;
+  const sessionHint = resolvedSessionToken ? readOpenSessionHint(resolvedSessionToken) : null;
+
+  try {
+    const bases = [DEXTER_API, API_BASE_FALLBACK].filter(Boolean);
+    const paths = ['/v2/open/x402/access', '/v2/pay/open/x402/access'];
+    let accessRes = null;
+    let accessBody = null;
+    for (const base of bases) {
+      for (const path of paths) {
+        const attempt = await fetch(`${base}${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionToken: resolvedSessionToken,
+            url,
+            method: method || 'GET',
+            body: fetchOpts.body ?? null,
+            network: network || undefined,
+          }),
+          signal: AbortSignal.timeout(30000),
+        });
+        const parsed = await attempt.json().catch(() => null);
+        const is404PathNotFound = attempt.status === 404 && !parsed?.error;
+        if (!is404PathNotFound) {
+          accessRes = attempt;
+          accessBody = parsed;
+          break;
+        }
+      }
+      if (accessRes) break;
+    }
+
+    if (!accessRes || !accessRes.ok || !accessBody?.ok) {
+      const rawError = accessBody?.error || 'open_session_access_failed';
+      return {
+        status: accessRes?.status || 500,
+        mode: 'session_error',
+        error: rawError,
+        message: accessBody?.message || `Access flow failed: ${rawError}`,
+        hint: rawError === 'no_siwx_extension'
+          ? 'This endpoint may be payment-gated rather than identity-gated. Use x402_check or x402_fetch instead.'
+          : undefined,
+        details: accessBody || null,
+        session: sessionHint || (resolvedSessionToken ? { sessionToken: resolvedSessionToken } : null),
+        sessionResolution: sessionResolution.sessionResolution,
+      };
+    }
+
+    if (resolvedSessionToken) {
+      linkSessionToContext(extra, resolvedSessionToken);
+    }
+
+    return {
+      status: accessBody.status ?? 200,
+      mode: 'session_ready',
+      data: accessBody.data,
+      auth: accessBody.auth || null,
+      requirements: accessBody.requirements || null,
+      session: { ...(accessBody.session ?? { sessionToken: resolvedSessionToken }), funding: undefined },
+      sessionFunding: normalizeSessionFunding(accessBody.session?.funding || sessionHint?.funding),
+      sessionResolution: sessionResolution.sessionResolution,
+    };
+  } catch (err) {
+    return {
+      status: 500,
+      mode: 'session_error',
+      error: `Open access flow failed: ${err?.message || String(err)}`,
+      session: sessionHint || (resolvedSessionToken ? { sessionToken: resolvedSessionToken } : null),
+      sessionResolution: sessionResolution.sessionResolution,
+    };
+  }
+}
+
 // ─── Tool: x402_check (pricing) ──────────────────────────────────────────────
 
 async function x402Check({ url, method }) {
@@ -792,6 +884,34 @@ function createOpenMcpServer() {
     }
   });
 
+  server.registerTool('x402_access', {
+    title: 'x402 Access',
+    description: 'Access an identity-gated endpoint using wallet proof instead of immediate payment. Use this when an endpoint requires Sign-In-With-X or wallet-based authentication rather than a direct paid call.',
+    inputSchema: {
+      url: z.string().url().describe('The protected resource URL to call'),
+      method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).default('GET').describe('HTTP method'),
+      body: z.string().optional().describe('JSON request body for POST/PUT'),
+      sessionToken: z.string().optional().describe('Existing OpenDexter session token. If omitted, OpenDexter will create or resume a session.'),
+      sessionKey: z.string().optional().describe('Optional stable session key for reusable OpenDexter sessions.'),
+      network: z.string().optional().describe('Optional preferred auth network, e.g. solana:... or eip155:8453'),
+    },
+    _meta: ACCESS_META,
+  }, async (args, extra) => {
+    try {
+      const result = await x402Access(args, extra);
+      const meta = { ...ACCESS_META };
+      if (result.session?.sessionToken) {
+        meta.sessionToken = result.session.sessionToken;
+        const { sessionToken: _drop, ...cleanSession } = result.session;
+        result.session = cleanSession;
+      }
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], structuredContent: result, _meta: meta };
+    } catch (err) {
+      const data = { status: 500, error: err?.message || String(err) };
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }], structuredContent: data, isError: true, _meta: ACCESS_META };
+    }
+  });
+
   server.registerTool('x402_wallet', {
     title: 'x402 Wallet',
     description: 'Create or resume an OpenDexter multi-chain session. Each session has both a Solana wallet and an EVM wallet (same address on Base, Polygon, Arbitrum, Optimism, Avalanche). Returns whether the session was newly created or resumed, plus balances, deposit addresses, and a Solana Pay QR code for funding.',
@@ -882,6 +1002,7 @@ const httpServer = http.createServer(async (req, res) => {
         { name: 'x402_pay', description: 'Alias for x402_fetch. Pays and calls an x402 endpoint.' },
         { name: 'x402_fetch', description: 'Call any x402 API — auto-selects the best funded chain for payment.' },
         { name: 'x402_check', description: 'Preview endpoint pricing and payment options per chain without paying.' },
+        { name: 'x402_access', description: 'Use wallet proof to access identity-gated endpoints that advertise Sign-In-With-X.' },
         { name: 'x402_wallet', description: 'Multi-chain session with Solana + EVM wallets. Fund any chain, pay on any chain.' },
       ],
     }));
