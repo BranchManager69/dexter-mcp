@@ -51,7 +51,7 @@ interface ClientConfig {
 
 const SERVER_CMD = {
   command: "npx",
-  args: ["-y", "@dexterai/x402-discovery@latest"],
+  args: ["-y", "@dexterai/opendexter@latest"],
 };
 
 const SERVER_CMD_DEV = {

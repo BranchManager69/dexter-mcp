@@ -5,7 +5,8 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@openai/apps-sdk-ui/components/Badge';
 import { Button, CopyButton } from '@openai/apps-sdk-ui/components/Button';
 import { Alert } from '@openai/apps-sdk-ui/components/Alert';
-import { useOpenAIGlobal, useToolInput, useCallToolFn, useMaxHeight, useTheme } from '../sdk';
+import { useOpenAIGlobal, useToolInput, useCallToolFn, useMaxHeight, useTheme, useSendFollowUp } from '../sdk';
+import { captureWidgetException } from '../sdk/init-sentry';
 import { ChainIcon, getChain, useIntrinsicHeight, DebugPanel } from '../components/x402';
 
 const WORDMARK_URL = 'https://dexter.cash/wordmarks/dexter-wordmark.svg';
@@ -104,14 +105,13 @@ function PricingCheck() {
     : -1;
   const selectedPrice = cheapestIndex >= 0 ? options[cheapestIndex].priceFormatted : null;
 
+  const sendFollowUp = useSendFollowUp();
   const handleFetch = async () => {
     if (!toolInput?.url) return;
-    try {
-      (window as any).openai?.sendFollowUpMessage?.({
-        prompt: `Paying ${selectedPrice || 'the listed price'} to call ${toolInput.url}`,
-        scrollToBottom: false,
-      });
-    } catch {}
+    await sendFollowUp({
+      prompt: `Paying ${selectedPrice || 'the listed price'} to call ${toolInput.url}`,
+      scrollToBottom: false,
+    });
     await callTool('x402_fetch', { url: toolInput.url, method: toolInput.method || 'GET' });
   };
 

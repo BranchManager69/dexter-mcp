@@ -1,1 +1,0 @@
-import{r as o}from"./init-sentry-COK62Ov3.js";function s(){return o.useCallback(async e=>{if(typeof window>"u"||!window.openai?.sendFollowUpMessage){console.warn("sendFollowUpMessage is not available in this context");return}await window.openai.sendFollowUpMessage({prompt:e})},[])}export{s as u};

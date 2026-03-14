@@ -13,6 +13,7 @@ import {
   useMaxHeight,
   useDisplayMode,
   useIsMobile,
+  useRequestDisplayMode,
 } from '../sdk';
 import { DebugPanel } from '../components/x402';
 import { MarketplaceSummaryHeader } from '../components/x402/search/MarketplaceSummaryHeader';
@@ -187,13 +188,14 @@ function MarketplaceSearch() {
     }
   }, [callTool, detailOpen, queryDraft, selectedUrl, toolInput]);
 
+  const requestDisplayMode = useRequestDisplayMode();
   const toggleFullscreen = useCallback(() => {
     try {
-      window.openai?.requestDisplayMode?.({ mode: isFullscreen ? 'inline' : 'fullscreen' });
+      requestDisplayMode?.({ mode: isFullscreen ? 'inline' : 'fullscreen' });
     } catch (error) {
       captureWidgetException(error, { phase: 'request_display_mode' });
     }
-  }, [isFullscreen]);
+  }, [isFullscreen, requestDisplayMode]);
 
   const [loadingElapsed, setLoadingElapsed] = useState(0);
   useEffect(() => {

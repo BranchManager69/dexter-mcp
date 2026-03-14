@@ -90,7 +90,7 @@ var init_widget_meta = __esm({
       ]
     };
     SEARCH_META = widgetMeta(
-      "ui://dexter/x402-marketplace-search",
+      "ui://dexter/x402-marketplace-search-v2",
       "Searching marketplace\u2026",
       "Results ready",
       "Shows paid API search results as interactive cards with quality rings, prices, and fetch buttons."
@@ -309,6 +309,7 @@ async function loadOrCreateWallet() {
   console.error(`[opendexter]   Solana: ${info.solanaAddress}`);
   console.error(`[opendexter]   EVM:    ${evm.evmAddress}`);
   console.error(`[opendexter] Saved to ${WALLET_FILE}`);
+  console.error(`[opendexter] Tip: Run \`opendexter wallet --vanity\` to regenerate with a branded dex/0x402 prefix.`);
   console.error(`[opendexter] Deposit USDC on Solana or any supported EVM chain to start paying for x402 APIs.`);
   return buildLoadedWallet(info);
 }
@@ -723,7 +724,7 @@ function registerWalletTool(server, wallet, opts) {
               type: "text",
               text: JSON.stringify({
                 error: "No wallet configured",
-                tip: "Set DEXTER_PRIVATE_KEY (Solana) or EVM_PRIVATE_KEY (EVM) env var, or run `npx @dexterai/x402-discovery wallet` to create one."
+                tip: "Set DEXTER_PRIVATE_KEY (Solana) or EVM_PRIVATE_KEY (EVM) env var, or run `npx @dexterai/opendexter wallet` to create one."
               }, null, 2)
             }
           ]
@@ -930,7 +931,7 @@ var init_clients = __esm({
     };
     SERVER_CMD = {
       command: "npx",
-      args: ["-y", "@dexterai/x402-discovery@latest"]
+      args: ["-y", "@dexterai/opendexter@latest"]
     };
     SERVER_CMD_DEV = {
       command: "node",

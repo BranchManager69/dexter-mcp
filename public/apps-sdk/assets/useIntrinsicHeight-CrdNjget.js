@@ -1,1 +1,0 @@
-import{r as i}from"./init-sentry-COK62Ov3.js";function c(){const t=i.useRef(null);return i.useEffect(()=>{const e=t.current,n=window.openai?.notifyIntrinsicHeight;if(!e||typeof n!="function")return;const r=()=>n({height:e.scrollHeight});if(r(),typeof ResizeObserver<"u"){const o=new ResizeObserver(r);return o.observe(e),()=>o.disconnect()}},[]),t}export{c as u};

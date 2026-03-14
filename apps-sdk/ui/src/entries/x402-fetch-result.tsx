@@ -6,7 +6,8 @@ import { Badge } from '@openai/apps-sdk-ui/components/Badge';
 import { Button, CopyButton } from '@openai/apps-sdk-ui/components/Button';
 import { Alert } from '@openai/apps-sdk-ui/components/Alert';
 import { Warning } from '@openai/apps-sdk-ui/components/Icon';
-import { useOpenAIGlobal, useOpenExternal, useMaxHeight, useTheme, useDisplayMode } from '../sdk';
+import { useOpenAIGlobal, useOpenExternal, useMaxHeight, useTheme, useDisplayMode, useRequestDisplayMode } from '../sdk';
+import { captureWidgetException } from '../sdk/init-sentry';
 import { JsonViewer, useIntrinsicHeight, DebugPanel, formatUsdc, shortenHash, getExplorerUrl, getChain } from '../components/x402';
 
 const WORDMARK_URL = 'https://dexter.cash/wordmarks/dexter-wordmark.svg';
@@ -141,11 +142,14 @@ function FetchResult() {
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
   const isFullscreen = displayMode === 'fullscreen';
 
+  const requestDisplayMode = useRequestDisplayMode();
   const toggleFullscreen = useCallback(() => {
     try {
-      (window as any).openai?.requestDisplayMode?.({ mode: isFullscreen ? 'inline' : 'fullscreen' });
-    } catch {}
-  }, [isFullscreen]);
+      requestDisplayMode?.({ mode: isFullscreen ? 'inline' : 'fullscreen' });
+    } catch (error) {
+      captureWidgetException(error, { phase: 'request_display_mode' });
+    }
+  }, [isFullscreen, requestDisplayMode]);
 
   const [loadingElapsed, setLoadingElapsed] = useState(0);
   useEffect(() => {

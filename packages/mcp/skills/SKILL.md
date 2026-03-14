@@ -1,11 +1,11 @@
 ---
-name: x402-discovery
-description: "Use @dexterai/x402-discovery to search, price-check, and pay for any x402 API. Trigger this skill whenever the user wants to find paid APIs, call an x402 endpoint, check pricing, see their wallet balance, or do anything involving x402 payments, paid APIs, USDC payments for APIs, the x402 marketplace, or agent commerce."
+name: opendexter
+description: "Use @dexterai/opendexter to search, price-check, and pay for any x402 API. Trigger this skill whenever the user wants to find paid APIs, call an x402 endpoint, check pricing, see their wallet balance, or do anything involving x402 payments, paid APIs, USDC payments for APIs, the Dexter marketplace, or agent commerce. Also trigger when the user mentions x402, OpenDexter, paid APIs, or wants to call a paid service."
 ---
 
-# @dexterai/x402-discovery — x402 Search Engine for AI Agents
+# @dexterai/opendexter — x402 Search Engine for AI Agents
 
-This package gives you a local MCP server connected to the x402 marketplace. Search 5,000+ paid API endpoints, preview pricing, and call them with automatic USDC payment on Solana and EVM chains.
+This package gives you a local MCP server connected to the Dexter x402 marketplace. Search 5,000+ paid API endpoints, preview pricing, and call them with automatic USDC payment on Solana and EVM chains.
 
 Your wallet is local at `~/.dexterai-mcp/wallet.json`. Fund it with USDC and payments happen automatically.
 
@@ -28,14 +28,14 @@ Shows your Solana and EVM wallet addresses with USDC balances across all support
 ## Quick Start
 
 ```bash
-npx @dexterai/x402-discovery
+npx @dexterai/opendexter
 ```
 
 Or install globally:
 
 ```bash
-npm install -g @dexterai/x402-discovery
-x402-discovery
+npm install -g @dexterai/opendexter
+opendexter
 ```
 
 Then add to your MCP client config:
@@ -45,7 +45,7 @@ Then add to your MCP client config:
   "mcpServers": {
     "opendexter": {
       "command": "npx",
-      "args": ["-y", "@dexterai/x402-discovery"]
+      "args": ["-y", "@dexterai/opendexter"]
     }
   }
 }

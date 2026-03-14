@@ -2,14 +2,14 @@
   <img src="https://raw.githubusercontent.com/Dexter-DAO/dexter-x402-sdk/main/assets/dexter-wordmark.svg" alt="Dexter" width="360">
 </p>
 
-<h1 align="center">@dexterai/x402-discovery</h1>
+<h1 align="center">@dexterai/opendexter</h1>
 
 <p align="center">
   <strong>x402 gateway for AI agents. Search, pay, and call any paid API.</strong>
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@dexterai/x402-discovery"><img src="https://img.shields.io/npm/v/@dexterai/x402-discovery.svg" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/@dexterai/opendexter"><img src="https://img.shields.io/npm/v/@dexterai/opendexter.svg" alt="npm"></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E=18-brightgreen.svg" alt="Node"></a>
   <a href="https://dexter.cash/opendexter"><img src="https://img.shields.io/badge/Marketplace-dexter.cash-blueviolet" alt="Marketplace"></a>
 </p>
@@ -29,10 +29,8 @@
 ## Install
 
 ```bash
-npx @dexterai/x402-discovery install
+npx @dexterai/opendexter install
 ```
-
-OpenDexter remains the product brand. `@dexterai/x402-discovery` is the descriptive install name for developers.
 
 Supports **Cursor**, **Claude Code**, **Codex**, **VS Code**, **Windsurf**, and **Gemini CLI**.
 
@@ -47,20 +45,7 @@ The installer creates a local Solana wallet at `~/.dexterai-mcp/wallet.json` and
   "mcpServers": {
     "dexter-x402": {
       "command": "npx",
-      "args": ["-y", "@dexterai/x402-discovery@latest"]
-    }
-  }
-}
-```
-
-Descriptive alias:
-
-```json
-{
-  "mcpServers": {
-    "dexter-x402": {
-      "command": "npx",
-      "args": ["-y", "@dexterai/x402-discovery@latest"]
+      "args": ["-y", "@dexterai/opendexter@latest"]
     }
   }
 }
@@ -69,7 +54,7 @@ Descriptive alias:
 **Claude Code:**
 
 ```bash
-claude mcp add dexter-x402 -- npx -y @dexterai/x402-discovery@latest
+claude mcp add dexter-x402 -- npx -y @dexterai/opendexter@latest
 ```
 
 **Codex** — `~/.codex/config.toml`:
@@ -77,7 +62,7 @@ claude mcp add dexter-x402 -- npx -y @dexterai/x402-discovery@latest
 ```toml
 [mcp_servers.dexter-x402]
 command = "npx"
-args = ["-y", "@dexterai/x402-discovery@latest"]
+args = ["-y", "@dexterai/opendexter@latest"]
 ```
 
 ---
@@ -182,13 +167,20 @@ Probe an endpoint to see its pricing and payment options without spending anythi
 
 ### `x402_wallet`
 
-Show the wallet address, SOL and USDC balances, and the wallet file location. If the wallet has no USDC, returns deposit instructions.
+Show wallet addresses (Solana + EVM), USDC balances across all supported chains, and deposit instructions. If the wallet has no USDC, returns funding tips.
 
 ```json
 {
   "address": "2SB3VTnjrct9ayYCsQ4Fi5C5vNVpwL8X8RYUQoaPNZGh",
-  "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
-  "balances": { "sol": 0.001, "usdc": 0.94 },
+  "solanaAddress": "2SB3VTnjrct9ayYCsQ4Fi5C5vNVpwL8X8RYUQoaPNZGh",
+  "evmAddress": "0x1234...abcd",
+  "network": "multichain",
+  "chainBalances": {
+    "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp": { "available": "940000", "name": "Solana", "tier": "first" },
+    "eip155:8453": { "available": "0", "name": "Base", "tier": "first" }
+  },
+  "balances": { "usdc": 0.94, "fundedAtomic": "940000", "availableAtomic": "940000" },
+  "supportedNetworks": ["solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp", "eip155:8453", "eip155:137", "eip155:42161", "eip155:10", "eip155:43114"],
   "walletFile": "~/.dexterai-mcp/wallet.json"
 }
 ```
@@ -200,33 +192,35 @@ Show the wallet address, SOL and USDC balances, and the wallet file location. If
 Every tool is also available as a standalone command:
 
 ```bash
-npx @dexterai/x402-discovery wallet
-npx @dexterai/x402-discovery search "token analysis"
-npx @dexterai/x402-discovery fetch "https://x402.dexter.cash/api/v2-test" --method POST
+npx @dexterai/opendexter wallet
+npx @dexterai/opendexter search "token analysis"
+npx @dexterai/opendexter fetch "https://x402.dexter.cash/api/v2-test" --method POST
 ```
 
 ---
 
 ## Wallet
 
-A standard Solana keypair stored at `~/.dexterai-mcp/wallet.json` with `600` permissions. The private key never leaves your machine.
+A dual Solana + EVM wallet stored at `~/.dexterai-mcp/wallet.json` with `600` permissions. Private keys never leave your machine.
 
-Override with an environment variable:
+Override with environment variables:
 
 ```bash
-export DEXTER_PRIVATE_KEY="your-base58-private-key"
+export DEXTER_PRIVATE_KEY="your-solana-base58-private-key"
+export EVM_PRIVATE_KEY="0x-prefixed-hex-private-key"
 ```
 
-`SOLANA_PRIVATE_KEY` is also accepted. The env var takes priority over the wallet file.
+`SOLANA_PRIVATE_KEY` is also accepted for the Solana key. Env vars take priority over the wallet file. Existing Solana-only wallet files are automatically upgraded with an EVM keypair on first load.
 
 ---
 
 ## Payment Model
 
-`@dexterai/x402-discovery` is the **local-wallet** OpenDexter surface:
+`@dexterai/opendexter` is the **local-wallet** OpenDexter surface:
 
 - transport: local stdio MCP server
-- signer: local Solana wallet file or `DEXTER_PRIVATE_KEY`
+- signer: dual Solana + EVM wallet file, or `DEXTER_PRIVATE_KEY` / `EVM_PRIVATE_KEY` env vars
+- chains: Solana, Base, Polygon, Arbitrum, Optimism, Avalanche
 - best for: Cursor, Codex, Claude Code, CLI agents, and local workflows
 
 If you want a no-install hosted flow with session wallets, use `OpenDexter MCP` at `https://open.dexter.cash/mcp`.
@@ -235,15 +229,14 @@ If you want a no-install hosted flow with session wallets, use `OpenDexter MCP` 
 
 | Chain | Network ID | Local signing status |
 |-------|------------|----------------------|
-| Solana | `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` | Local wallet signing supported |
-| Base | `eip155:8453` | Search / discovery surfaced through marketplace data |
-| Polygon | `eip155:137` | Search / discovery surfaced through marketplace data |
-| Arbitrum | `eip155:42161` | Search / discovery surfaced through marketplace data |
-| Optimism | `eip155:10` | Search / discovery surfaced through marketplace data |
-| Avalanche | `eip155:43114` | Search / discovery surfaced through marketplace data |
-| SKALE Europa | `eip155:2046399126` | Search / discovery surfaced through marketplace data |
+| Solana | `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` | Local wallet signing + balance queries |
+| Base | `eip155:8453` | Local wallet signing + balance queries |
+| Polygon | `eip155:137` | Local wallet signing + balance queries |
+| Arbitrum | `eip155:42161` | Local wallet signing + balance queries |
+| Optimism | `eip155:10` | Local wallet signing + balance queries |
+| Avalanche | `eip155:43114` | Local wallet signing + balance queries |
 
-The local package is optimized around a persistent Solana signer today. The marketplace search results still surface broader x402 network support so agents can discover what exists across the ecosystem.
+The local wallet generates both a Solana keypair and an EVM private key. `@dexterai/x402` handles chain detection and signing automatically — when a 402 response specifies an EVM chain, the SDK signs with your EVM key; for Solana endpoints, it signs with the Solana keypair.
 
 ---
 

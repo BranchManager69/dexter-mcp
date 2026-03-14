@@ -97,6 +97,8 @@ export async function loadOrCreateWallet(): Promise<LoadedWallet | null> {
     }
   }
 
+  // Server mode: instant keypair, no vanity grind.
+  // Vanity wallets are created via `opendexter wallet` CLI command (TTY with progress bars).
   const evm = generateEvmWallet();
   const keypair = Keypair.generate();
   const info: WalletInfo = {
@@ -113,6 +115,7 @@ export async function loadOrCreateWallet(): Promise<LoadedWallet | null> {
   console.error(`[opendexter]   Solana: ${info.solanaAddress}`);
   console.error(`[opendexter]   EVM:    ${evm.evmAddress}`);
   console.error(`[opendexter] Saved to ${WALLET_FILE}`);
+  console.error(`[opendexter] Tip: Run \`opendexter wallet --vanity\` to regenerate with a branded dex/0x402 prefix.`);
   console.error(`[opendexter] Deposit USDC on Solana or any supported EVM chain to start paying for x402 APIs.`);
 
   return buildLoadedWallet(info);

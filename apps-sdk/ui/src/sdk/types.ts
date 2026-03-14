@@ -51,7 +51,7 @@ export type OpenAIGlobals<
   widgetState: WidgetState | null;
   setWidgetState: (state: WidgetState) => Promise<void>;
   callTool: CallTool;
-  sendFollowUpMessage: (args: { prompt: string }) => Promise<void>;
+  sendFollowUpMessage: (args: { prompt: string; scrollToBottom?: boolean }) => Promise<void>;
   openExternal: (payload: { href: string }) => void;
   requestDisplayMode: RequestDisplayMode;
   apps?: {

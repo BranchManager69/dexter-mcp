@@ -1,1 +1,0 @@
-{"version":3,"file":"use-display-mode-DGTlLAz7.js","sources":["../../../apps-sdk/ui/src/sdk/use-display-mode.ts"],"sourcesContent":["import { useOpenAIGlobal } from './use-openai-global';\n\nexport function useDisplayMode() {\n  return useOpenAIGlobal('displayMode');\n}\n"],"names":["useDisplayMode","useOpenAIGlobal"],"mappings":"oDAEO,SAASA,GAAiB,CAC/B,OAAOC,EAAgB,aAAa,CACtC"}

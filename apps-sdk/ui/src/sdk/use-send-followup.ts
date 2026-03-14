@@ -1,15 +1,18 @@
 import { useCallback } from 'react';
+import { captureWidgetException } from './init-sentry';
 
-/**
- * Hook for sending follow-up messages to ChatGPT from widgets.
- * This triggers the AI to respond as if the user sent the message.
- */
+type FollowUpOptions = { prompt: string; scrollToBottom?: boolean };
+
 export function useSendFollowUp() {
-  return useCallback(async (prompt: string) => {
+  return useCallback(async (options: FollowUpOptions) => {
     if (typeof window === 'undefined' || !window.openai?.sendFollowUpMessage) {
       console.warn('sendFollowUpMessage is not available in this context');
       return;
     }
-    await window.openai.sendFollowUpMessage({ prompt });
+    try {
+      await window.openai.sendFollowUpMessage(options);
+    } catch (error) {
+      captureWidgetException(error, { phase: 'send_follow_up', prompt: options.prompt });
+    }
   }, []);
 }
