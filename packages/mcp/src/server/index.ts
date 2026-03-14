@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { VERSION } from "../config.js";
 import { registerSearchTool } from "../tools/search.js";
 import { registerFetchTool } from "../tools/fetch.js";
+import { registerAccessTool } from "../tools/access.js";
 import { registerCheckTool } from "../tools/check.js";
 import { registerSettingsTool } from "../tools/settings.js";
 import { registerWalletTool } from "../tools/wallet-tool.js";
@@ -30,6 +31,7 @@ export async function startServer(opts: ServerOptions): Promise<void> {
 
   registerSearchTool(server, opts);
   registerFetchTool(server, wallet, opts);
+  registerAccessTool(server, wallet, opts);
   registerCheckTool(server, opts);
   registerSettingsTool(server);
   registerWalletTool(server, wallet, opts);

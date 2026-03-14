@@ -174,6 +174,27 @@ The request schema and settlement behavior are the same as `x402_fetch`.
 
 ---
 
+### `x402_access`
+
+Access identity-gated endpoints using a wallet proof instead of a payment.
+
+Use this when:
+
+1. an endpoint requires Sign-In-With-X or wallet authentication
+2. the provider wants proof of wallet control rather than an immediate paid call
+3. `x402_check` or marketplace metadata tells you the endpoint is auth-gated
+
+```bash
+npx @dexterai/opendexter access "https://x402.quicknode.com/base-mainnet"
+```
+
+This is separate from `x402_fetch` on purpose:
+
+- `x402_fetch` = pay and call
+- `x402_access` = prove wallet ownership and access
+
+---
+
 ### `x402_check`
 
 Probe an endpoint to see its pricing and payment options without spending anything. Returns the full 402 requirements including price per chain, accepted assets, and input/output schemas when available.
@@ -240,6 +261,7 @@ npx @dexterai/opendexter setup
 npx @dexterai/opendexter wallet --vanity
 npx @dexterai/opendexter search "token analysis"
 npx @dexterai/opendexter check "https://x402.dexter.cash/api/v2-test"
+npx @dexterai/opendexter access "https://x402.quicknode.com/base-mainnet"
 npx @dexterai/opendexter settings --max-amount 2.50
 npx @dexterai/opendexter fetch "https://x402.dexter.cash/api/v2-test" --method POST
 ```

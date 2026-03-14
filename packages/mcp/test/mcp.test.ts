@@ -211,6 +211,90 @@ describe("check tool responses", () => {
   });
 });
 
+// ── SIWX Access Flow Tests ────────────────────────────────────────────────
+
+describe("siwx access flow", () => {
+  it("attaches SIGN-IN-WITH-X and retries successfully for a Solana-gated endpoint", async () => {
+    const { Keypair } = await import("@solana/web3.js");
+    const { declareSIWxExtension, SOLANA_MAINNET } = await import("@x402/extensions/sign-in-with-x");
+    const { encodePaymentRequiredHeader } = await import("@x402/core/http");
+    const { accessWithWalletProof } = await import("../src/tools/access.js");
+
+    const keypair = Keypair.generate();
+    const wallet = {
+      info: {
+        solanaPrivateKey: (await import("bs58")).default.encode(keypair.secretKey),
+        solanaAddress: keypair.publicKey.toBase58(),
+        createdAt: new Date().toISOString(),
+      },
+      solanaKeypair: keypair,
+      status: "created" as const,
+    };
+
+    const declaration = declareSIWxExtension({
+      domain: "example.com",
+      resourceUri: "https://example.com/protected",
+      network: SOLANA_MAINNET,
+    });
+    const ext = (declaration as any)["sign-in-with-x"];
+    const enrichedExtension = {
+      "sign-in-with-x": {
+        info: {
+          ...ext.info,
+          nonce: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          issuedAt: "2026-03-14T00:00:00.000Z",
+          expirationTime: "2026-03-14T00:05:00.000Z",
+        },
+        supportedChains: ext.supportedChains,
+        schema: ext.schema,
+      },
+    };
+
+    const paymentRequired = {
+      x402Version: 2,
+      accepts: [{ network: SOLANA_MAINNET, scheme: "exact" }],
+      extensions: enrichedExtension,
+    };
+    const header = encodePaymentRequiredHeader(paymentRequired as any);
+
+    const calls: Array<{ authHeader: string | null }> = [];
+    const originalFetch = global.fetch;
+    global.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const authHeader = init?.headers instanceof Headers
+        ? init.headers.get("SIGN-IN-WITH-X")
+        : (init?.headers as Record<string, string> | undefined)?.["SIGN-IN-WITH-X"] ?? null;
+      calls.push({ authHeader });
+
+      if (!authHeader) {
+        return new Response("payment required", {
+          status: 402,
+          headers: { "PAYMENT-REQUIRED": header },
+        });
+      }
+
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    try {
+      const result = await accessWithWalletProof(
+        { url: "https://example.com/protected", method: "GET" },
+        wallet as any,
+      );
+      expect(result.status).toBe(200);
+      expect((result as any).auth.mode).toBe("siwx");
+      expect((result as any).data.ok).toBe(true);
+      expect(calls).toHaveLength(2);
+      expect(calls[0]!.authHeader).toBeNull();
+      expect(typeof calls[1]!.authHeader).toBe("string");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+});
+
 // ── Install Config Tests ──────────────────────────────────────────────────
 
 describe("install config", () => {

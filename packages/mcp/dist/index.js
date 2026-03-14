@@ -699,13 +699,183 @@ var init_fetch = __esm({
   }
 });
 
+// src/tools/access.ts
+var access_exports = {};
+__export(access_exports, {
+  accessWithWalletProof: () => accessWithWalletProof,
+  cliAccess: () => cliAccess,
+  registerAccessTool: () => registerAccessTool
+});
+import { z as z3 } from "zod";
+import { decodePaymentRequiredHeader } from "@x402/core/http";
+import {
+  SIGN_IN_WITH_X,
+  createSIWxPayload,
+  encodeSIWxHeader
+} from "@x402/extensions/sign-in-with-x";
+import nacl from "tweetnacl";
+function parseResponse2(res) {
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("json")) {
+    return res.json().catch(() => res.text());
+  }
+  return res.text();
+}
+function buildSolanaSigner(wallet) {
+  if (!wallet.solanaKeypair || !wallet.info.solanaAddress) return null;
+  return {
+    publicKey: wallet.solanaKeypair.publicKey,
+    signMessage: async (message) => nacl.sign.detached(message, wallet.solanaKeypair.secretKey)
+  };
+}
+function buildEvmSigner(wallet) {
+  if (!wallet.info.evmPrivateKey || !wallet.info.evmAddress) return null;
+  return {
+    address: wallet.info.evmAddress,
+    async signMessage({ message }) {
+      const { privateKeyToAccount: privateKeyToAccount2 } = await import("viem/accounts");
+      const account = privateKeyToAccount2(wallet.info.evmPrivateKey);
+      return account.signMessage({ message });
+    }
+  };
+}
+function chooseSiwxChain(extension, preferredNetwork) {
+  const supportedChains = Array.isArray(extension?.supportedChains) ? extension.supportedChains : [];
+  if (supportedChains.length === 0) return null;
+  if (preferredNetwork) {
+    return supportedChains.find((c) => c.chainId === preferredNetwork) || null;
+  }
+  return supportedChains[0] ?? null;
+}
+async function accessWithWalletProof(params, wallet) {
+  if (!wallet) {
+    return {
+      status: 401,
+      error: "No wallet configured",
+      tip: "Set DEXTER_PRIVATE_KEY / SOLANA_PRIVATE_KEY or EVM_PRIVATE_KEY, or run `opendexter setup` first."
+    };
+  }
+  const requestHeaders = { "Content-Type": "application/json" };
+  const fetchOpts = { method: params.method || "GET", headers: requestHeaders };
+  if (params.body && params.method !== "GET") fetchOpts.body = params.body;
+  const firstRes = await fetch(params.url, { ...fetchOpts, signal: AbortSignal.timeout(15e3) });
+  if (firstRes.status !== 402) {
+    return { status: firstRes.status, data: await parseResponse2(firstRes) };
+  }
+  const paymentRequiredHeader = firstRes.headers.get("PAYMENT-REQUIRED") || firstRes.headers.get("payment-required");
+  if (!paymentRequiredHeader) {
+    return { status: 402, error: "Endpoint returned 402 without PAYMENT-REQUIRED header." };
+  }
+  const paymentRequired = decodePaymentRequiredHeader(paymentRequiredHeader);
+  const siwxExtension = paymentRequired.extensions?.[SIGN_IN_WITH_X];
+  if (!siwxExtension) {
+    return {
+      status: 402,
+      error: "Endpoint returned 402 but no Sign-In-With-X extension was present.",
+      hint: "This endpoint may be paid rather than identity-gated. Try `opendexter check <url>` or `opendexter fetch <url>`."
+    };
+  }
+  const selectedChain = chooseSiwxChain(siwxExtension, params.preferredNetwork);
+  if (!selectedChain) {
+    return {
+      status: 402,
+      error: "Sign-In-With-X extension was present, but no supported chain could be selected."
+    };
+  }
+  const signer = String(selectedChain.chainId).startsWith("solana:") ? buildSolanaSigner(wallet) : buildEvmSigner(wallet);
+  if (!signer) {
+    return {
+      status: 402,
+      error: `Wallet does not have a signer for ${selectedChain.chainId}.`
+    };
+  }
+  const payload = await createSIWxPayload(
+    {
+      ...siwxExtension.info || {},
+      chainId: selectedChain.chainId,
+      type: selectedChain.type
+    },
+    signer
+  );
+  const authHeader = encodeSIWxHeader(payload);
+  const retryHeaders = new Headers(fetchOpts.headers);
+  retryHeaders.set("SIGN-IN-WITH-X", authHeader);
+  const retryRes = await fetch(params.url, {
+    ...fetchOpts,
+    headers: retryHeaders,
+    signal: AbortSignal.timeout(15e3)
+  });
+  return {
+    status: retryRes.status,
+    auth: {
+      mode: "siwx",
+      network: selectedChain.chainId,
+      signedAddress: payload.address
+    },
+    data: await parseResponse2(retryRes)
+  };
+}
+function registerAccessTool(server, wallet, opts) {
+  server.tool(
+    "x402_access",
+    "Access identity-gated endpoints using a wallet proof instead of a payment. Use this when an endpoint requires Sign-In-With-X / wallet authentication rather than USDC settlement.",
+    {
+      url: z3.string().url().describe("The protected endpoint URL"),
+      method: z3.enum(["GET", "POST", "PUT", "DELETE"]).default("GET").describe("HTTP method"),
+      body: z3.string().optional().describe("JSON request body for POST/PUT"),
+      network: z3.string().optional().describe("Optional preferred auth network, e.g. solana:... or eip155:8453")
+    },
+    async (args) => {
+      try {
+        const result = await accessWithWalletProof(
+          {
+            url: args.url,
+            method: args.method,
+            body: args.body,
+            preferredNetwork: args.network
+          },
+          wallet
+        );
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          structuredContent: result
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: err.message || String(err) }, null, 2) }],
+          isError: true
+        };
+      }
+    }
+  );
+}
+async function cliAccess(url, opts) {
+  try {
+    const { loadOrCreateWallet: loadOrCreateWallet2 } = await Promise.resolve().then(() => (init_wallet(), wallet_exports));
+    const wallet = await loadOrCreateWallet2({ quiet: true });
+    const result = await accessWithWalletProof(
+      { url, method: opts.method, body: opts.body, preferredNetwork: opts.network },
+      wallet
+    );
+    console.log(JSON.stringify(result, null, 2));
+  } catch (err) {
+    console.log(JSON.stringify({ error: err.message || String(err) }, null, 2));
+    process.exit(1);
+  }
+}
+var init_access = __esm({
+  "src/tools/access.ts"() {
+    "use strict";
+  }
+});
+
 // src/tools/check.ts
 var check_exports = {};
 __export(check_exports, {
   cliCheck: () => cliCheck,
   registerCheckTool: () => registerCheckTool
 });
-import { z as z3 } from "zod";
+import { z as z4 } from "zod";
 function parsePaymentRequiredHeader(headerValue) {
   if (!headerValue) return null;
   const candidates = [headerValue];
@@ -798,8 +968,8 @@ function registerCheckTool(server, opts) {
     "x402_check",
     "Check if an endpoint requires x402 payment and see its pricing. Does NOT make a payment \u2014 just probes for requirements.",
     {
-      url: z3.string().url().describe("The URL to check"),
-      method: z3.enum(["GET", "POST", "PUT", "DELETE"]).default("GET").describe("HTTP method to probe with")
+      url: z4.string().url().describe("The URL to check"),
+      method: z4.enum(["GET", "POST", "PUT", "DELETE"]).default("GET").describe("HTTP method to probe with")
     },
     async (args) => {
       try {
@@ -840,13 +1010,13 @@ __export(settings_exports, {
   cliSettings: () => cliSettings,
   registerSettingsTool: () => registerSettingsTool
 });
-import { z as z4 } from "zod";
+import { z as z5 } from "zod";
 function registerSettingsTool(server) {
   server.tool(
     "x402_settings",
     "Read or update OpenDexter spending policy. Use this to inspect or change the default max amount the agent is allowed to spend on a single API call.",
     {
-      maxAmountUsdc: z4.number().positive().optional().describe("Optional new per-call max spend in USDC.")
+      maxAmountUsdc: z5.number().positive().optional().describe("Optional new per-call max spend in USDC.")
     },
     async (args) => {
       const settings = args.maxAmountUsdc != null ? saveSettings({ maxAmountUsdc: args.maxAmountUsdc }) : loadSettings();
@@ -981,6 +1151,7 @@ async function startServer(opts) {
   });
   registerSearchTool(server, opts);
   registerFetchTool(server, wallet, opts);
+  registerAccessTool(server, wallet, opts);
   registerCheckTool(server, opts);
   registerSettingsTool(server);
   registerWalletTool(server, wallet, opts);
@@ -1003,6 +1174,7 @@ var init_server = __esm({
     init_config();
     init_search();
     init_fetch();
+    init_access();
     init_check();
     init_settings2();
     init_wallet_tool();
@@ -1719,6 +1891,22 @@ async function main() {
     async (args) => {
       const { runSetup: runSetup2 } = await Promise.resolve().then(() => (init_onboard(), onboard_exports));
       await runSetup2({ yes: args.yes, dev: args.dev });
+    }
+  ).command(
+    "access <url>",
+    "Access an identity-gated endpoint using wallet proof instead of payment",
+    (y) => y.positional("url", { type: "string", demandOption: true }).option("method", {
+      choices: ["GET", "POST", "PUT", "DELETE"],
+      default: "GET"
+    }).option("body", { type: "string", description: "JSON request body" }).option("network", { type: "string", description: "Optional preferred auth network" }),
+    async (args) => {
+      const { cliAccess: cliAccess2 } = await Promise.resolve().then(() => (init_access(), access_exports));
+      await cliAccess2(args.url, {
+        method: args.method,
+        body: args.body,
+        network: args.network,
+        dev: args.dev
+      });
     }
   ).command(
     "check <url>",

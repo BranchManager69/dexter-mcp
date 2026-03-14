@@ -68,6 +68,28 @@ async function main() {
       },
     )
     .command(
+      "access <url>",
+      "Access an identity-gated endpoint using wallet proof instead of payment",
+      (y) =>
+        y
+          .positional("url", { type: "string", demandOption: true })
+          .option("method", {
+            choices: ["GET", "POST", "PUT", "DELETE"] as const,
+            default: "GET" as const,
+          })
+          .option("body", { type: "string", description: "JSON request body" })
+          .option("network", { type: "string", description: "Optional preferred auth network" }),
+      async (args) => {
+        const { cliAccess } = await import("./tools/access.js");
+        await cliAccess(args.url!, {
+          method: args.method,
+          body: args.body,
+          network: args.network,
+          dev: args.dev,
+        });
+      },
+    )
+    .command(
       "check <url>",
       "Inspect an endpoint's x402 pricing and requirements without paying",
       (y) =>
