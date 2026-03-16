@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dexter Package Map</title>
+  <style>
+    :root {
+      --bg: #08111f;
+      --panel: rgba(11, 23, 40, 0.84);
+      --panel-2: rgba(16, 33, 57, 0.94);
+      --line: rgba(103, 184, 255, 0.35);
+      --line-strong: rgba(103, 184, 255, 0.7);
+      --text: #edf4ff;
+      --muted: #9fb7d6;
+      --brand: #6ed1ff;
+      --brand-2: #66f2c2;
+      --accent: #9f7bff;
+      --warn: #ffc86b;
+      --shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(102, 242, 194, 0.1), transparent 30%),
+        radial-gradient(circle at top right, rgba(159, 123, 255, 0.12), transparent 34%),
+        linear-gradient(180deg, #07101d 0%, #091321 100%);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .wrap {
+      width: min(1400px, calc(100vw - 40px));
+      margin: 28px auto;
+      padding: 28px;
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 24px;
+    }
+
+    .title {
+      margin: 0;
+      font-size: clamp(34px, 5vw, 56px);
+      line-height: 0.96;
+      letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+      margin: 12px 0 0;
+      color: var(--muted);
+      max-width: 780px;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .pill {
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .pill.brand { color: var(--brand); border-color: rgba(110, 209, 255, 0.35); }
+    .pill.use { color: var(--brand-2); border-color: rgba(102, 242, 194, 0.35); }
+    .pill.build { color: var(--warn); border-color: rgba(255, 200, 107, 0.35); }
+    .pill.special { color: var(--accent); border-color: rgba(159, 123, 255, 0.35); }
+
+    .canvas {
+      position: relative;
+      overflow: hidden;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: auto, 32px 32px, 32px 32px;
+      padding: 28px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 26px;
+      align-items: start;
+    }
+
+    .map-panel, .detail-panel {
+      background: var(--panel-2);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 22px;
+      padding: 20px;
+      position: relative;
+    }
+
+    .detail-panel h2,
+    .map-panel h2 {
+      margin: 0 0 14px;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+    }
+
+    svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .node-title {
+      fill: var(--text);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .node-sub {
+      fill: var(--muted);
+      font-size: 12px;
+    }
+
+    .box {
+      fill: rgba(9, 20, 36, 0.9);
+      stroke: rgba(255, 255, 255, 0.1);
+      stroke-width: 1.2;
+    }
+
+    .box.brand { stroke: rgba(110, 209, 255, 0.7); }
+    .box.use { stroke: rgba(102, 242, 194, 0.65); }
+    .box.build { stroke: rgba(255, 200, 107, 0.6); }
+    .box.special { stroke: rgba(159, 123, 255, 0.65); }
+
+    .line {
+      stroke: var(--line);
+      stroke-width: 2;
+      fill: none;
+    }
+
+    .line.strong {
+      stroke: var(--line-strong);
+      stroke-width: 2.5;
+    }
+
+    .detail-card {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 18px;
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.02);
+      margin-bottom: 12px;
+    }
+
+    .detail-card:last-child { margin-bottom: 0; }
+
+    .detail-card h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .detail-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .detail-card code {
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: 1fr; }
+      .header { flex-direction: column; align-items: start; }
+      .legend { justify-content: start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div>
+        <h1 class="title">Dexter Package Map</h1>
+        <p class="subtitle">
+          A visual map of how the main <code>@dexterai</code> packages relate to each other:
+          which one developers install to use paid x402 APIs, which one they use to build with x402,
+          and which packages are specialized surfaces under the Dexter umbrella.
+        </p>
+      </div>
+      <div class="legend">
+        <span class="pill brand">Brand / Product</span>
+        <span class="pill use">Use This</span>
+        <span class="pill build">Build With This</span>
+        <span class="pill special">Specialized Surface</span>
+      </div>
+    </div>
+
+    <div class="canvas">
+      <div class="grid">
+        <div class="map-panel">
+          <h2>Relationship Graph</h2>
+          <svg viewBox="0 0 900 760" aria-label="Dexter package relationship map">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(103, 184, 255, 0.7)"></path>
+              </marker>
+            </defs>
+
+            <path class="line strong" marker-end="url(#arrow)" d="M300 120 C300 165, 300 190, 300 215" />
+            <path class="line" marker-end="url(#arrow)" d="M300 120 C430 150, 520 185, 575 235" />
+            <path class="line" marker-end="url(#arrow)" d="M300 330 C240 390, 180 430, 150 490" />
+            <path class="line" marker-end="url(#arrow)" d="M300 330 C330 395, 360 438, 395 490" />
+            <path class="line" marker-end="url(#arrow)" d="M300 330 C430 390, 540 430, 650 490" />
+
+            <rect class="box brand" x="180" y="40" rx="22" ry="22" width="240" height="80"></rect>
+            <text class="node-title" x="300" y="78" text-anchor="middle">OpenDexter</text>
+            <text class="node-sub" x="300" y="100" text-anchor="middle">Brand / product identity</text>
+
+            <rect class="box use" x="110" y="215" rx="22" ry="22" width="380" height="115"></rect>
+            <text class="node-title" x="300" y="252" text-anchor="middle">@dexterai/x402-discovery</text>
+            <text class="node-sub" x="300" y="276" text-anchor="middle">Local MCP client for discovery + pricing + payment</text>
+            <text class="node-sub" x="300" y="298" text-anchor="middle">Tools: search, check, fetch, pay, wallet</text>
+
+            <rect class="box brand" x="520" y="215" rx="22" ry="22" width="250" height="85"></rect>
+            <text class="node-title" x="645" y="252" text-anchor="middle">@dexterai/opendexter</text>
+            <text class="node-sub" x="645" y="275" text-anchor="middle">Same surface, brand-facing package name</text>
+
+            <rect class="box build" x="40" y="490" rx="22" ry="22" width="220" height="96"></rect>
+            <text class="node-title" x="150" y="528" text-anchor="middle">@dexterai/x402</text>
+            <text class="node-sub" x="150" y="552" text-anchor="middle">SDK for building x402 into</text>
+            <text class="node-sub" x="150" y="570" text-anchor="middle">your own software</text>
+
+            <rect class="box special" x="290" y="490" rx="22" ry="22" width="220" height="96"></rect>
+            <text class="node-title" x="400" y="528" text-anchor="middle">@dexterai/clawdexter</text>
+            <text class="node-sub" x="400" y="552" text-anchor="middle">Separate integration surface</text>
+            <text class="node-sub" x="400" y="570" text-anchor="middle">for Claw / OpenClaw flows</text>
+
+            <rect class="box special" x="540" y="490" rx="22" ry="22" width="220" height="96"></rect>
+            <text class="node-title" x="650" y="528" text-anchor="middle">@dexterai/dexter-lobster</text>
+            <text class="node-sub" x="650" y="552" text-anchor="middle">Specialized Dexter surface</text>
+            <text class="node-sub" x="650" y="570" text-anchor="middle">not the core x402 client</text>
+
+            <rect class="box special" x="240" y="640" rx="22" ry="22" width="320" height="74"></rect>
+            <text class="node-title" x="400" y="678" text-anchor="middle">@dexterai/x402-ads-*</text>
+            <text class="node-sub" x="400" y="700" text-anchor="middle">Separate ads product line, not the main marketplace client</text>
+          </svg>
+        </div>
+
+        <div class="detail-panel">
+          <h2>How To Read It</h2>
+
+          <div class="detail-card">
+            <h3>1. What developers should install</h3>
+            <p>
+              <code>@dexterai/x402-discovery</code> is the clearest install path for developers who want an
+              agent to <strong>find</strong>, <strong>inspect</strong>, and <strong>pay for</strong> x402 APIs.
+            </p>
+          </div>
+
+          <div class="detail-card">
+            <h3>2. What the brand is called</h3>
+            <p>
+              <code>OpenDexter</code> is the product brand. <code>@dexterai/opendexter</code> is the
+              brand-facing package identity for the same local MCP surface.
+            </p>
+          </div>
+
+          <div class="detail-card">
+            <h3>3. What builders use instead</h3>
+            <p>
+              <code>@dexterai/x402</code> is the SDK. It is for teams building x402 into their own apps,
+              clients, servers, and products, rather than installing a ready-made marketplace client.
+            </p>
+          </div>
+
+          <div class="detail-card">
+            <h3>4. Why discovery still has a wallet tool</h3>
+            <p>
+              The wallet is supporting infrastructure for the local flow. Discovery gets you to the API;
+              the wallet lets the local MCP actually pay and execute.
+            </p>
+          </div>
+
+          <div class="detail-card">
+            <h3>5. The shortest positioning</h3>
+            <p>
+              <code>x402-discovery</code> = <strong>use x402 APIs</strong><br />
+              <code>x402</code> = <strong>build x402 into your own product</strong>
+            </p>
+          </div>
+
+          <p class="footer-note">
+            Recommended public phrasing: <strong>“Install <code>@dexterai/x402-discovery</code> to search,
+            check, and pay for x402 APIs from your MCP client. Use <code>@dexterai/x402</code> if you’re building
+            x402 into your own software.”</strong>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -9,7 +9,8 @@ export default defineConfig([
     clean: true,
     dts: false,
     splitting: false,
-    sourcemap: true,
+    minify: true,
+    sourcemap: false,
     banner: { js: "#!/usr/bin/env node" },
   },
   {
@@ -20,6 +21,7 @@ export default defineConfig([
     clean: false,
     dts: false,
     splitting: false,
+    minify: true,
     sourcemap: false,
     banner: {},
   },

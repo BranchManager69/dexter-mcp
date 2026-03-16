@@ -1,6 +1,6 @@
 {
   "name": "@dexterai/opendexter",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "OpenDexter - x402 search and discovery layer for AI agents. Search the OpenDexter catalog, check pricing, and pay with automatic USDC settlement.",
   "type": "module",
   "main": "dist/index.js",
@@ -17,9 +17,10 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsx src/index.ts",
+    "pack:verify": "node ./verify-pack-no-sourcemaps.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run build && npm run pack:verify",
     "release": "npm version patch && npm publish --access public"
   },
   "dependencies": {
