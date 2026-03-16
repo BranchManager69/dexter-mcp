@@ -4,6 +4,8 @@ import { promises as fsp } from 'node:fs';
 import { buildWidgetBootstrapScript } from './bootstrap.js';
 import { resolveAppsSdkRelease } from '../scripts/apps-sdk-release.mjs';
 import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
+
+const SKYBRIDGE_MIME = 'text/html+skybridge';
 const APPS_SDK_DIR = path.resolve(new URL('.', import.meta.url).pathname, '../public/apps-sdk');
 
 /**
@@ -627,7 +629,7 @@ export function registerAppsSdkResources(server, options = {}) {
           contents: [
             {
               uri: entry.templateUri,
-              mimeType: RESOURCE_MIME_TYPE,
+              mimeType: SKYBRIDGE_MIME,
               text: html,
               _meta: {
                 ui: { csp: cspConfig },
