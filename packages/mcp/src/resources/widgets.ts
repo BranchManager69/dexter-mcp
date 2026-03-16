@@ -1,20 +1,16 @@
 /**
- * MCP Apps widget resource registration.
+ * MCP Apps widget resource registration using the official ext-apps helpers.
  *
- * Registers ui:// resources for each x402 widget so MCP Apps-capable hosts
- * (Cursor, Claude Desktop, VS Code) can render interactive UI.
- *
- * Widget HTML files are bundled at build time into dist/widgets/.
- * When no bundled file exists (dev mode), falls back to a minimal
- * placeholder that displays the tool output as JSON.
+ * Uses registerAppResource from @modelcontextprotocol/ext-apps/server
+ * to properly register ui:// resources so MCP Apps hosts (Cursor, Claude
+ * Desktop, VS Code) can render interactive UI widgets.
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerAppResource, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-
-const MCP_APP_MIME = "text/html;profile=mcp-app";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WIDGETS_DIR = join(__dirname, "..", "widgets");
@@ -60,7 +56,7 @@ const WIDGET_DEFS: WidgetDef[] = [
   },
 ];
 
-function loadWidgetHtml(file: string): string | null {
+function loadAndRewriteHtml(file: string): string | null {
   try {
     let html = readFileSync(join(WIDGETS_DIR, file), "utf-8");
     html = html.replace(/(src|href)="\.\/assets\//g, `$1="${ASSET_CDN}/assets/`);
@@ -87,6 +83,7 @@ function fallbackHtml(name: string): string {
 <h3>${name}</h3>
 <pre id="output">Waiting for tool output…</pre>
 <script>
+  window.__isMcpApp = true;
   window.addEventListener('message', function(e) {
     var d = e.data;
     if (!d || d.jsonrpc !== '2.0') return;
@@ -105,21 +102,37 @@ function fallbackHtml(name: string): string {
 
 export function registerWidgetResources(server: McpServer): void {
   for (const def of WIDGET_DEFS) {
-    const html = loadWidgetHtml(def.file) ?? fallbackHtml(def.name);
+    const html = loadAndRewriteHtml(def.file) ?? fallbackHtml(def.name);
 
-    server.resource(
-      def.id,
+    registerAppResource(
+      server,
+      def.name,
       def.uri,
       {
         description: def.description,
-        mimeType: MCP_APP_MIME,
       },
       async () => ({
         contents: [
           {
             uri: def.uri,
-            mimeType: MCP_APP_MIME,
+            mimeType: RESOURCE_MIME_TYPE,
             text: html,
+            _meta: {
+              ui: {
+                csp: {
+                  resourceDomains: [
+                    "https://dexter.cash",
+                    "https://cdn.dexscreener.com",
+                    "https://raw.githubusercontent.com",
+                    "https://metadata.jup.ag",
+                  ],
+                  connectDomains: [
+                    "https://x402.dexter.cash",
+                    "https://dexter.cash",
+                  ],
+                },
+              },
+            },
           },
         ],
       }),
