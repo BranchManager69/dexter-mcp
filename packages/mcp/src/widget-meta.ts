@@ -10,6 +10,12 @@ const WIDGET_CSP = {
 
 export function widgetMeta(templateUri: string, invoking: string, invoked: string, description: string) {
   return {
+    // MCP Apps standard (Cursor, Claude Desktop, VS Code)
+    ui: {
+      resourceUri: templateUri,
+      visibility: ["model", "app"] as const,
+    },
+    // ChatGPT Apps SDK (OpenAI-specific)
     "openai/outputTemplate": templateUri,
     "openai/resultCanProduceWidget": true,
     "openai/widgetAccessible": true,

@@ -6,7 +6,7 @@ import { Badge } from '@openai/apps-sdk-ui/components/Badge';
 import { Button, CopyButton } from '@openai/apps-sdk-ui/components/Button';
 import { Alert } from '@openai/apps-sdk-ui/components/Alert';
 import { Globe } from '@openai/apps-sdk-ui/components/Icon';
-import { useOpenAIGlobal, useMaxHeight, useTheme, useCallToolFn, useOpenExternal } from '../sdk';
+import { useToolOutput, useOpenAIGlobal, useMaxHeight, useAdaptiveTheme, useAdaptiveCallToolFn, useAdaptiveOpenExternal } from '../sdk';
 import { ChainIcon, UsdcIcon, useIntrinsicHeight, DebugPanel, normalizeWalletPayload, type WalletChainBalance } from '../components/x402';
 
 const WORDMARK_URL = 'https://dexter.cash/wordmarks/dexter-wordmark.svg';
@@ -54,7 +54,7 @@ function DepositPanel({ solanaAddress, evmAddress, funding }: {
   evmAddress?: string;
   funding?: SessionFunding;
 }) {
-  const openExternal = useOpenExternal();
+  const openExternal = useAdaptiveOpenExternal();
   const qrUrl = funding?.solanaPayUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(funding.solanaPayUrl)}`
     : null;
@@ -173,11 +173,11 @@ function SessionDetails({ sessionToken, sessionId, expiresAt }: {
 }
 
 function WalletDashboard() {
-  const rawToolOutput = useOpenAIGlobal('toolOutput') as Record<string, unknown> | null;
+  const rawToolOutput = useToolOutput<Record<string, unknown>>();
   const toolMeta = useOpenAIGlobal('toolResponseMetadata') as Record<string, unknown> | null;
   const widgetState = useOpenAIGlobal('widgetState') as { sessionToken?: string } | null;
-  const theme = useTheme();
-  const callTool = useCallToolFn();
+  const theme = useAdaptiveTheme();
+  const callTool = useAdaptiveCallToolFn();
   const maxHeight = useMaxHeight();
   const containerRef = useIntrinsicHeight();
   const [refreshing, setRefreshing] = useState(false);

@@ -8,6 +8,7 @@ import { registerCheckTool } from "../tools/check.js";
 import { registerSettingsTool } from "../tools/settings.js";
 import { registerWalletTool } from "../tools/wallet-tool.js";
 import { loadOrCreateWallet } from "../wallet/index.js";
+import { registerWidgetResources } from "../resources/widgets.js";
 
 export interface ServerOptions {
   transport: "stdio" | "http";
@@ -35,6 +36,7 @@ export async function startServer(opts: ServerOptions): Promise<void> {
   registerCheckTool(server, opts);
   registerSettingsTool(server);
   registerWalletTool(server, wallet, opts);
+  registerWidgetResources(server);
 
   if (opts.transport !== "stdio") {
     console.error("HTTP transport not yet implemented. Use --transport=stdio");

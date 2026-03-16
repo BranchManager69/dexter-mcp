@@ -15,3 +15,6 @@ export * from './use-theme';
 export * from './use-tool-input';
 export * from './use-open-external';
 export * from './use-user-agent';
+// Dual-runtime adapter (ChatGPT + MCP Apps)
+export { useToolOutput, useAdaptiveTheme, useAdaptiveCallToolFn, useAdaptiveOpenExternal, useHostRuntime } from './adapter';
+export { isMcpAppsHost } from './mcp-apps-bridge';

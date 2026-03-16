@@ -70,6 +70,7 @@ const BOOTSTRAP_TEMPLATE = (baseUrl, runtimeConfig) => `
 
       window.innerBaseUrl = normalizedBase;
       window.__isChatGptApp = typeof window.openai !== 'undefined';
+      window.__isMcpApp = !window.__isChatGptApp && isInIframe;
 
       var htmlElement = document.documentElement;
       var observer = new MutationObserver(function (mutations) {
@@ -131,20 +132,24 @@ const BOOTSTRAP_TEMPLATE = (baseUrl, runtimeConfig) => `
           if (!anchor || !anchor.href) return;
           var href = anchor.href;
           var url = new URL(href, window.location.href);
-          if (!window.openai || !window.openai.openExternal) return;
 
           var isExternal =
             url.origin !== window.location.origin &&
             (!appOrigin || url.origin !== appOrigin);
 
           if (isExternal) {
-            event.preventDefault();
-            window.openai.openExternal({ href: href });
+            if (window.openai && window.openai.openExternal) {
+              event.preventDefault();
+              window.openai.openExternal({ href: href });
+            } else if (window.__isMcpApp) {
+              event.preventDefault();
+              window.parent.postMessage({ jsonrpc: '2.0', id: Date.now(), method: 'ui/open-link', params: { url: href } }, '*');
+            }
           }
         } catch (_err) {}
       }, true);
 
-      if (isInIframe) {
+      if (isInIframe && !window.__isMcpApp) {
         var originalFetch = window.fetch;
         window.fetch = function (input, init) {
           try {

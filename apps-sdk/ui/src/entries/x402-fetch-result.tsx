@@ -6,7 +6,7 @@ import { Badge } from '@openai/apps-sdk-ui/components/Badge';
 import { Button, CopyButton } from '@openai/apps-sdk-ui/components/Button';
 import { Alert } from '@openai/apps-sdk-ui/components/Alert';
 import { Warning } from '@openai/apps-sdk-ui/components/Icon';
-import { useOpenAIGlobal, useOpenExternal, useMaxHeight, useTheme, useDisplayMode, useRequestDisplayMode } from '../sdk';
+import { useToolOutput, useAdaptiveOpenExternal, useAdaptiveTheme, useMaxHeight, useDisplayMode, useRequestDisplayMode } from '../sdk';
 import { captureWidgetException } from '../sdk/init-sentry';
 import { JsonViewer, useIntrinsicHeight, DebugPanel, formatUsdc, shortenHash, getExplorerUrl, getChain } from '../components/x402';
 
@@ -89,7 +89,7 @@ function QrCountdown({ expiresAt }: { expiresAt: string }) {
 }
 
 function SessionPanel({ payload }: { payload: FetchPayload }) {
-  const openExternal = useOpenExternal();
+  const openExternal = useAdaptiveOpenExternal();
   const session = payload.session;
   const funding = payload.sessionFunding || session?.funding;
   const walletAddress = funding?.walletAddress || funding?.payTo;
@@ -137,9 +137,9 @@ function SessionPanel({ payload }: { payload: FetchPayload }) {
 }
 
 function FetchResult() {
-  const toolOutput = useOpenAIGlobal('toolOutput') as FetchPayload | null;
-  const openExternal = useOpenExternal();
-  const theme = useTheme();
+  const toolOutput = useToolOutput<FetchPayload>();
+  const openExternal = useAdaptiveOpenExternal();
+  const theme = useAdaptiveTheme();
   const maxHeight = useMaxHeight();
   const displayMode = useDisplayMode();
   const containerRef = useIntrinsicHeight();

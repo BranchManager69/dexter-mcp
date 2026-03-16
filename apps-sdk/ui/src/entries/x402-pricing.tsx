@@ -5,7 +5,8 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@openai/apps-sdk-ui/components/Badge';
 import { Button, CopyButton } from '@openai/apps-sdk-ui/components/Button';
 import { Alert } from '@openai/apps-sdk-ui/components/Alert';
-import { useOpenAIGlobal, useToolInput, useCallToolFn, useMaxHeight, useTheme, useSendFollowUp } from '../sdk';
+import { useToolOutput, useAdaptiveCallToolFn, useMaxHeight, useAdaptiveTheme, useSendFollowUp } from '../sdk';
+import { useToolInput as useAdaptiveToolInput } from '../sdk/adapter';
 import { captureWidgetException } from '../sdk/init-sentry';
 import { ChainIcon, getChain, useIntrinsicHeight, DebugPanel } from '../components/x402';
 
@@ -41,10 +42,10 @@ function shortenAddress(addr: string | null): string {
 }
 
 function PricingCheck() {
-  const toolOutput = useOpenAIGlobal('toolOutput') as PricingPayload | null;
-  const toolInput = useToolInput() as { url?: string; method?: string } | null;
-  const callTool = useCallToolFn();
-  const theme = useTheme();
+  const toolOutput = useToolOutput<PricingPayload>();
+  const toolInput = useAdaptiveToolInput<{ url?: string; method?: string }>();
+  const callTool = useAdaptiveCallToolFn();
+  const theme = useAdaptiveTheme();
   const maxHeight = useMaxHeight();
   const containerRef = useIntrinsicHeight();
 

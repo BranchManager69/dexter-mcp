@@ -15,7 +15,7 @@
     "skills"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/copy-widgets.mjs",
     "dev": "tsx src/index.ts",
     "pack:verify": "node ./verify-pack-no-sourcemaps.mjs",
     "test": "vitest run",
