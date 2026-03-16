@@ -3,9 +3,7 @@ import fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
 import { buildWidgetBootstrapScript } from './bootstrap.js';
 import { resolveAppsSdkRelease } from '../scripts/apps-sdk-release.mjs';
-
-const SKYBRIDGE_MIME = 'text/html+skybridge';
-const MCP_APP_MIME = 'text/html;profile=mcp-app';
+import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 const APPS_SDK_DIR = path.resolve(new URL('.', import.meta.url).pathname, '../public/apps-sdk');
 
 /**
@@ -601,20 +599,19 @@ export function registerAppsSdkResources(server, options = {}) {
       continue;
     }
 
-    server.registerResource(
+    const cspConfig = {
+      resourceDomains: [widgetDomain, ...((widgetCSP.resource_domains || []).filter(d => d !== widgetDomain))],
+      connectDomains: [widgetDomain],
+    };
+
+    registerAppResource(
+      server,
       entry.name,
       entry.templateUri,
       {
-        title: entry.title,
         description: entry.description,
-        mimeType: MCP_APP_MIME,
         _meta: {
-          ui: {
-            csp: {
-              resourceDomains: [widgetDomain, ...((widgetCSP.resource_domains || []).filter(d => d !== widgetDomain))],
-              connectDomains: [widgetDomain],
-            },
-          },
+          ui: { csp: cspConfig },
           'openai/widgetDomain': widgetDomain,
           'openai/widgetCSP': widgetCSP,
           'openai/widgetDescription': entry.widgetDescription || entry.description,
@@ -630,15 +627,10 @@ export function registerAppsSdkResources(server, options = {}) {
           contents: [
             {
               uri: entry.templateUri,
+              mimeType: RESOURCE_MIME_TYPE,
               text: html,
-              mimeType: MCP_APP_MIME,
               _meta: {
-                ui: {
-                  csp: {
-                    resourceDomains: [widgetDomain, ...((widgetCSP.resource_domains || []).filter(d => d !== widgetDomain))],
-                    connectDomains: [widgetDomain],
-                  },
-                },
+                ui: { csp: cspConfig },
                 'openai/widgetDomain': widgetDomain,
                 'openai/widgetCSP': widgetCSP,
                 'openai/widgetDescription': entry.widgetDescription || entry.description,
