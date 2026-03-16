@@ -5,6 +5,7 @@ import { buildWidgetBootstrapScript } from './bootstrap.js';
 import { resolveAppsSdkRelease } from '../scripts/apps-sdk-release.mjs';
 
 const SKYBRIDGE_MIME = 'text/html+skybridge';
+const MCP_APP_MIME = 'text/html;profile=mcp-app';
 const APPS_SDK_DIR = path.resolve(new URL('.', import.meta.url).pathname, '../public/apps-sdk');
 
 /**
@@ -606,8 +607,14 @@ export function registerAppsSdkResources(server, options = {}) {
       {
         title: entry.title,
         description: entry.description,
-        mimeType: SKYBRIDGE_MIME,
+        mimeType: MCP_APP_MIME,
         _meta: {
+          ui: {
+            csp: {
+              resourceDomains: [widgetDomain, ...((widgetCSP.resource_domains || []).filter(d => d !== widgetDomain))],
+              connectDomains: [widgetDomain],
+            },
+          },
           'openai/widgetDomain': widgetDomain,
           'openai/widgetCSP': widgetCSP,
           'openai/widgetDescription': entry.widgetDescription || entry.description,
@@ -624,8 +631,14 @@ export function registerAppsSdkResources(server, options = {}) {
             {
               uri: entry.templateUri,
               text: html,
-              mimeType: SKYBRIDGE_MIME,
+              mimeType: MCP_APP_MIME,
               _meta: {
+                ui: {
+                  csp: {
+                    resourceDomains: [widgetDomain, ...((widgetCSP.resource_domains || []).filter(d => d !== widgetDomain))],
+                    connectDomains: [widgetDomain],
+                  },
+                },
                 'openai/widgetDomain': widgetDomain,
                 'openai/widgetCSP': widgetCSP,
                 'openai/widgetDescription': entry.widgetDescription || entry.description,
