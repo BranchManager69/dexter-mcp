@@ -1,1 +1,0 @@
-import{r as n,b as a}from"./init-sentry-CRTHMZSw.js";function t(){return n.useCallback(async e=>{if(typeof window>"u"||!window.openai?.sendFollowUpMessage){console.warn("sendFollowUpMessage is not available in this context");return}try{await window.openai.sendFollowUpMessage(e)}catch(o){a(o,{phase:"send_follow_up",prompt:e.prompt})}},[])}export{t as u};
