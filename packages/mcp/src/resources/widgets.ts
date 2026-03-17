@@ -27,8 +27,8 @@ interface WidgetDef {
 
 const WIDGET_DEFS: WidgetDef[] = [
   {
-    id: "x402-marketplace-search-v4",
-    uri: "ui://dexter/x402-marketplace-search-v4",
+    id: "x402-marketplace-search-v5",
+    uri: "ui://dexter/x402-marketplace-search-v5",
     name: "x402 Marketplace Search",
     description: "Interactive marketplace search results with quality rings, prices, and action buttons.",
     file: "x402-marketplace-search.html",

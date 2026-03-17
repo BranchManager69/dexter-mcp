@@ -12,16 +12,22 @@ function getStableSnapshot<K extends keyof OpenAIGlobals>(key: K): OpenAIGlobals
   if (value === null || value === undefined) return null;
   if (typeof value !== 'object') return value as OpenAIGlobals[K];
 
+  const cacheKey = String(key);
+  const cached = snapshotCache.get(cacheKey);
+
   try {
     const serialized = JSON.stringify(value);
-    const cacheKey = String(key);
-    const cached = snapshotCache.get(cacheKey);
     if (cached && cached.serialized === serialized) {
       return cached.value as OpenAIGlobals[K];
     }
-    snapshotCache.set(cacheKey, { serialized, value });
-    return value as OpenAIGlobals[K];
+    // Freeze the value so React's === comparison works on subsequent calls.
+    // Without this, window.openai[key] returns a new object each time,
+    // causing useSyncExternalStore to detect a "tear" and re-render.
+    const frozen = JSON.parse(serialized);
+    snapshotCache.set(cacheKey, { serialized, value: frozen });
+    return frozen as OpenAIGlobals[K];
   } catch {
+    if (cached) return cached.value as OpenAIGlobals[K];
     return value as OpenAIGlobals[K];
   }
 }
