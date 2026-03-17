@@ -1,0 +1,1 @@
+import{j as i}from"./adapter-BeivCJmn.js";import{w as n,c}from"./Button-lxeskV6_.js";const g="_Badge_1viyg_1",l={Badge:g},x=({children:a,className:s,variant:e="soft",color:t="secondary",size:d="sm",pill:o,...r})=>i.jsx("div",{className:c(l.Badge,s),"data-color":t,"data-size":d,"data-pill":o?"":void 0,"data-variant":e,...r,children:n(a)});export{x as B};

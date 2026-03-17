@@ -62,7 +62,7 @@ function widgetMeta(templateUri, invoking, invoked, description) {
   };
 }
 
-const SEARCH_META = widgetMeta('ui://dexter/x402-marketplace-search-v7', 'Searching marketplace…', 'Results ready', 'Shows paid API search results as interactive cards with quality rings, prices, and fetch buttons.');
+const SEARCH_META = widgetMeta('ui://dexter/x402-marketplace-search-v9', 'Searching marketplace…', 'Results ready', 'Shows paid API search results as interactive cards with quality rings, prices, and fetch buttons.');
 const PAY_META = widgetMeta('ui://dexter/x402-fetch-result', 'Processing payment…', 'Payment complete', 'Shows API response data with payment receipt, transaction link, and settlement status.');
 const FETCH_META = widgetMeta('ui://dexter/x402-fetch-result', 'Calling API…', 'Response received', 'Shows API response data with payment receipt, transaction link, and settlement status.');
 const ACCESS_META = widgetMeta('ui://dexter/x402-fetch-result', 'Signing access proof…', 'Access response ready', 'Shows identity-gated API responses with wallet proof details and any follow-up requirements.');
@@ -938,7 +938,7 @@ function createOpenMcpServer() {
   try {
     registerAppsSdkResources(server, {
       allowedTemplateUris: [
-        'ui://dexter/x402-marketplace-search-v7',
+        'ui://dexter/x402-marketplace-search-v9',
         'ui://dexter/x402-fetch-result',
         'ui://dexter/x402-pricing',
         'ui://dexter/x402-wallet',

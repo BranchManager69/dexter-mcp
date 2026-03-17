@@ -24,12 +24,12 @@ const DEXTER_API = (
 const MARKETPLACE_PATH = '/api/facilitator/marketplace/resources';
 
 const SEARCH_META = createWidgetMeta({
-  templateUri: 'ui://dexter/x402-marketplace-search-v7',
+  templateUri: 'ui://dexter/x402-marketplace-search-v9',
   widgetDescription: 'Shows paid API search results as interactive cards with prices and fetch actions.',
   invoking: 'Searching marketplace...',
   invoked: 'Results ready',
   extra: {
-    ui: { resourceUri: 'ui://dexter/x402-marketplace-search-v7', visibility: ['model', 'app'] },
+    ui: { resourceUri: 'ui://dexter/x402-marketplace-search-v9', visibility: ['model', 'app'] },
   },
 });
 
