@@ -105,10 +105,10 @@ function MarketplaceSearch() {
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
 
   useEffect(() => {
-    if (!liveResult && externalQuery !== queryDraft) {
+    if (!liveResult) {
       setQueryDraft(externalQuery);
     }
-  }, [externalQuery, liveResult, queryDraft]);
+  }, [externalQuery, liveResult]);
 
   useEffect(() => {
     if (!activeOutput) return;
