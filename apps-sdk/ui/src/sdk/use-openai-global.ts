@@ -34,9 +34,19 @@ export function useOpenAIGlobal<K extends keyof OpenAIGlobals>(key: K): OpenAIGl
       }
 
       const handler = (event: SetGlobalsEvent) => {
-        if (Object.prototype.hasOwnProperty.call(event.detail.globals, key)) {
-          onStoreChange();
+        if (!Object.prototype.hasOwnProperty.call(event.detail.globals, key)) return;
+        // Only notify React if the serialized value actually changed.
+        // Without this guard, ChatGPT's rapid set_globals events cause
+        // useSyncExternalStore to re-render in a loop (React error #185).
+        const cacheKey = String(key);
+        const cached = snapshotCache.get(cacheKey);
+        const next = window.openai?.[key] ?? null;
+        if (cached && next !== null && typeof next === 'object') {
+          try {
+            if (JSON.stringify(next) === cached.serialized) return;
+          } catch { /* fall through to notify */ }
         }
+        onStoreChange();
       };
 
       window.addEventListener(SET_GLOBALS_EVENT_TYPE, handler, { passive: true });

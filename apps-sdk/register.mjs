@@ -547,7 +547,7 @@ export function registerAppsSdkResources(server, options = {}) {
     },
     {
       name: 'dexter_x402_marketplace_search',
-      templateUri: 'ui://dexter/x402-marketplace-search-v3',
+      templateUri: 'ui://dexter/x402-marketplace-search-v4',
       file: 'x402-marketplace-search.html',
       title: 'x402 Marketplace Search',
       description: 'Displays x402 API marketplace search results with pricing, quality scores, and verification status.',

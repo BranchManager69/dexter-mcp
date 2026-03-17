@@ -29,7 +29,7 @@ export function widgetMeta(templateUri: string, invoking: string, invoked: strin
 }
 
 export const SEARCH_META = widgetMeta(
-  "ui://dexter/x402-marketplace-search-v3",
+  "ui://dexter/x402-marketplace-search-v4",
   "Searching marketplace\u2026",
   "Results ready",
   "Shows paid API search results as interactive cards with quality rings, prices, and fetch buttons.",

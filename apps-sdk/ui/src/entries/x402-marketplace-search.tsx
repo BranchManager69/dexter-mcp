@@ -6,15 +6,15 @@ import { Button } from '@openai/apps-sdk-ui/components/Button';
 import { EmptyMessage } from '@openai/apps-sdk-ui/components/EmptyMessage';
 import { Search, Warning } from '@openai/apps-sdk-ui/components/Icon';
 import {
-  useToolOutput,
-  useAdaptiveTheme,
-  useAdaptiveCallToolFn,
+  useOpenAIGlobal,
+  useToolInput,
+  useTheme,
+  useCallToolFn,
   useMaxHeight,
   useDisplayMode,
   useIsMobile,
   useRequestDisplayMode,
 } from '../sdk';
-import { useToolInput as useAdaptiveToolInput } from '../sdk/adapter';
 import { DebugPanel } from '../components/x402';
 import { MarketplaceSummaryHeader } from '../components/x402/search/MarketplaceSummaryHeader';
 import { SearchResultCard } from '../components/x402/search/SearchResultCard';
@@ -83,12 +83,12 @@ function normalizeSearchPayload(payload: SearchPayload | null): SearchPayload | 
 }
 
 function MarketplaceSearch() {
-  const toolOutput = useToolOutput<SearchPayload>();
-  const toolInput = useAdaptiveToolInput<SearchToolInput>();
-  const theme = useAdaptiveTheme();
+  const toolOutput = useOpenAIGlobal('toolOutput') as SearchPayload | null;
+  const toolInput = useToolInput() as SearchToolInput | null;
+  const theme = useTheme();
   const maxHeight = useMaxHeight();
   const displayMode = useDisplayMode();
-  const callTool = useAdaptiveCallToolFn();
+  const callTool = useCallToolFn();
   const isMobile = useIsMobile();
   const isFullscreen = displayMode === 'fullscreen';
   const [liveResult, setLiveResult] = useState<SearchPayload | null>(null);
@@ -105,10 +105,10 @@ function MarketplaceSearch() {
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
 
   useEffect(() => {
-    if (!liveResult) {
+    if (!liveResult && externalQuery !== queryDraft) {
       setQueryDraft(externalQuery);
     }
-  }, [externalQuery, liveResult]);
+  }, [externalQuery, liveResult, queryDraft]);
 
   useEffect(() => {
     if (!activeOutput) return;
