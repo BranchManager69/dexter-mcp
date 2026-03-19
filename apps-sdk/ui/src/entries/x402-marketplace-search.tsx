@@ -184,6 +184,8 @@ function MarketplaceSearch() {
   }, [activeOutput]);
 
   const resources = activeOutput?.resources ?? [];
+  const searchMode = activeOutput?.searchMeta?.mode ?? 'none';
+  const searchNote = activeOutput?.searchMeta?.note ?? '';
   const effectiveSelectedUrl = useMemo(() => {
     if (selectedUrl && resources.some((resource) => resource.url === selectedUrl)) {
       return selectedUrl;
@@ -397,7 +399,22 @@ function MarketplaceSearch() {
       {activeOutput.tip && (
         <p className="text-xs text-tertiary px-4 pb-3">{activeOutput.tip}</p>
       )}
-      <DebugPanel widgetName="x402-marketplace-search" />
+      <DebugPanel
+        widgetName="x402-marketplace-search"
+        extraInfo={{
+          externalQuery,
+          queryDraft,
+          liveResultCount: liveResult?.count ?? 0,
+          activeResultCount: activeOutput?.count ?? 0,
+          searchMode,
+          searchNote,
+          selectedUrl: effectiveSelectedUrl ?? '',
+          detailOpen,
+          isSearching,
+          isMobile,
+          isFullscreen,
+        }}
+      />
     </div>
   );
 }

@@ -181,7 +181,7 @@ function UsdcIcon({ size = 16 }) {
     }
   );
 }
-function DebugPanel({ widgetName }) {
+function DebugPanel({ widgetName, extraInfo }) {
   const [open, setOpen] = reactExports.useState(false);
   const oa = window.openai;
   if (!open) {
@@ -222,6 +222,11 @@ function DebugPanel({ widgetName }) {
     toolOutputKeys: oa?.toolOutput && typeof oa.toolOutput === "object" ? Object.keys(oa.toolOutput).join(", ") : "?",
     isChatGptApp: String(window.__isChatGptApp ?? "?")
   };
+  if (extraInfo) {
+    for (const [key, value] of Object.entries(extraInfo)) {
+      info[key] = value == null ? String(value) : String(value);
+    }
+  }
   const text = Object.entries(info).map(([k, v]) => `${k}: ${v}`).join("\n");
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
     margin: "8px 0 0",

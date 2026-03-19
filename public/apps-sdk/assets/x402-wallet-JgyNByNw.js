@@ -1,7 +1,7 @@
 import { j as jsxRuntimeExports, u as useToolOutput, f as useAdaptiveTheme, h as useAdaptiveCallToolFn, r as reactExports, e as useAdaptiveOpenExternal } from "./adapter-CWih0Dk2.js";
 import { B as Button } from "./Button-B-UKYG31.js";
 import { c as clientExports } from "./types-Du1vURRP.js";
-import { U as UsdcIcon, D as DebugPanel, a as ChainIcon, C as CopyButton } from "./DebugPanel-g_uSq2an.js";
+import { U as UsdcIcon, D as DebugPanel, a as ChainIcon, C as CopyButton } from "./DebugPanel-BiGsItWz.js";
 import { A as Alert } from "./Alert-mkdTXL8b.js";
 import { u as useOpenAIGlobal } from "./use-openai-global-CHD17KWv.js";
 import { u as useMaxHeight } from "./use-max-height-CONbE4Ud.js";

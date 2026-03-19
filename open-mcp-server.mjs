@@ -245,6 +245,14 @@ function buildMerchantSettlement(requirements) {
   }));
 }
 
+function logX402SearchDebug(stage, details = {}) {
+  try {
+    console.log(`[x402_search] ${stage} ${JSON.stringify(details)}`);
+  } catch {
+    console.log(`[x402_search] ${stage}`);
+  }
+}
+
 function normalizeSessionFunding(funding) {
   if (!funding || typeof funding !== 'object') return null;
   const walletAddress = funding.walletAddress || funding.payTo || null;
@@ -298,6 +306,16 @@ async function fetchMarketplaceResources({ query, category, network, maxPriceUsd
 async function x402Search({ query, category, network, maxPriceUsdc, verifiedOnly, sort, limit }) {
   const rawQuery = typeof query === 'string' ? query.trim() : '';
   const normalizedQuery = normalizeSearchQuery(rawQuery);
+  logX402SearchDebug('start', {
+    rawQuery,
+    normalizedQuery,
+    category: category ?? null,
+    network: network ?? null,
+    maxPriceUsdc: maxPriceUsdc ?? null,
+    verifiedOnly: Boolean(verifiedOnly),
+    sort: sort || 'marketplace',
+    limit: limit || 20,
+  });
   const primaryResources = await fetchMarketplaceResources({
     query: normalizedQuery,
     category,
@@ -310,7 +328,7 @@ async function x402Search({ query, category, network, maxPriceUsdc, verifiedOnly
 
   if (primaryResources.length > 0 || !normalizedQuery) {
     const fallbackUsed = Boolean(rawQuery && !normalizedQuery);
-    return {
+    const result = {
       resources: primaryResources,
       total: primaryResources.length,
       searchMeta: fallbackUsed
@@ -320,6 +338,13 @@ async function x402Search({ query, category, network, maxPriceUsdc, verifiedOnly
           }
         : { mode: 'direct' },
     };
+    logX402SearchDebug('result', {
+      rawQuery,
+      normalizedQuery,
+      mode: result.searchMeta?.mode ?? 'direct',
+      count: result.resources.length,
+    });
+    return result;
   }
 
   // No direct matches: fetch broad catalog and rank fuzzy token matches.
@@ -340,7 +365,7 @@ async function x402Search({ query, category, network, maxPriceUsdc, verifiedOnly
     .slice(0, Math.min(limit || 20, 50))
     .map((row) => row.resource);
 
-  return {
+  const result = {
     resources: ranked,
     total: ranked.length,
     searchMeta: ranked.length
@@ -353,6 +378,15 @@ async function x402Search({ query, category, network, maxPriceUsdc, verifiedOnly
           note: `No exact or close matches found for "${normalizedQuery}" after broad fallback.`,
         },
   };
+  logX402SearchDebug('result', {
+    rawQuery,
+    normalizedQuery,
+    mode: result.searchMeta?.mode ?? 'unknown',
+    count: result.resources.length,
+    broadScanCount: broadResources.length,
+    tokenCount: tokens.length,
+  });
+  return result;
 }
 
 // ─── Tool: x402_pay ─────────────────────────────────────────────────────────
@@ -778,14 +812,14 @@ function createOpenMcpServer() {
 
   server.registerTool('x402_search', {
     title: 'x402 Search',
-    description: 'Search the x402 marketplace for paid API resources across Solana and EVM chains (Base, Polygon, Arbitrum, Optimism, Avalanche). Returns verified endpoints with pricing, quality scores, and input/output schemas. Results span multiple chains — the session handles chain selection automatically at payment time.',
+    description: 'Search the x402 marketplace for paid API resources across Solana and EVM chains (Base, Polygon, Arbitrum, Optimism, Avalanche). Use this first whenever the user is looking for APIs, capabilities, categories, or sellers. Broad terms like "crypto", "image", "trading", and "analytics" are valid. By default it searches across all matching resources, not just verified ones. Only set verifiedOnly when the user explicitly wants verified or quality-screened results. If exact matches are weak or empty, the tool may fall back to broader related matches and explains that in searchMeta.mode: direct, normalized_browse, fuzzy_broad, or empty_after_fallback. Treat fuzzy_broad as closest related matches, not exact matches.',
     inputSchema: {
-      query: z.string().optional().describe('What are you looking for? e.g. "token analysis", "image generation", "video"'),
+      query: z.string().optional().describe('What are you looking for? Broad terms are valid, e.g. "token analysis", "image generation", "crypto", "video", "analytics".'),
       category: z.string().optional().describe('Filter by category (e.g. "api", "games", "creative")'),
       network: z.string().optional().describe('Filter by payment network: "solana", "base", "polygon"'),
       maxPriceUsdc: z.number().optional().describe('Maximum price per call in USDC'),
-      verifiedOnly: z.boolean().optional().describe('Only return verified (quality-checked) endpoints'),
-      sort: z.enum(['marketplace', 'relevance', 'quality_score', 'settlements', 'volume', 'recent']).optional().describe('Sort by (default: marketplace)'),
+      verifiedOnly: z.boolean().optional().describe('Optional. Leave unset for normal search. Set true only when the user explicitly wants verified or quality-screened endpoints.'),
+      sort: z.enum(['marketplace', 'relevance', 'quality_score', 'settlements', 'volume', 'recent']).optional().describe('Sort results (default: marketplace). Use relevance for keyword intent, marketplace for normal browse, quality_score for safest-looking APIs, and settlements/volume for battle-tested APIs.'),
       limit: z.number().optional().default(20).describe('Max results (default: 20, max: 50)'),
     },
     annotations: { readOnlyHint: true },

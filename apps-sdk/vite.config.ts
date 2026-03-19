@@ -18,6 +18,9 @@ export default defineConfig({
     outDir: path.resolve(__dirname, '../public/apps-sdk'),
     emptyOutDir: true,
     assetsDir: 'assets',
+    // Keep widget bundles readable in production for ChatGPT iframe debugging.
+    // Hidden sourcemaps still feed Sentry uploads without triggering browser
+    // .map fetches that violate the sandbox CSP.
     minify: false,
     sourcemap: 'hidden',
     rollupOptions: {

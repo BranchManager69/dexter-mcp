@@ -2,7 +2,7 @@ import { j as jsxRuntimeExports, u as useToolOutput, g as useToolInput, h as use
 import { B as Button } from "./Button-B-UKYG31.js";
 import { c as clientExports } from "./types-Du1vURRP.js";
 import { B as Badge } from "./index-wQqyafyk.js";
-import { g as getChain, a as ChainIcon, C as CopyButton, D as DebugPanel } from "./DebugPanel-g_uSq2an.js";
+import { g as getChain, a as ChainIcon, C as CopyButton, D as DebugPanel } from "./DebugPanel-BiGsItWz.js";
 import { A as Alert } from "./Alert-mkdTXL8b.js";
 import { u as useMaxHeight } from "./use-max-height-CONbE4Ud.js";
 import { u as useSendFollowUp } from "./use-send-followup-6vX6Pk1v.js";

@@ -5,7 +5,7 @@ import { S as Search } from "./Search-BjVbs7rE.js";
 import { W as Warning } from "./Warning-Z41ZdaEH.js";
 import { E as EmptyMessage } from "./EmptyMessage-DBLmRUUM.js";
 import { a as useCallToolFn } from "./use-call-tool-BtH5zAEk.js";
-import { C as CopyButton, a as ChainIcon, U as UsdcIcon, D as DebugPanel } from "./DebugPanel-g_uSq2an.js";
+import { C as CopyButton, a as ChainIcon, U as UsdcIcon, D as DebugPanel } from "./DebugPanel-BiGsItWz.js";
 import { J as JsonViewer } from "./JsonViewer-DDb5wXQ2.js";
 import "./Check-B3pA9uZY.js";
 import "./Copy-BwrnWPpY.js";
@@ -673,6 +673,8 @@ function MarketplaceSearch() {
     });
   }, [activeOutput]);
   const resources = activeOutput?.resources ?? [];
+  const searchMode = activeOutput?.searchMeta?.mode ?? "none";
+  const searchNote = activeOutput?.searchMeta?.note ?? "";
   const effectiveSelectedUrl = reactExports.useMemo(() => {
     if (selectedUrl && resources.some((resource) => resource.url === selectedUrl)) {
       return selectedUrl;
@@ -846,7 +848,25 @@ function MarketplaceSearch() {
           }
         ) }) }),
         activeOutput.tip && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-tertiary px-4 pb-3", children: activeOutput.tip }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(DebugPanel, { widgetName: "x402-marketplace-search" })
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          DebugPanel,
+          {
+            widgetName: "x402-marketplace-search",
+            extraInfo: {
+              externalQuery,
+              queryDraft,
+              liveResultCount: liveResult?.count ?? 0,
+              activeResultCount: activeOutput?.count ?? 0,
+              searchMode,
+              searchNote,
+              selectedUrl: effectiveSelectedUrl ?? "",
+              detailOpen,
+              isSearching,
+              isMobile,
+              isFullscreen
+            }
+          }
+        )
       ]
     }
   );

@@ -56,6 +56,9 @@ function initWidgetSentry() {
   const sentry = runtime?.sentry;
   if (!runtime || !sentry?.enabled || !sentry?.dsn) return;
 
+  // Keep widget Sentry limited to core exception capture in ChatGPT's sandbox.
+  // BrowserTracing and Replay add extra network activity that has repeatedly
+  // produced CSP noise without materially helping x402 widget debugging.
   Sentry.init({
     dsn: sentry.dsn,
     environment: sentry.environment || 'production',

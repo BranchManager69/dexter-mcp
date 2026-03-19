@@ -4,7 +4,9 @@ import { useState } from 'react';
  * Debug panel for x402 widgets. Shows SDK state, theme, CSP, callTool status.
  * Tap "Debug" to toggle. Copy-paste the output when reporting issues.
  */
-export function DebugPanel({ widgetName }: { widgetName: string }) {
+type DebugValue = string | number | boolean | null | undefined;
+
+export function DebugPanel({ widgetName, extraInfo }: { widgetName: string; extraInfo?: Record<string, DebugValue> }) {
   const [open, setOpen] = useState(false);
   const oa = (window as any).openai;
 
@@ -45,6 +47,12 @@ export function DebugPanel({ widgetName }: { widgetName: string }) {
     toolOutputKeys: oa?.toolOutput && typeof oa.toolOutput === 'object' ? Object.keys(oa.toolOutput).join(', ') : '?',
     isChatGptApp: String((window as any).__isChatGptApp ?? '?'),
   };
+
+  if (extraInfo) {
+    for (const [key, value] of Object.entries(extraInfo)) {
+      info[key] = value == null ? String(value) : String(value);
+    }
+  }
 
   const text = Object.entries(info).map(([k, v]) => `${k}: ${v}`).join('\n');
 
