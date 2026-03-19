@@ -1,0 +1,750 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   POKEDEXTER WIDGET
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.poke-container {
+  padding: 16px;
+  max-width: 640px;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.poke-card {
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 10, 10, 0.95);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.poke-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.poke-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.poke-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #737373; }
+.poke-challenges-count { font-size: 12px; font-weight: 700; color: #ef4444; }
+
+.poke-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border: 1px solid;
+}
+.poke-badge--warning { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+.poke-badge--success { background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.2); color: #34d399; }
+.poke-badge--info { background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+.poke-badge--primary { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+.poke-badge--neutral { background: rgba(163, 163, 163, 0.1); border-color: rgba(163, 163, 163, 0.2); color: #a3a3a3; }
+.poke-badge--cyan { background: rgba(6, 182, 212, 0.1); border-color: rgba(6, 182, 212, 0.2); color: #06b6d4; }
+
+.poke-view { display: flex; flex-direction: column; gap: 16px; }
+
+.poke-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+  text-align: center;
+  opacity: 0.6;
+}
+.poke-empty p { font-size: 14px; color: #525252; margin: 0; }
+.poke-empty span { font-size: 11px; color: #404040; }
+
+.poke-challenges-list { display: flex; flex-direction: column; gap: 12px; }
+
+.poke-challenge-card {
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(135deg, rgba(23, 23, 23, 0.9), rgba(38, 38, 38, 0.5));
+  position: relative;
+}
+
+.poke-challenge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.poke-challenge-info { display: flex; flex-direction: column; gap: 4px; }
+.poke-challenge-user { font-size: 10px; color: #a3a3a3; font-family: "JetBrains Mono", monospace; }
+.poke-challenge-format { font-size: 12px; color: #d4d4d4; font-weight: 500; }
+
+.poke-wager { display: flex; align-items: baseline; gap: 4px; }
+.poke-wager__value { font-weight: 900; background: linear-gradient(135deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.poke-wager__unit { font-size: 9px; color: #525252; text-transform: uppercase; }
+.poke-wager--sm .poke-wager__value { font-size: 14px; }
+.poke-wager--md .poke-wager__value { font-size: 20px; }
+.poke-wager--lg .poke-wager__value { font-size: 28px; }
+
+.poke-challenge-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.poke-challenge-id { font-size: 9px; color: #404040; }
+.poke-challenge-cta { font-size: 9px; font-weight: 700; color: #ef4444; }
+
+.poke-show-more {
+  width: 100%;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.05);
+  color: #a3a3a3;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+}
+.poke-show-more:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+.poke-wager-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.poke-wager-icon { font-size: 24px; }
+.poke-wager-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.poke-wager-title { font-size: 14px; font-weight: 700; color: #fff; }
+.poke-wager-id { font-size: 10px; color: #525252; font-family: "JetBrains Mono", monospace; }
+.poke-wager-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+
+.poke-players { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+.poke-player {
+  padding: 12px;
+  border-radius: 4px;
+  background: rgba(38, 38, 38, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+}
+.poke-player--ready { background: rgba(52, 211, 153, 0.05); border-color: rgba(52, 211, 153, 0.2); }
+.poke-player-label { font-size: 9px; text-transform: uppercase; color: #525252; }
+.poke-player-check { position: absolute; top: 8px; right: 8px; font-size: 12px; color: #34d399; }
+.poke-player-wallet { font-size: 11px; color: #d4d4d4; font-family: "JetBrains Mono", monospace; }
+
+.poke-winner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.1));
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+.poke-winner-icon { font-size: 24px; }
+.poke-winner-info { display: flex; flex-direction: column; gap: 2px; }
+.poke-winner-label { font-size: 9px; text-transform: uppercase; color: #525252; }
+.poke-winner-name { font-size: 14px; font-weight: 700; color: #fbbf24; }
+
+.poke-battle-link, .poke-enter-battle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  text-decoration: none;
+}
+.poke-battle-link { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); color: #a3a3a3; }
+.poke-battle-link:hover { color: #fff; }
+.poke-enter-battle { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; font-weight: 700; }
+.poke-enter-battle:hover { background: rgba(239, 68, 68, 0.2); }
+
+.poke-matched {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(217, 70, 239, 0.1));
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+.poke-matched-icon { font-size: 24px; }
+.poke-matched-info { display: flex; flex-direction: column; gap: 4px; }
+.poke-matched-title { font-size: 14px; font-weight: 700; color: #a78bfa; }
+.poke-matched-link { font-size: 10px; color: #a3a3a3; text-decoration: none; }
+.poke-matched-link:hover { color: #fff; }
+
+.poke-queue-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+.poke-queue-metric {
+  padding: 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.poke-queue-metric__label { font-size: 9px; text-transform: uppercase; color: #525252; }
+.poke-queue-metric__value { font-size: 14px; font-weight: 700; color: #e5e5e5; }
+
+.poke-searching {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 4px;
+  background: rgba(6, 182, 212, 0.05);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+}
+.poke-searching-icon { animation: spin 2s linear infinite; }
+.poke-searching-info { display: flex; flex-direction: column; gap: 2px; }
+.poke-searching-text { font-size: 13px; color: #06b6d4; }
+.poke-searching-format { font-size: 10px; color: #525252; }
+
+.poke-deposit-status { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+.poke-deposit-player {
+  padding: 16px;
+  border-radius: 4px;
+  text-align: center;
+  border: 1px solid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.poke-deposit-player { background: rgba(245, 158, 11, 0.05); border-color: rgba(245, 158, 11, 0.2); }
+.poke-deposit-player--ready { background: rgba(52, 211, 153, 0.05); border-color: rgba(52, 211, 153, 0.2); }
+.poke-deposit-label { font-size: 9px; text-transform: uppercase; color: #525252; }
+.poke-deposit-icon { font-size: 24px; }
+.poke-deposit-player--ready .poke-deposit-icon { color: #34d399; }
+.poke-deposit-player:not(.poke-deposit-player--ready) .poke-deposit-icon { color: #f59e0b; }
+.poke-deposit-state { font-size: 12px; }
+.poke-deposit-player--ready .poke-deposit-state { color: #34d399; }
+.poke-deposit-player:not(.poke-deposit-player--ready) .poke-deposit-state { color: #f59e0b; }
+
+.poke-pot {
+  padding: 16px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.05), rgba(245, 158, 11, 0.05));
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  text-align: center;
+}
+.poke-pot-label { display: block; font-size: 9px; text-transform: uppercase; color: #525252; margin-bottom: 8px; }
+
+.poke-ready {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 4px;
+  background: rgba(52, 211, 153, 0.05);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+.poke-ready-icon { font-size: 16px; color: #34d399; }
+.poke-ready-text { font-size: 14px; font-weight: 700; color: #34d399; }
+
+.poke-move-display {
+  padding: 24px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(245, 158, 11, 0.1));
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  text-align: center;
+}
+.poke-move-submitted { font-size: 24px; font-weight: 900; color: #fff; }
+
+.poke-move-metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
+.poke-move-metric {
+  padding: 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+}
+.poke-move-metric__label { font-size: 9px; text-transform: uppercase; color: #525252; }
+.poke-move-metric__value { font-size: 12px; font-weight: 600; color: #e5e5e5; }
+
+.poke-move-note { font-size: 12px; color: #525252; text-align: center; margin: 0; }
+
+.poke-success-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.1), rgba(16, 185, 129, 0.1));
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+.poke-success-icon { font-size: 32px; color: #34d399; }
+.poke-success-text { font-size: 14px; font-weight: 700; color: #34d399; }
+
+.poke-success-details { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
+.poke-success-detail {
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.poke-success-detail__label { font-size: 9px; text-transform: uppercase; color: #525252; }
+.poke-success-detail__value { font-size: 12px; font-weight: 600; color: #e5e5e5; }
+
+.poke-escrow {
+  padding: 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.poke-escrow-label { display: block; font-size: 9px; text-transform: uppercase; color: #525252; margin-bottom: 6px; }
+.poke-escrow-address { display: flex; align-items: center; justify-content: space-between; }
+.poke-escrow-address code { font-size: 11px; color: #d4d4d4; }
+
+.poke-loading, .poke-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 10, 10, 0.9);
+  color: #a3a3a3;
+  font-size: 14px;
+}
+.poke-error { color: #fb7185; border-color: rgba(251, 113, 133, 0.2); background: rgba(251, 113, 133, 0.05); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BATTLEFIELD VIEW - Animated Sprites, HP Bars, Move Buttons
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Type Badge */
+.poke-type-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* HP Bar */
+.poke-hp-bar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.poke-hp-bar--sm { height: 6px; }
+.poke-hp-bar__fill {
+  height: 100%;
+  transition: width 0.5s ease, background-color 0.3s ease;
+  border-radius: 4px;
+}
+.poke-hp-bar__text {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 8px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.poke-hp-bar--sm .poke-hp-bar__text { display: none; }
+
+/* Pokemon Sprite */
+.poke-sprite {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+.poke-sprite--fainted {
+  filter: grayscale(100%) brightness(0.5);
+  opacity: 0.6;
+}
+.poke-sprite-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  font-size: 24px;
+  color: #525252;
+}
+
+/* Team Indicator */
+.poke-team-indicator {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 8px;
+}
+.poke-team-slot {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.poke-team-slot--alive { opacity: 1; }
+.poke-team-slot--fainted { opacity: 0.3; filter: grayscale(100%); }
+
+/* Battlefield Layout */
+.poke-battlefield {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.poke-battlefield__opponent,
+.poke-battlefield__you {
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.02);
+}
+.poke-battlefield__opponent {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.05) 0%, transparent 100%);
+  border: 1px solid rgba(239, 68, 68, 0.1);
+}
+.poke-battlefield__you {
+  background: linear-gradient(0deg, rgba(59, 130, 246, 0.05) 0%, transparent 100%);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+.poke-pokemon-display {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.poke-pokemon-display--opponent { flex-direction: row-reverse; text-align: right; }
+.poke-pokemon-display--opponent .poke-pokemon-info { align-items: flex-end; }
+
+.poke-pokemon-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+.poke-pokemon-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.poke-pokemon-types {
+  display: flex;
+  gap: 4px;
+}
+.poke-pokemon-ability {
+  font-size: 10px;
+  color: #737373;
+}
+.poke-status-icon {
+  font-size: 14px;
+}
+
+.poke-opponent-team {
+  margin-top: 8px;
+  text-align: center;
+}
+.poke-opponent-team__label {
+  font-size: 10px;
+  color: #737373;
+}
+
+/* Actions Area */
+.poke-battlefield__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.poke-force-switch-banner {
+  padding: 10px;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.poke-action-result {
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  color: #34d399;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Move Buttons Grid */
+.poke-moves-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.poke-move-btn {
+  position: relative;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: linear-gradient(135deg, rgba(var(--type-color), 0.15), rgba(var(--type-color), 0.05));
+  background: rgba(255,255,255,0.03);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  overflow: hidden;
+}
+.poke-move-btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--type-color, #737373);
+}
+.poke-move-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.08);
+  border-color: var(--type-color, rgba(255,255,255,0.2));
+  transform: translateY(-1px);
+}
+.poke-move-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+.poke-move-btn--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.poke-move-btn__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.poke-move-btn__name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+.poke-move-btn__eff {
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.3);
+}
+.poke-move-btn__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.poke-move-btn__pp {
+  font-size: 10px;
+  color: #737373;
+}
+.poke-move-btn__bp {
+  font-size: 10px;
+  color: #a3a3a3;
+  font-weight: 600;
+}
+.poke-move-btn__loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.poke-move-btn__loading::after {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Switch Buttons */
+.poke-switches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.poke-switch-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.02);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+.poke-switch-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+.poke-switch-btn__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.poke-switch-btn__name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e5e5e5;
+}
+.poke-switch-btn__status {
+  font-size: 14px;
+}
+.poke-switch-btn__loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  border-radius: 6px;
+}
+
+/* Toggle Button */
+.poke-toggle-switches {
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px dashed rgba(255,255,255,0.1);
+  background: transparent;
+  color: #737373;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.poke-toggle-switches:hover {
+  border-color: rgba(255,255,255,0.2);
+  color: #a3a3a3;
+}
+
+/* Watch Button */
+.poke-watch-btn {
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.02);
+  color: #737373;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.poke-watch-btn:hover {
+  background: rgba(255,255,255,0.05);
+  color: #a3a3a3;
+}
+
+/* Waiting State */
+.poke-battlefield-waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+  text-align: center;
+  color: #737373;
+}
+.poke-battlefield-waiting svg {
+  animation: spin 3s linear infinite;
+}
+
+/* Accept Button on Challenges */
+.poke-accept-btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.poke-accept-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+.poke-accept-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.poke-challenge-card--accepted {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.1), rgba(16, 185, 129, 0.05));
+  border-color: rgba(52, 211, 153, 0.2);
+}
+.poke-challenge-accepted {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  color: #34d399;
+  font-weight: 600;
+}
+.poke-challenge-accepted__icon {
+  font-size: 20px;
+}
+
+/* Keyframes */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Light Theme */
+[data-theme="light"] .poke-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+[data-theme="light"] .poke-title { color: #525252; }
+[data-theme="light"] .poke-pokemon-name { color: #171717; }
+[data-theme="light"] .poke-move-btn__name { color: #171717; }
+[data-theme="light"] .poke-switch-btn__name { color: #171717; }
+[data-theme="light"] .poke-challenge-card {
+  background: linear-gradient(135deg, rgba(245, 245, 245, 0.9), rgba(229, 229, 229, 0.5));
+  border-color: rgba(0, 0, 0, 0.1);
+}
+

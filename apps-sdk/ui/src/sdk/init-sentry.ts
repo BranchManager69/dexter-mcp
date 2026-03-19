@@ -56,17 +56,6 @@ function initWidgetSentry() {
   const sentry = runtime?.sentry;
   if (!runtime || !sentry?.enabled || !sentry?.dsn) return;
 
-  const integrations = [];
-  if (typeof Sentry.browserTracingIntegration === 'function') {
-    integrations.push(Sentry.browserTracingIntegration());
-  }
-  if (typeof Sentry.replayIntegration === 'function') {
-    integrations.push(Sentry.replayIntegration({
-      maskAllText: false,
-      blockAllMedia: false,
-    }));
-  }
-
   Sentry.init({
     dsn: sentry.dsn,
     environment: sentry.environment || 'production',
@@ -75,7 +64,7 @@ function initWidgetSentry() {
     replaysSessionSampleRate: sentry.replaysSessionSampleRate ?? 0,
     replaysOnErrorSampleRate: sentry.replaysOnErrorSampleRate ?? 1,
     sendDefaultPii: sentry.sendDefaultPii ?? true,
-    integrations,
+    integrations: [],
   });
 
   window.__DEXTER_WIDGET_SENTRY_INITIALIZED__ = true;

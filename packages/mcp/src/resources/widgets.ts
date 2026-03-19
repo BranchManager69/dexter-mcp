@@ -11,6 +11,7 @@ import { registerAppResource, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/e
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { X402_WIDGET_URIS } from "../widget-uris.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WIDGETS_DIR = join(__dirname, "..", "widgets");
@@ -27,29 +28,29 @@ interface WidgetDef {
 
 const WIDGET_DEFS: WidgetDef[] = [
   {
-    id: "x402-marketplace-search-v9",
-    uri: "ui://dexter/x402-marketplace-search-v9",
+    id: X402_WIDGET_URIS.search.replace("ui://dexter/", ""),
+    uri: X402_WIDGET_URIS.search,
     name: "x402 Marketplace Search",
     description: "Interactive marketplace search results with quality rings, prices, and action buttons.",
     file: "x402-marketplace-search.html",
   },
   {
-    id: "x402-fetch-result",
-    uri: "ui://dexter/x402-fetch-result",
+    id: X402_WIDGET_URIS.fetch.replace("ui://dexter/", ""),
+    uri: X402_WIDGET_URIS.fetch,
     name: "x402 Fetch Result",
     description: "API response viewer with payment receipt, transaction link, and settlement status.",
     file: "x402-fetch-result.html",
   },
   {
-    id: "x402-pricing",
-    uri: "ui://dexter/x402-pricing",
+    id: X402_WIDGET_URIS.pricing.replace("ui://dexter/", ""),
+    uri: X402_WIDGET_URIS.pricing,
     name: "x402 Pricing",
     description: "Endpoint pricing per blockchain with payment amounts and pay button.",
     file: "x402-pricing.html",
   },
   {
-    id: "x402-wallet",
-    uri: "ui://dexter/x402-wallet",
+    id: X402_WIDGET_URIS.wallet.replace("ui://dexter/", ""),
+    uri: X402_WIDGET_URIS.wallet,
     name: "x402 Wallet",
     description: "Wallet dashboard with address, USDC/SOL balances, and deposit QR code.",
     file: "x402-wallet.html",

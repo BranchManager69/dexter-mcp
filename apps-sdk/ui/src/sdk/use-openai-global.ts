@@ -1,49 +1,62 @@
 /**
  * Adapted from https://github.com/openai/openai-apps-sdk-examples
- *
- * Uses useRef-based snapshot caching to avoid the infinite re-render loop
- * that occurs when useSyncExternalStore detects a "torn" read between
- * React's render and commit phases. The snapshot always returns a stable
- * reference — either the same cached object (when content unchanged) or
- * a new deep-frozen copy (when content changed).
  */
 
-import { useCallback, useRef, useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
 import { SET_GLOBALS_EVENT_TYPE, SetGlobalsEvent, type OpenAIGlobals } from './types';
 
-export function useOpenAIGlobal<K extends keyof OpenAIGlobals>(key: K): OpenAIGlobals[K] | null {
-  const cacheRef = useRef<{ serialized: string; stable: OpenAIGlobals[K] } | null>(null);
+const snapshotCache = new Map<string, { serialized: string; value: unknown }>();
 
-  const subscribe = useCallback((onStoreChange: () => void) => {
-    if (typeof window === 'undefined') return () => {};
+function getStableSnapshot<K extends keyof OpenAIGlobals>(key: K): OpenAIGlobals[K] | null {
+  const value = typeof window !== 'undefined' ? window.openai?.[key] ?? null : null;
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'object') return value as OpenAIGlobals[K];
 
-    const handler = (event: SetGlobalsEvent) => {
-      if (!Object.prototype.hasOwnProperty.call(event.detail.globals, key)) return;
-      onStoreChange();
-    };
-
-    window.addEventListener(SET_GLOBALS_EVENT_TYPE, handler, { passive: true });
-    return () => window.removeEventListener(SET_GLOBALS_EVENT_TYPE, handler);
-  }, [key]);
-
-  const getSnapshot = useCallback((): OpenAIGlobals[K] | null => {
-    const raw = typeof window !== 'undefined' ? window.openai?.[key] ?? null : null;
-    if (raw === null || raw === undefined) return null;
-    if (typeof raw !== 'object') return raw;
-
-    try {
-      const serialized = JSON.stringify(raw);
-      const cached = cacheRef.current;
-      if (cached && cached.serialized === serialized) {
-        return cached.stable;
-      }
-      const stable = JSON.parse(serialized) as OpenAIGlobals[K];
-      cacheRef.current = { serialized, stable };
-      return stable;
-    } catch {
-      return cacheRef.current?.stable ?? raw;
+  try {
+    const serialized = JSON.stringify(value);
+    const cacheKey = String(key);
+    const cached = snapshotCache.get(cacheKey);
+    if (cached && cached.serialized === serialized) {
+      return cached.value as OpenAIGlobals[K];
     }
-  }, [key]);
+    snapshotCache.set(cacheKey, { serialized, value });
+    return value as OpenAIGlobals[K];
+  } catch {
+    return value as OpenAIGlobals[K];
+  }
+}
 
-  return useSyncExternalStore(subscribe, getSnapshot, () => null);
+export function useOpenAIGlobal<K extends keyof OpenAIGlobals>(key: K): OpenAIGlobals[K] | null {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      if (typeof window === 'undefined') {
+        return () => {};
+      }
+
+      const handler = (event: SetGlobalsEvent) => {
+        if (!Object.prototype.hasOwnProperty.call(event.detail.globals, key)) return;
+
+        // ChatGPT can emit repeated set_globals events with identical object
+        // payloads during widget mount. Ignore those redundant notifications
+        // so useSyncExternalStore does not get trapped in an update loop.
+        const cacheKey = String(key);
+        const cached = snapshotCache.get(cacheKey);
+        const next = window.openai?.[key] ?? null;
+        if (cached && next !== null && typeof next === 'object') {
+          try {
+            if (JSON.stringify(next) === cached.serialized) return;
+          } catch {
+            // Fall through and notify React if serialization fails.
+          }
+        }
+
+        onStoreChange();
+      };
+
+      window.addEventListener(SET_GLOBALS_EVENT_TYPE, handler, { passive: true });
+      return () => window.removeEventListener(SET_GLOBALS_EVENT_TYPE, handler);
+    },
+    () => getStableSnapshot(key),
+    () => null,
+  );
 }

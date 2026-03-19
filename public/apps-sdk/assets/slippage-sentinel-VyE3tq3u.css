@@ -1,0 +1,159 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   SLIPPAGE SENTINEL WIDGET
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.sentinel-container {
+  padding: 16px;
+  max-width: 480px;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.sentinel-card {
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 10, 10, 0.95);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sentinel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sentinel-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sentinel-icon { font-size: 18px; }
+.sentinel-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #737373; }
+
+.sentinel-badge {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border: 1px solid;
+}
+
+.sentinel-risk--low { background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.2); color: #34d399; }
+.sentinel-risk--medium { background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+.sentinel-risk--high { background: rgba(251, 113, 133, 0.1); border-color: rgba(251, 113, 133, 0.2); color: #fb7185; }
+.sentinel-risk--extreme { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: #ef4444; }
+
+.sentinel-token {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.sentinel-token__symbol { font-size: 18px; font-weight: 700; color: #fff; }
+.sentinel-token__name { font-size: 12px; color: #737373; }
+
+.sentinel-recommendation {
+  padding: 16px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(168, 85, 247, 0.05));
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+
+.sentinel-recommendation__label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #737373;
+}
+
+.sentinel-recommendation__value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #a78bfa;
+}
+
+.sentinel-recommendation__range {
+  font-size: 11px;
+  color: #737373;
+}
+
+.sentinel-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.sentinel-metric {
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sentinel-metric__label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #525252; }
+.sentinel-metric__value { font-size: 13px; font-weight: 600; color: #e5e5e5; }
+
+.sentinel-reasoning {
+  padding: 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.sentinel-reasoning__label { display: block; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #525252; margin-bottom: 8px; }
+.sentinel-reasoning__text { margin: 0; font-size: 12px; line-height: 1.5; color: #a3a3a3; }
+
+.sentinel-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sentinel-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgba(251, 191, 36, 0.05);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  font-size: 12px;
+  color: #fbbf24;
+}
+
+.sentinel-warning__icon { flex-shrink: 0; }
+
+.sentinel-loading, .sentinel-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 10, 10, 0.9);
+  color: #a3a3a3;
+  font-size: 14px;
+}
+
+.sentinel-error { color: #fb7185; border-color: rgba(251, 113, 133, 0.2); background: rgba(251, 113, 133, 0.05); }
+
+.sentinel-loading__spinner {
+  width: 20px; height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #a78bfa;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}

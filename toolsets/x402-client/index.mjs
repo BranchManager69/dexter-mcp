@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { fetchWithX402Json } from '../../clients/x402Client.mjs';
 import { createWidgetMeta } from '../widgetMeta.mjs';
 import { resolveWalletForRequest } from '../wallet/index.mjs';
+import { X402_WIDGET_URIS } from '../../apps-sdk/widget-uris.mjs';
 
 const DEXTER_API = (
   process.env.X402_API_URL ||
@@ -24,45 +25,45 @@ const DEXTER_API = (
 const MARKETPLACE_PATH = '/api/facilitator/marketplace/resources';
 
 const SEARCH_META = createWidgetMeta({
-  templateUri: 'ui://dexter/x402-marketplace-search-v9',
+  templateUri: X402_WIDGET_URIS.search,
   widgetDescription: 'Shows paid API search results as interactive cards with prices and fetch actions.',
   invoking: 'Searching marketplace...',
   invoked: 'Results ready',
   extra: {
-    ui: { resourceUri: 'ui://dexter/x402-marketplace-search-v9', visibility: ['model', 'app'] },
+    ui: { resourceUri: X402_WIDGET_URIS.search, visibility: ['model', 'app'] },
   },
 });
 
 const FETCH_META = createWidgetMeta({
-  templateUri: 'ui://dexter/x402-fetch-result',
+  templateUri: X402_WIDGET_URIS.fetch,
   widgetDescription: 'Shows API response data with payment details and settlement status.',
   invoking: 'Calling API...',
   invoked: 'Response received',
   resourceDomains: ['https://api.qrserver.com', 'https://cdn.jsdelivr.net'],
   extra: {
-    ui: { resourceUri: 'ui://dexter/x402-fetch-result', visibility: ['model', 'app'] },
+    ui: { resourceUri: X402_WIDGET_URIS.fetch, visibility: ['model', 'app'] },
   },
 });
 
 const CHECK_META = createWidgetMeta({
-  templateUri: 'ui://dexter/x402-pricing',
+  templateUri: X402_WIDGET_URIS.pricing,
   widgetDescription: 'Shows endpoint pricing options and chain-level payment details.',
   invoking: 'Checking pricing...',
   invoked: 'Pricing loaded',
   resourceDomains: ['https://cdn.jsdelivr.net'],
   extra: {
-    ui: { resourceUri: 'ui://dexter/x402-pricing', visibility: ['model', 'app'] },
+    ui: { resourceUri: X402_WIDGET_URIS.pricing, visibility: ['model', 'app'] },
   },
 });
 
 const WALLET_META = createWidgetMeta({
-  templateUri: 'ui://dexter/x402-wallet',
+  templateUri: X402_WIDGET_URIS.wallet,
   widgetDescription: 'Shows active wallet address, balances, and deposit QR.',
   invoking: 'Loading wallet...',
   invoked: 'Wallet loaded',
   resourceDomains: ['https://api.qrserver.com', 'https://cdn.jsdelivr.net'],
   extra: {
-    ui: { resourceUri: 'ui://dexter/x402-wallet', visibility: ['model', 'app'] },
+    ui: { resourceUri: X402_WIDGET_URIS.wallet, visibility: ['model', 'app'] },
   },
 });
 

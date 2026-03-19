@@ -18,6 +18,7 @@ export default defineConfig({
     outDir: path.resolve(__dirname, '../public/apps-sdk'),
     emptyOutDir: true,
     assetsDir: 'assets',
+    minify: false,
     sourcemap: 'hidden',
     rollupOptions: {
       input: {

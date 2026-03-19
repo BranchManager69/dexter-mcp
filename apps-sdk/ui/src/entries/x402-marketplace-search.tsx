@@ -1,26 +1,20 @@
 import '../styles/sdk.css';
 
 import { createRoot } from 'react-dom/client';
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@openai/apps-sdk-ui/components/Button';
 import { EmptyMessage } from '@openai/apps-sdk-ui/components/EmptyMessage';
 import { Search, Warning } from '@openai/apps-sdk-ui/components/Icon';
 import {
-  useOpenAIGlobal,
-  useToolInput,
-  useTheme,
   useCallToolFn,
-  useMaxHeight,
-  useDisplayMode,
-  useIsMobile,
-  useRequestDisplayMode,
 } from '../sdk';
 import { DebugPanel } from '../components/x402';
 import { MarketplaceSummaryHeader } from '../components/x402/search/MarketplaceSummaryHeader';
 import { SearchResultCard } from '../components/x402/search/SearchResultCard';
 import { SearchResourceDetail } from '../components/x402/search/SearchResourceDetail';
-import type { SearchResource, SearchWidgetState } from '../components/x402/search/types';
+import type { SearchResource } from '../components/x402/search/types';
 import { addWidgetBreadcrumb, captureWidgetException } from '../sdk/init-sentry';
+import { SET_GLOBALS_EVENT_TYPE, type OpenAIGlobals, type Theme, type DisplayMode, type SetGlobalsEvent } from '../sdk/types';
 
 type SearchPayload = {
   success: boolean;
@@ -43,6 +37,83 @@ type SearchToolInput = {
   sort?: string;
   limit?: number;
 };
+
+type SearchWidgetSnapshot = {
+  toolOutput: SearchPayload | null;
+  toolInput: SearchToolInput | null;
+  theme: Theme;
+  maxHeight: number | null;
+  displayMode: DisplayMode;
+  isMobile: boolean;
+};
+
+function cloneJsonValue<T>(value: T): T {
+  if (value === null || value === undefined) return value;
+  if (typeof value !== 'object') return value;
+  try {
+    return JSON.parse(JSON.stringify(value)) as T;
+  } catch {
+    return value;
+  }
+}
+
+function readSearchWidgetSnapshot(): SearchWidgetSnapshot {
+  const openai = typeof window !== 'undefined' ? window.openai : undefined;
+  const userAgent = openai?.userAgent;
+  return {
+    toolOutput: cloneJsonValue((openai?.toolOutput ?? null) as SearchPayload | null),
+    toolInput: cloneJsonValue((openai?.toolInput ?? null) as SearchToolInput | null),
+    theme: (openai?.theme ?? 'dark') as Theme,
+    maxHeight: typeof openai?.maxHeight === 'number' ? openai.maxHeight : null,
+    displayMode: (openai?.displayMode ?? 'inline') as DisplayMode,
+    isMobile: userAgent?.device?.type === 'mobile',
+  };
+}
+
+function serializeSearchWidgetSnapshot(snapshot: SearchWidgetSnapshot): string {
+  try {
+    return JSON.stringify(snapshot);
+  } catch {
+    return String(Date.now());
+  }
+}
+
+function useSearchWidgetSnapshot() {
+  const [snapshot, setSnapshot] = useState<SearchWidgetSnapshot>(() => readSearchWidgetSnapshot());
+  const signatureRef = useRef(serializeSearchWidgetSnapshot(snapshot));
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleGlobals = (event: SetGlobalsEvent) => {
+      const globals = event.detail?.globals as Partial<OpenAIGlobals> | undefined;
+      if (!globals) return;
+
+      const relevantKeys: Array<keyof OpenAIGlobals> = [
+        'toolOutput',
+        'toolInput',
+        'theme',
+        'maxHeight',
+        'displayMode',
+        'userAgent',
+      ];
+      if (!relevantKeys.some((key) => Object.prototype.hasOwnProperty.call(globals, key))) {
+        return;
+      }
+
+      const next = readSearchWidgetSnapshot();
+      const nextSignature = serializeSearchWidgetSnapshot(next);
+      if (nextSignature === signatureRef.current) return;
+      signatureRef.current = nextSignature;
+      setSnapshot(next);
+    };
+
+    window.addEventListener(SET_GLOBALS_EVENT_TYPE, handleGlobals as EventListener, { passive: true });
+    return () => window.removeEventListener(SET_GLOBALS_EVENT_TYPE, handleGlobals as EventListener);
+  }, []);
+
+  return snapshot;
+}
 
 function normalizeSearchResource(resource: SearchResource): SearchResource {
   const sellerValue = resource.seller;
@@ -83,13 +154,8 @@ function normalizeSearchPayload(payload: SearchPayload | null): SearchPayload | 
 }
 
 function MarketplaceSearch() {
-  const toolOutput = useOpenAIGlobal('toolOutput') as SearchPayload | null;
-  const toolInput = useToolInput() as SearchToolInput | null;
-  const theme = useTheme();
-  const maxHeight = useMaxHeight();
-  const displayMode = useDisplayMode();
+  const { toolOutput, toolInput, theme, maxHeight, displayMode, isMobile } = useSearchWidgetSnapshot();
   const callTool = useCallToolFn();
-  const isMobile = useIsMobile();
   const isFullscreen = displayMode === 'fullscreen';
   const [liveResult, setLiveResult] = useState<SearchPayload | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -188,14 +254,13 @@ function MarketplaceSearch() {
     }
   }, [callTool, detailOpen, queryDraft, selectedUrl, toolInput]);
 
-  const requestDisplayMode = useRequestDisplayMode();
   const toggleFullscreen = useCallback(() => {
     try {
-      requestDisplayMode?.({ mode: isFullscreen ? 'inline' : 'fullscreen' });
+      window.openai?.requestDisplayMode?.({ mode: isFullscreen ? 'inline' : 'fullscreen' });
     } catch (error) {
       captureWidgetException(error, { phase: 'request_display_mode' });
     }
-  }, [isFullscreen, requestDisplayMode]);
+  }, [isFullscreen]);
 
   const [loadingElapsed, setLoadingElapsed] = useState(0);
   useEffect(() => {

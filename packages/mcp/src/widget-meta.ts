@@ -1,3 +1,5 @@
+import { X402_WIDGET_URIS } from "./widget-uris.js";
+
 const WIDGET_DOMAIN = "https://dexter.cash";
 
 const WIDGET_CSP = {
@@ -29,28 +31,28 @@ export function widgetMeta(templateUri: string, invoking: string, invoked: strin
 }
 
 export const SEARCH_META = widgetMeta(
-  "ui://dexter/x402-marketplace-search-v9",
+  X402_WIDGET_URIS.search,
   "Searching marketplace\u2026",
   "Results ready",
   "Shows paid API search results as interactive cards with quality rings, prices, and fetch buttons.",
 );
 
 export const FETCH_META = widgetMeta(
-  "ui://dexter/x402-fetch-result",
+  X402_WIDGET_URIS.fetch,
   "Calling API\u2026",
   "Response received",
   "Shows API response data with payment receipt, transaction link, and settlement status.",
 );
 
 export const CHECK_META = widgetMeta(
-  "ui://dexter/x402-pricing",
+  X402_WIDGET_URIS.pricing,
   "Checking pricing\u2026",
   "Pricing loaded",
   "Shows endpoint pricing per blockchain with payment amounts and a pay button.",
 );
 
 export const WALLET_META = widgetMeta(
-  "ui://dexter/x402-wallet",
+  X402_WIDGET_URIS.wallet,
   "Loading wallet\u2026",
   "Wallet loaded",
   "Shows wallet address with copy button, USDC/SOL balances, and deposit QR code.",

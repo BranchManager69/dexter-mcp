@@ -1,0 +1,170 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   CODEX WIDGET
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.codex-container {
+  padding: 16px;
+  max-width: 640px;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.codex-card {
+  position: relative;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: #050505;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: hidden;
+}
+
+.codex-scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.1;
+  background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.5) 51%);
+  background-size: 100% 4px;
+}
+
+.codex-header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.codex-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.codex-icon { font-size: 14px; color: #34d399; }
+.codex-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #737373; }
+
+.codex-badge {
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #525252;
+}
+
+.codex-metrics {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px;
+}
+
+.codex-metric {
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.codex-metric__label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #525252; }
+.codex-metric__value { font-size: 12px; font-weight: 600; color: #e5e5e5; }
+
+.codex-section {
+  position: relative;
+  z-index: 1;
+  padding-left: 16px;
+  border-left: 2px solid;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.codex-section--reasoning { border-color: rgba(52, 211, 153, 0.2); }
+.codex-section--output { border-color: rgba(255, 255, 255, 0.1); }
+
+.codex-section-header { display: flex; align-items: center; gap: 8px; }
+.codex-section-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #525252; }
+.codex-pulse { width: 6px; height: 6px; border-radius: 50%; background: #34d399; animation: pulse 1.5s infinite; }
+
+.codex-reasoning-text {
+  margin: 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(52, 211, 153, 0.8);
+  white-space: pre-wrap;
+}
+
+.codex-output-text {
+  margin: 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #d4d4d4;
+  white-space: pre-wrap;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.codex-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  margin-left: 4px;
+  vertical-align: middle;
+  background: rgba(52, 211, 153, 0.5);
+  animation: pulse 1s infinite;
+}
+.codex-cursor--dim { background: rgba(255, 255, 255, 0.3); }
+
+.codex-tokens {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.codex-token {
+  padding: 10px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+}
+.codex-token__label { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #525252; }
+.codex-token__value { font-size: 14px; font-weight: 700; color: #e5e5e5; }
+
+.codex-loading, .codex-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 10, 10, 0.9);
+  color: #a3a3a3;
+  font-size: 14px;
+}
+.codex-error { color: #fb7185; border-color: rgba(251, 113, 133, 0.2); background: rgba(251, 113, 133, 0.05); }
+.codex-loading__spinner {
+  width: 20px; height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #a3a3a3;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+

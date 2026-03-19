@@ -28,6 +28,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 dotenv.config({ path: '.env.local' });
 import { createOpenSessionResolver } from './lib/open-session-resolution.mjs';
+import { X402_WIDGET_URIS } from './apps-sdk/widget-uris.mjs';
 
 const PORT = parseInt(process.env.OPEN_MCP_PORT || '3931', 10);
 const DEXTER_API = (process.env.X402_API_URL || 'https://x402.dexter.cash').replace(/\/+$/, '');
@@ -62,12 +63,12 @@ function widgetMeta(templateUri, invoking, invoked, description) {
   };
 }
 
-const SEARCH_META = widgetMeta('ui://dexter/x402-marketplace-search-v9', 'Searching marketplace…', 'Results ready', 'Shows paid API search results as interactive cards with quality rings, prices, and fetch buttons.');
-const PAY_META = widgetMeta('ui://dexter/x402-fetch-result', 'Processing payment…', 'Payment complete', 'Shows API response data with payment receipt, transaction link, and settlement status.');
-const FETCH_META = widgetMeta('ui://dexter/x402-fetch-result', 'Calling API…', 'Response received', 'Shows API response data with payment receipt, transaction link, and settlement status.');
-const ACCESS_META = widgetMeta('ui://dexter/x402-fetch-result', 'Signing access proof…', 'Access response ready', 'Shows identity-gated API responses with wallet proof details and any follow-up requirements.');
-const CHECK_META = widgetMeta('ui://dexter/x402-pricing', 'Checking pricing…', 'Pricing loaded', 'Shows endpoint pricing per blockchain with payment amounts and a pay button.');
-const WALLET_META = widgetMeta('ui://dexter/x402-wallet', 'Loading wallet…', 'Wallet loaded', 'Shows wallet addresses with copy button, USDC balances across chains, and deposit QR code.');
+const SEARCH_META = widgetMeta(X402_WIDGET_URIS.search, 'Searching marketplace…', 'Results ready', 'Shows paid API search results as interactive cards with quality rings, prices, and fetch buttons.');
+const PAY_META = widgetMeta(X402_WIDGET_URIS.fetch, 'Processing payment…', 'Payment complete', 'Shows API response data with payment receipt, transaction link, and settlement status.');
+const FETCH_META = widgetMeta(X402_WIDGET_URIS.fetch, 'Calling API…', 'Response received', 'Shows API response data with payment receipt, transaction link, and settlement status.');
+const ACCESS_META = widgetMeta(X402_WIDGET_URIS.fetch, 'Signing access proof…', 'Access response ready', 'Shows identity-gated API responses with wallet proof details and any follow-up requirements.');
+const CHECK_META = widgetMeta(X402_WIDGET_URIS.pricing, 'Checking pricing…', 'Pricing loaded', 'Shows endpoint pricing per blockchain with payment amounts and a pay button.');
+const WALLET_META = widgetMeta(X402_WIDGET_URIS.wallet, 'Loading wallet…', 'Wallet loaded', 'Shows wallet addresses with copy button, USDC balances across chains, and deposit QR code.');
 
 const ALL_TOOLS = ['x402_search', 'x402_pay', 'x402_fetch', 'x402_check', 'x402_access', 'x402_wallet'];
 const OPEN_SESSION_HINT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -938,10 +939,10 @@ function createOpenMcpServer() {
   try {
     registerAppsSdkResources(server, {
       allowedTemplateUris: [
-        'ui://dexter/x402-marketplace-search-v9',
-        'ui://dexter/x402-fetch-result',
-        'ui://dexter/x402-pricing',
-        'ui://dexter/x402-wallet',
+        X402_WIDGET_URIS.search,
+        X402_WIDGET_URIS.fetch,
+        X402_WIDGET_URIS.pricing,
+        X402_WIDGET_URIS.wallet,
       ],
     });
   } catch (err) {

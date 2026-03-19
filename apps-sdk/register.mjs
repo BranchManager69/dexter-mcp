@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
 import { buildWidgetBootstrapScript } from './bootstrap.js';
+import { X402_WIDGET_URIS } from './widget-uris.mjs';
 import { resolveAppsSdkRelease } from '../scripts/apps-sdk-release.mjs';
 import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 
@@ -547,7 +548,7 @@ export function registerAppsSdkResources(server, options = {}) {
     },
     {
       name: 'dexter_x402_marketplace_search',
-      templateUri: 'ui://dexter/x402-marketplace-search-v9',
+      templateUri: X402_WIDGET_URIS.search,
       file: 'x402-marketplace-search.html',
       title: 'x402 Marketplace Search',
       description: 'Displays x402 API marketplace search results with pricing, quality scores, and verification status.',
@@ -557,7 +558,7 @@ export function registerAppsSdkResources(server, options = {}) {
     },
     {
       name: 'dexter_x402_fetch_result',
-      templateUri: 'ui://dexter/x402-fetch-result',
+      templateUri: X402_WIDGET_URIS.fetch,
       file: 'x402-fetch-result.html',
       title: 'x402 Fetch Result',
       description: 'Displays the result of an x402 paid API call with payment receipt and response data.',
@@ -567,7 +568,7 @@ export function registerAppsSdkResources(server, options = {}) {
     },
     {
       name: 'dexter_x402_pricing',
-      templateUri: 'ui://dexter/x402-pricing',
+      templateUri: X402_WIDGET_URIS.pricing,
       file: 'x402-pricing.html',
       title: 'x402 Pricing Check',
       description: 'Displays x402 endpoint pricing with payment options per chain.',
@@ -577,7 +578,7 @@ export function registerAppsSdkResources(server, options = {}) {
     },
     {
       name: 'dexter_x402_wallet',
-      templateUri: 'ui://dexter/x402-wallet',
+      templateUri: X402_WIDGET_URIS.wallet,
       file: 'x402-wallet.html',
       title: 'x402 Wallet Dashboard',
       description: 'Displays the x402 MCP wallet address, balances, and deposit instructions.',
@@ -602,8 +603,14 @@ export function registerAppsSdkResources(server, options = {}) {
     }
 
     const cspConfig = {
-      resourceDomains: [widgetDomain, ...((widgetCSP.resource_domains || []).filter(d => d !== widgetDomain))],
-      connectDomains: [widgetDomain],
+      resourceDomains: Array.from(new Set([
+        widgetDomain,
+        ...((widgetCSP.resource_domains || []).filter(Boolean)),
+      ])),
+      connectDomains: Array.from(new Set([
+        widgetDomain,
+        ...((widgetCSP.connect_domains || []).filter(Boolean)),
+      ])),
     };
 
     registerAppResource(
