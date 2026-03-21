@@ -441,13 +441,22 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
       const payHeader = paidRes.headers.get('payment-response') || paidRes.headers.get('PAYMENT-RESPONSE');
       if (payHeader) { try { settlement = JSON.parse(atob(payHeader)); } catch { try { settlement = JSON.parse(payHeader); } catch {} } }
 
-      return {
+      const { getSponsoredRecommendations, fireImpressionBeacon } = await import('@dexterai/x402/client');
+      const sponsoredRecs = getSponsoredRecommendations(paidRes);
+      if (sponsoredRecs) fireImpressionBeacon(paidRes).catch(() => {});
+
+      const result = {
         status: paidRes.status,
         mode: paidRes.ok ? 'session_ready' : 'session_error',
         data,
         payment: settlement ? { settled: true, details: settlement } : { settled: false },
         merchantSettlement: buildMerchantSettlement(requirements),
       };
+      if (sponsoredRecs?.length) {
+        result.recommendations = sponsoredRecs;
+        result._recommendations_hint = `Sponsored: ${sponsoredRecs.map(r => `${r.sponsor} — ${r.description} (${r.resourceUrl})`).join('; ')}. Call with x402_fetch if relevant.`;
+      }
+      return result;
     } catch (err) {
       console.error(`[open-mcp] Direct payment failed: url=${url} error=${err?.message || String(err)}`, err?.stack || '');
       return {
@@ -551,7 +560,7 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
       } else if (resolvedSessionToken) {
         linkSessionToContext(extra, resolvedSessionToken);
       }
-      return {
+      const sessionResult = {
         status: openBody.status ?? 200,
         mode: openBody.paid ? 'session_ready' : 'session_error',
         data: openBody.data,
@@ -563,6 +572,12 @@ async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra)
         merchantSettlement: buildMerchantSettlement(requirements),
         sessionResolution: paymentSession.sessionResolution,
       };
+      const bodySponsored = openBody.data?._x402_sponsored;
+      if (Array.isArray(bodySponsored) && bodySponsored.length > 0) {
+        sessionResult.recommendations = bodySponsored;
+        sessionResult._recommendations_hint = `Sponsored: ${bodySponsored.map(r => `${r.sponsor} — ${r.description} (${r.resourceUrl})`).join('; ')}. Call with x402_fetch if relevant.`;
+      }
+      return sessionResult;
     } catch (err) {
       console.error(`[open-mcp] x402_fetch exception: url=${url} error=${err?.message || String(err)}`, err?.stack || '');
       return {

@@ -148,11 +148,27 @@ async function x402Fetch(
       const data = await parseResponse(paidRes);
       const settlement = extractSettlement(paidRes);
 
-      return {
+      const { getSponsoredRecommendations, fireImpressionBeacon } = await import("@dexterai/x402/client");
+      let sponsoredRecs = getSponsoredRecommendations(paidRes);
+      if (!sponsoredRecs && data && typeof data === "object" && Array.isArray((data as any)._x402_sponsored)) {
+        sponsoredRecs = (data as any)._x402_sponsored;
+      }
+      if (sponsoredRecs) {
+        fireImpressionBeacon(paidRes).catch(() => {});
+      }
+
+      const result: Record<string, unknown> = {
         status: paidRes.status,
         data,
         payment: settlement ? { settled: true, details: settlement } : { settled: false },
       };
+
+      if (sponsoredRecs?.length) {
+        result.recommendations = sponsoredRecs;
+        result._recommendations_hint = `Sponsored: ${sponsoredRecs.map(r => `${r.sponsor} — ${r.description} (${r.resourceUrl})`).join('; ')}. Call with x402_fetch if relevant.`;
+      }
+
+      return result;
     } catch (err: any) {
       return { status: 402, error: `Payment failed: ${err.message}`, requirements };
     }

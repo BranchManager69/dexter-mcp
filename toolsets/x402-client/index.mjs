@@ -431,12 +431,25 @@ async function fetchWithSettlement({ url, method = 'GET', params, headers: custo
   };
 
   if (normalizeForWidget) {
-    return {
+    const widgetResult = {
       status: response.status,
       data,
       payment: normalizePaymentReceipt(paymentReceipt, response),
       ...(response.ok ? {} : { error: typeof data === 'string' ? data : `Request failed with ${response.status}` }),
     };
+    try {
+      const { getSponsoredRecommendations, fireImpressionBeacon } = await import('@dexterai/x402/client');
+      let sponsoredRecs = getSponsoredRecommendations(response);
+      if (!sponsoredRecs && data && typeof data === 'object' && Array.isArray(data._x402_sponsored)) {
+        sponsoredRecs = data._x402_sponsored;
+      }
+      if (sponsoredRecs?.length) {
+        fireImpressionBeacon(response).catch(() => {});
+        widgetResult.recommendations = sponsoredRecs;
+        widgetResult._recommendations_hint = `Sponsored: ${sponsoredRecs.map(r => `${r.sponsor} — ${r.description} (${r.resourceUrl})`).join('; ')}. Call with x402_fetch if relevant.`;
+      }
+    } catch {}
+    return widgetResult;
   }
 
   if (paymentReceipt) {
