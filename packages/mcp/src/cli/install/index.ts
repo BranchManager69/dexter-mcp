@@ -1,9 +1,14 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { intro, outro, log, select, spinner } from "@clack/prompts";
 import chalk from "chalk";
 import { loadOrCreateWallet } from "../../wallet/index.js";
 import { getClientConfig, CLIENTS, detectInstalledClients, type ClientId } from "./clients.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 interface InstallOpts {
   client?: string;
@@ -50,6 +55,180 @@ function writeClientConfig(clientId: ClientId, dev: boolean): { ok: boolean; mes
   return {
     ok: true,
     message: `Installed into ${CLIENTS[clientId].name} (${config.configPath})`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Claude Code plugin installation (skills, manifest, registry)
+// ---------------------------------------------------------------------------
+
+const PLUGIN_NAME = "opendexter";
+const PLUGIN_DISPLAY = "OpenDexter x402";
+
+function getPackageRoot(): string {
+  // Walk up from dist/cli/install/ or src/cli/install/ to package root
+  let dir = __dirname;
+  for (let i = 0; i < 6; i++) {
+    if (existsSync(join(dir, "package.json")) && existsSync(join(dir, "skills"))) {
+      return dir;
+    }
+    dir = dirname(dir);
+  }
+  throw new Error("Could not locate opendexter package root (skills/ directory not found)");
+}
+
+function getPackageVersion(): string {
+  const pkgRoot = getPackageRoot();
+  const pkg = JSON.parse(readFileSync(join(pkgRoot, "package.json"), "utf-8"));
+  return pkg.version || "unknown";
+}
+
+function installClaudeCodePlugin(): { ok: boolean; message: string } {
+  const version = getPackageVersion();
+  const pkgRoot = getPackageRoot();
+  const skillsSrc = join(pkgRoot, "skills");
+
+  if (!existsSync(skillsSrc)) {
+    return { ok: false, message: "Skills directory not found in package — cannot install plugin" };
+  }
+
+  const home = homedir();
+  const marketplaceName = "opendexter";
+  const pluginKey = `${PLUGIN_NAME}@${marketplaceName}`;
+
+  // Paths matching Claude Code's marketplace plugin layout
+  const marketplaceDir = join(home, ".claude", "plugins", "marketplaces", marketplaceName);
+  const marketplacePluginDir = join(marketplaceDir, "plugins", PLUGIN_NAME);
+  const marketplaceSkillsDir = join(marketplacePluginDir, "skills");
+  const cacheDir = join(home, ".claude", "plugins", "cache", marketplaceName, PLUGIN_NAME, version);
+  const cacheSkillsDir = join(cacheDir, "skills");
+  const knownMarketplacesPath = join(home, ".claude", "plugins", "known_marketplaces.json");
+  const pluginsJsonPath = join(home, ".claude", "plugins", "installed_plugins.json");
+  const settingsPath = join(home, ".claude", "settings.json");
+
+  const skillDirs = readdirSync(skillsSrc, { withFileTypes: true }).filter((d) => d.isDirectory());
+
+  // 1. Write skills into marketplace plugin directory (source of truth)
+  for (const dir of skillDirs) {
+    const destDir = join(marketplaceSkillsDir, dir.name);
+    mkdirSync(destDir, { recursive: true });
+    const srcFile = join(skillsSrc, dir.name, "SKILL.md");
+    if (existsSync(srcFile)) {
+      copyFileSync(srcFile, join(destDir, "SKILL.md"));
+    }
+  }
+
+  // Write README.md at marketplace plugin level
+  writeFileSync(
+    join(marketplacePluginDir, "README.md"),
+    `# OpenDexter x402\n\nSearch, pay, and build with x402. Installed by @dexterai/opendexter v${version}.\n`,
+  );
+
+  // Write .claude-plugin/marketplace.json at marketplace root (required for Claude Code discovery)
+  const marketplaceManifestDir = join(marketplaceDir, ".claude-plugin");
+  mkdirSync(marketplaceManifestDir, { recursive: true });
+  const marketplaceManifest = {
+    name: marketplaceName,
+    description: "OpenDexter x402 payment skills for AI agents",
+    owner: { name: "Dexter", email: "dev@dexter.cash" },
+    plugins: [
+      {
+        name: PLUGIN_NAME,
+        description:
+          "Search, pay, and build with x402 — the open protocol for machine-to-machine payments.",
+        author: { name: "Dexter", email: "dev@dexter.cash" },
+        source: `./plugins/${PLUGIN_NAME}`,
+        category: "development",
+        homepage: "https://dexter.cash/opendexter",
+      },
+    ],
+  };
+  writeFileSync(
+    join(marketplaceManifestDir, "marketplace.json"),
+    JSON.stringify(marketplaceManifest, null, 2) + "\n",
+  );
+
+  // 2. Write skills into plugin cache (where Claude Code loads from)
+  for (const dir of skillDirs) {
+    const destDir = join(cacheSkillsDir, dir.name);
+    mkdirSync(destDir, { recursive: true });
+    const srcFile = join(skillsSrc, dir.name, "SKILL.md");
+    if (existsSync(srcFile)) {
+      copyFileSync(srcFile, join(destDir, "SKILL.md"));
+    }
+  }
+
+  // 3. Register the marketplace in known_marketplaces.json
+  mkdirSync(dirname(knownMarketplacesPath), { recursive: true });
+  let knownMarketplaces: Record<string, unknown> = {};
+  if (existsSync(knownMarketplacesPath)) {
+    try {
+      knownMarketplaces = JSON.parse(readFileSync(knownMarketplacesPath, "utf-8"));
+    } catch {
+      // Corrupted — start fresh
+    }
+  }
+
+  knownMarketplaces[marketplaceName] = {
+    source: {
+      source: "local",
+      path: marketplaceDir,
+    },
+    installLocation: marketplaceDir,
+    lastUpdated: new Date().toISOString(),
+  };
+  writeFileSync(knownMarketplacesPath, JSON.stringify(knownMarketplaces, null, 2) + "\n");
+
+  // 4. Register in installed_plugins.json
+  let pluginsJson: Record<string, unknown> = { version: 2, plugins: {} };
+  if (existsSync(pluginsJsonPath)) {
+    try {
+      pluginsJson = JSON.parse(readFileSync(pluginsJsonPath, "utf-8"));
+    } catch {
+      // Corrupted — start fresh
+    }
+  }
+
+  const plugins = (pluginsJson.plugins as Record<string, unknown[]>) || {};
+
+  // Remove any broken legacy entries
+  if (plugins["x402@local"]) delete plugins["x402@local"];
+  if (plugins["opendexter@local"]) delete plugins["opendexter@local"];
+
+  const now = new Date().toISOString();
+  plugins[pluginKey] = [
+    {
+      scope: "user",
+      installPath: cacheDir,
+      version,
+      installedAt: now,
+      lastUpdated: now,
+    },
+  ];
+  pluginsJson.plugins = plugins;
+  writeFileSync(pluginsJsonPath, JSON.stringify(pluginsJson, null, 2) + "\n");
+
+  // 5. Enable in settings.json
+  if (existsSync(settingsPath)) {
+    try {
+      const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+      const enabled = settings.enabledPlugins || {};
+
+      // Remove any broken legacy entries
+      if (enabled["x402@local"]) delete enabled["x402@local"];
+      if (enabled["opendexter@local"]) delete enabled["opendexter@local"];
+
+      enabled[pluginKey] = true;
+      settings.enabledPlugins = enabled;
+      writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+    } catch {
+      // Settings file parse error — skip, MCP still works
+    }
+  }
+
+  return {
+    ok: true,
+    message: `Plugin installed (${skillDirs.length} skills) at ${cacheDir}`,
   };
 }
 
@@ -142,6 +321,20 @@ export async function runInstall(opts: InstallOpts): Promise<void> {
     } else {
       s.stop(`${CLIENTS[clientId].name} needs manual setup`);
       failures.push(result.message);
+    }
+
+    // Claude Code gets full plugin installation (skills, manifest, registry)
+    if (clientId === "claude-code" && result.ok) {
+      const ps = spinner();
+      ps.start("Installing OpenDexter skills plugin");
+      const pluginResult = installClaudeCodePlugin();
+      if (pluginResult.ok) {
+        ps.stop("Skills plugin installed");
+        successes.push(pluginResult.message);
+      } else {
+        ps.stop("Skills plugin failed");
+        failures.push(pluginResult.message);
+      }
     }
   }
 
