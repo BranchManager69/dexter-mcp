@@ -79,11 +79,13 @@ This scans your machine for supported MCP clients and installs OpenDexter into e
 }
 ```
 
-**Claude Code:**
+**Claude Code** — use the installer instead of manual config. It registers the MCP server and installs 7 SDK/protocol skills as a native plugin:
 
 ```bash
-claude mcp add dexter-x402 -- npx -y @dexterai/opendexter@latest
+npx @dexterai/opendexter install --client claude-code
 ```
+
+Manual MCP-only (no skills): `claude mcp add dexter-x402 -- npx -y @dexterai/opendexter@latest`
 
 **Codex** — `~/.codex/config.toml`:
 
