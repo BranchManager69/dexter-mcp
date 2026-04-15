@@ -45,7 +45,16 @@ export const SUPPORTED_CHAIN_LABELS = [
   "Avalanche",
 ] as const;
 
-export const MARKETPLACE_PATH = "/api/facilitator/marketplace/resources";
+/**
+ * Capability search endpoint — semantic vector search over the x402 corpus
+ * with query expansion, similarity floor, tiered results (strong/related),
+ * and cross-encoder LLM rerank. Returns {strongResults, relatedResults,
+ * strongCount, relatedCount, topSimilarity, noMatchReason, rerank, intent}.
+ *
+ * Replaces the legacy substring ranker at /api/facilitator/marketplace/resources
+ * which was removed in dexter-api as of 2026-04-15.
+ */
+export const CAPABILITY_PATH = "/api/x402gle/capability";
 
 export function getApiBase(dev: boolean): string {
   return dev ? DEXTER_API_DEV : DEXTER_API_PROD;

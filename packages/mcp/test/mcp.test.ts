@@ -351,15 +351,22 @@ describe("install config", () => {
 // ── Integration Tests (require network) ───────────────────────────────────
 
 describe("integration", () => {
-  it("searches the live marketplace", async () => {
-    const res = await fetch("https://api.dexter.cash/api/facilitator/marketplace/resources?search=jupiter&limit=2", {
-      signal: AbortSignal.timeout(10_000),
-    });
+  it("searches the live capability endpoint", async () => {
+    const res = await fetch(
+      "https://api.dexter.cash/api/x402gle/capability?q=token%20price&limit=3",
+      { signal: AbortSignal.timeout(20_000) },
+    );
     expect(res.ok).toBe(true);
     const data = await res.json() as any;
     expect(data.ok).toBe(true);
-    expect(data.resources.length).toBeGreaterThan(0);
-  }, 15_000);
+    // Either strong or related results should exist for a common query like "token price"
+    const total = (data.strongResults?.length ?? 0) + (data.relatedResults?.length ?? 0);
+    expect(total).toBeGreaterThan(0);
+    // Tiered response shape sanity check
+    expect(typeof data.strongCount).toBe("number");
+    expect(typeof data.relatedCount).toBe("number");
+    expect(data.rerank).toBeDefined();
+  }, 25_000);
 
   it("gets 402 from v2-test endpoint", async () => {
     const res = await fetch("https://api.dexter.cash/api/v2-test", {

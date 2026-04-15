@@ -101,25 +101,28 @@ args = ["-y", "@dexterai/opendexter@latest"]
 
 ### `x402_search`
 
-Search the [Dexter Marketplace](https://dexter.cash/opendexter) for paid API resources. Returns pricing, quality scores, verification status, seller reputation, and call volume.
+Semantic capability search over the [Dexter x402 marketplace](https://dexter.cash/opendexter). Pass a natural-language query and get back two tiers: **strong matches** (high-confidence capability hits) and **related matches** (adjacent services that cleared the similarity floor). Handles synonym expansion, filters by similarity threshold, and applies a cross-encoder LLM rerank to the top strong results.
 
 ```
-"Find image generation APIs under $0.10"
-→ x402_search(query: "image generation", maxPriceUsdc: 0.10)
+"Find an image generation API"
+→ x402_search(query: "generate an image")
 
-"What DeFi tools are available on Solana?"
-→ x402_search(category: "DeFi", network: "solana")
+"Get the current ETH price"
+→ x402_search(query: "ETH spot price feed")
+
+"Check wallet balances on Base"
+→ x402_search(query: "check wallet balance on Base")
 ```
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `query` | string | Search term |
-| `category` | string | `"AI"`, `"DeFi"`, `"Data"`, `"Tools"`, `"Games"`, `"Creative"` |
-| `network` | string | `"solana"`, `"base"`, `"polygon"` |
-| `maxPriceUsdc` | number | Maximum price per call |
-| `verifiedOnly` | boolean | Only quality-checked endpoints |
-| `sort` | string | `"marketplace"` (default) `"relevance"` `"quality_score"` `"settlements"` `"volume"` `"recent"` |
-| `limit` | number | 1–50, default 20 |
+| `query` | string | Natural-language description of the capability you want. Don't pre-filter by chain or category — the search layer handles expansion and ranking. |
+| `limit` | number | Max results across strong + related tiers combined (1–50, default 20) |
+| `unverified` | boolean | Include unverified resources (default false) |
+| `testnets` | boolean | Include testnet-only resources (default false) |
+| `rerank` | boolean | Cross-encoder LLM rerank of top strong results (default true). Set false for deterministic order or lowest-latency path. |
+
+**Response shape.** Each result has a `tier` (`"strong"` or `"related"`), a raw `similarity` score (0–1), and a `why` string that explains the ranking factors. Strong matches come with LLM-reordering when `rerank` is on. If nothing clears the similarity floor, `noMatchReason` tells you whether the corpus has zero candidates or just no strong hits.
 
 ---
 
