@@ -1,6 +1,6 @@
 {
   "name": "@dexterai/x402-discovery",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Descriptive alias for OpenDexter. Search, inspect, and pay for x402 APIs from a local MCP server.",
   "type": "module",
   "bin": {
@@ -14,7 +14,7 @@
     "test": "node bin/index.js --help"
   },
   "dependencies": {
-    "@dexterai/opendexter": "^1.1.1"
+    "@dexterai/opendexter": "^1.3.0"
   },
   "keywords": [
     "x402",
