@@ -1,6 +1,6 @@
 {
   "name": "@dexterai/opendexter",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "OpenDexter - x402 search and discovery layer for AI agents. Search the OpenDexter catalog, check pricing, and pay with automatic USDC settlement.",
   "type": "module",
   "main": "dist/index.js",
