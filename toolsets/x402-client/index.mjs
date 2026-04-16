@@ -16,21 +16,18 @@ import { fetchWithX402Json } from '../../clients/x402Client.mjs';
 import { createWidgetMeta } from '../widgetMeta.mjs';
 import { resolveWalletForRequest } from '../wallet/index.mjs';
 import { X402_WIDGET_URIS } from '../../apps-sdk/widget-uris.mjs';
+import {
+  capabilitySearch,
+  buildSearchResponse,
+  buildSearchErrorResponse,
+  checkEndpointPricing,
+} from '@dexterai/x402-core';
 
 const DEXTER_API = (
   process.env.X402_API_URL ||
   'https://x402.dexter.cash'
 ).replace(/\/+$/, '');
 
-/**
- * Capability search endpoint — semantic vector search over the x402 corpus
- * with synonym expansion, similarity floor, strong/related tiering, and
- * cross-encoder LLM rerank. Replaces the legacy substring ranker at
- * `/api/facilitator/marketplace/resources` which was removed from dexter-api
- * on 2026-04-15. The new endpoint handles synonym expansion and ranking
- * server-side, so the local fuzzy-broad fallback + tokenize + levenshtein
- * scoring we used to need is gone.
- */
 const CAPABILITY_PATH = '/api/x402gle/capability';
 
 const SEARCH_META = createWidgetMeta({
@@ -98,130 +95,8 @@ function resolveAuthToken(extra) {
   return process.env.MCP_SUPABASE_BEARER?.trim() || null;
 }
 
-/**
- * Flatten a CapabilityResult (nested shape returned by /api/x402gle/capability)
- * into the flat shape this MCP toolset's tool outputs used to emit. Legacy
- * field names (name, url, priceUsdc, verified, totalCalls, seller, etc) are
- * preserved so any downstream widget pattern-matching them keeps working.
- * New fields (tier, similarity, why, score, gamingFlags) are grafted on for
- * LLMs and future widget rebuilds.
- *
- * `chains[]` comes through from pricing.chains — capability search now
- * exposes the full accepts array, so multi-chain resources report every
- * payment option they accept.
- */
-function formatResource(r) {
-  const priceUsdc = r.pricing?.usdc ?? null;
-  const priceLabel =
-    priceUsdc == null
-      ? 'price on request'
-      : priceUsdc === 0
-        ? 'free'
-        : priceUsdc < 0.01
-          ? `$${priceUsdc.toFixed(4)}`
-          : `$${priceUsdc.toFixed(2)}`;
-  const network = r.pricing?.network ?? null;
-
-  return {
-    resourceId: r.resourceId,
-    name: r.displayName || r.resourceUrl,
-    url: r.resourceUrl,
-    method: r.method || 'GET',
-    price: priceLabel,
-    priceUsdc,
-    priceAsset: r.pricing?.asset ?? null,
-    network,
-    chains: Array.isArray(r.pricing?.chains) && r.pricing.chains.length > 0
-      ? r.pricing.chains
-      : [
-          {
-            network,
-            asset: r.pricing?.asset ?? null,
-            priceAtomic: null,
-            priceUsdc,
-            priceLabel,
-          },
-        ],
-    description: r.description || '',
-    category: r.category || 'uncategorized',
-    qualityScore: r.verification?.qualityScore ?? null,
-    verified: r.verification?.status === 'pass',
-    verificationStatus: r.verification?.status ?? null,
-    verificationNotes: null,
-    totalCalls: r.usage?.totalSettlements ?? 0,
-    totalVolume:
-      r.usage?.totalVolumeUsdc != null
-        ? `$${Number(r.usage.totalVolumeUsdc).toLocaleString()}`
-        : null,
-    totalVolumeUsdc: r.usage?.totalVolumeUsdc ?? null,
-    iconUrl: r.icon ?? null,
-    // Capability search doesn't resolve seller profile metadata; host is
-    // the best label we can show.
-    seller: r.host ?? null,
-    sellerReputation: null,
-    lastActive: r.usage?.lastSettlementAt ?? null,
-    authRequired: false,
-    authType: null,
-    authHint: null,
-    // Capability search signals (new in the cutover)
-    gamingFlags: r.gaming?.flags ?? [],
-    gamingSuspicious: r.gaming?.suspicious ?? false,
-    tier: r.tier,
-    similarity: Math.round((r.similarity ?? 0) * 1000) / 1000,
-    why: r.why ?? '',
-    score: r.score ?? 0,
-    // Enrichment data (scraped from origin during verification)
-    ogImageUrl: r.ogImage ?? null,
-    docsUrl: r.docsUrl ?? null,
-    openapiSpecUrl: r.openapiSpecUrl ?? null,
-    latencyP50Ms: r.latency?.p50Ms ?? null,
-    latencyP95Ms: r.latency?.p95Ms ?? null,
-    uptimePct: r.uptime?.pct ?? null,
-  };
-}
-
-/**
- * Call dexter-api's capability search endpoint and return strongResults +
- * relatedResults already flattened via formatResource. Throws on any non-2xx
- * or `ok: false` — the tool layer catches and surfaces the error.
- */
-async function fetchCapabilitySearch({ query, limit, unverified, testnets, rerank }) {
-  const params = new URLSearchParams();
-  params.set('q', query);
-  params.set('limit', String(Math.min(Math.max(Number(limit) || 20, 1), 50)));
-  if (unverified) params.set('unverified', 'true');
-  if (testnets) params.set('testnets', 'true');
-  if (rerank === false) params.set('rerank', 'false');
-
-  const url = `${DEXTER_API}${CAPABILITY_PATH}?${params}`;
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(20_000),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => 'unknown');
-    throw new Error(`Capability search returned ${res.status}: ${body.slice(0, 400)}`);
-  }
-
-  const data = await res.json();
-  if (!data.ok) {
-    throw new Error(
-      `Capability search failed${data.stage ? ` at stage ${data.stage}` : ''}: ${data.error ?? 'unknown'}`,
-    );
-  }
-
-  return {
-    strongResults: (data.strongResults || []).map(formatResource),
-    relatedResults: (data.relatedResults || []).map(formatResource),
-    strongCount: data.strongCount ?? 0,
-    relatedCount: data.relatedCount ?? 0,
-    topSimilarity: data.topSimilarity ?? null,
-    noMatchReason: data.noMatchReason ?? null,
-    rerank: data.rerank ?? { enabled: false, applied: false },
-    intent: data.intent ?? { capabilityText: query },
-  };
-}
+// formatResource, fetchCapabilitySearch, and response builders now come
+// from @dexterai/x402-core — the canonical shared package. See import above.
 
 function parseResponseData(contentType, json, text) {
   if (json !== null && json !== undefined) return json;
@@ -271,12 +146,8 @@ function normalizePaymentReceipt(paymentReceipt, response) {
 // ─── x402_search ─────────────────────────────────────────────────────────────
 
 /**
- * Semantic capability search. The new pipeline handles synonym expansion,
- * similarity filtering, tiered ranking, and cross-encoder LLM rerank
- * server-side — no local fuzzy-broad fallback needed. The tool just
- * forwards the query, flattens the response, and returns two tiers plus
- * searchMeta.mode so callers can distinguish a direct hit from an
- * adjacency-only result or an empty index.
+ * Semantic capability search via @dexterai/x402-core.
+ * All HTTP logic, formatting, and response building comes from the shared package.
  */
 async function searchCapability({ query, limit, unverified, testnets, rerank }) {
   const rawQuery = typeof query === 'string' ? query.trim() : '';
@@ -289,133 +160,36 @@ async function searchCapability({ query, limit, unverified, testnets, rerank }) 
   });
 
   if (!rawQuery) {
-    const empty = {
-      resources: [],
-      strongResults: [],
-      relatedResults: [],
-      total: 0,
-      strongCount: 0,
-      relatedCount: 0,
-      topSimilarity: null,
-      noMatchReason: null,
-      rerank: { enabled: false, applied: false, reason: 'empty_query' },
-      intent: { capabilityText: '' },
-      searchMeta: {
-        mode: 'empty',
-        note: 'Query was empty — pass a natural-language capability description.',
-      },
-    };
+    const empty = buildSearchErrorResponse('Query was empty — pass a natural-language capability description.');
     logX402SearchDebug('result', { rawQuery, mode: 'empty', count: 0 });
     return empty;
   }
 
-  const searchResult = await fetchCapabilitySearch({
+  const endpoint = `${DEXTER_API}${CAPABILITY_PATH}`;
+  const searchResult = await capabilitySearch({
     query: rawQuery,
     limit,
     unverified,
     testnets,
     rerank,
+    endpoint,
   });
 
-  const mode =
-    searchResult.strongCount > 0
-      ? 'direct'
-      : searchResult.relatedCount > 0
-        ? 'related_only'
-        : 'empty';
-
-  const note =
-    mode === 'direct'
-      ? searchResult.rerank.applied
-        ? `${searchResult.strongCount} strong matches, LLM-reranked`
-        : `${searchResult.strongCount} strong matches`
-      : mode === 'related_only'
-        ? `No exact matches. Showing ${searchResult.relatedCount} closest related services.`
-        : 'No resources in the index match this query yet.';
-
-  const result = {
-    // Flat legacy-compatible view: strong + related concatenated.
-    resources: [...searchResult.strongResults, ...searchResult.relatedResults],
-    total: searchResult.strongCount + searchResult.relatedCount,
-    // Full tiered view for LLM reasoning.
-    strongResults: searchResult.strongResults,
-    relatedResults: searchResult.relatedResults,
-    strongCount: searchResult.strongCount,
-    relatedCount: searchResult.relatedCount,
-    topSimilarity: searchResult.topSimilarity,
-    noMatchReason: searchResult.noMatchReason,
-    rerank: searchResult.rerank,
-    intent: searchResult.intent,
-    searchMeta: { mode, note },
-  };
+  const response = buildSearchResponse(searchResult);
 
   logX402SearchDebug('result', {
     rawQuery,
-    mode,
-    strongCount: searchResult.strongCount,
-    relatedCount: searchResult.relatedCount,
-    topSimilarity: searchResult.topSimilarity,
-    rerankApplied: searchResult.rerank.applied,
+    mode: response.searchMeta.mode,
+    strongCount: response.strongCount,
+    relatedCount: response.relatedCount,
+    topSimilarity: response.topSimilarity,
+    rerankApplied: response.rerank.applied,
   });
 
-  return result;
+  return response;
 }
 
-async function checkEndpointPricing({ url, method = 'GET' }) {
-  const probe = await fetch(url, {
-    method,
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-    body: method !== 'GET' ? '{}' : undefined,
-    signal: AbortSignal.timeout(15000),
-  });
-
-  if (probe.status !== 402) {
-    if (probe.status === 401 || probe.status === 403) {
-      const bodyText = await probe.text().catch(() => '');
-      return {
-        error: true,
-        statusCode: probe.status,
-        authRequired: true,
-        message: bodyText || 'Provider authentication required before x402 payment flow.',
-      };
-    }
-    if (probe.status >= 500) return { error: true, statusCode: probe.status, message: 'Server error' };
-    if (probe.status >= 400) return { error: true, statusCode: probe.status, message: `Client error: ${probe.status}` };
-    return { requiresPayment: false, statusCode: probe.status, free: true };
-  }
-
-  let body = null;
-  try {
-    body = await probe.json();
-  } catch {}
-
-  const accepts = body?.accepts;
-  if (!Array.isArray(accepts) || !accepts.length) {
-    return { requiresPayment: true, statusCode: 402, error: true, message: 'No payment options found' };
-  }
-
-  const paymentOptions = accepts.map((a) => {
-    const amount = Number(a.amount || a.maxAmountRequired || 0);
-    const decimals = Number(a.extra?.decimals ?? 6);
-    const price = amount / Math.pow(10, decimals);
-    return {
-      price,
-      priceFormatted: `$${price.toFixed(decimals > 2 ? 4 : 2)}`,
-      network: a.network,
-      scheme: a.scheme,
-      asset: a.asset,
-      payTo: a.payTo,
-    };
-  });
-
-  return {
-    requiresPayment: true,
-    statusCode: 402,
-    x402Version: body?.x402Version ?? 2,
-    paymentOptions,
-    resource: body?.resource || null,
-  };
-}
+// checkEndpointPricing now comes from @dexterai/x402-core — see import above.
 
 async function fetchWithSettlement({ url, method = 'GET', params, headers: customHeaders }, extra, normalizeForWidget = false) {
   const startTime = Date.now();
@@ -609,28 +383,7 @@ export function registerX402ClientToolset(server) {
     },
   }, async (args) => {
     try {
-      const result = await searchCapability(args);
-      const data = {
-        success: true,
-        count: result.resources.length,
-        resources: result.resources,
-        strongResults: result.strongResults,
-        relatedResults: result.relatedResults,
-        strongCount: result.strongCount,
-        relatedCount: result.relatedCount,
-        topSimilarity: result.topSimilarity,
-        noMatchReason: result.noMatchReason,
-        rerank: result.rerank,
-        intent: result.intent,
-        searchMeta: result.searchMeta || { mode: 'direct' },
-        source: 'Dexter x402 Marketplace (https://dexter.cash)',
-        tip:
-          result.searchMeta?.mode === 'direct'
-            ? 'Use x402_fetch or x402_pay to call any of these endpoints. Strong matches are high-confidence; related matches are adjacent capabilities.'
-            : result.searchMeta?.mode === 'related_only'
-              ? 'No exact match. These are the closest related services — confirm with the user before calling.'
-              : 'Nothing in the index matches this query yet. Try a broader phrasing.',
-      };
+      const data = await searchCapability(args);
       return {
         structuredContent: data,
         content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
@@ -641,16 +394,7 @@ export function registerX402ClientToolset(server) {
         rawQuery: typeof args?.query === 'string' ? args.query : '',
         message: err?.message || String(err),
       });
-      const errorData = {
-        success: false,
-        count: 0,
-        resources: [],
-        strongResults: [],
-        relatedResults: [],
-        strongCount: 0,
-        relatedCount: 0,
-        error: err?.message || String(err),
-      };
+      const errorData = buildSearchErrorResponse(err?.message || String(err));
       return {
         structuredContent: errorData,
         content: [{ type: 'text', text: JSON.stringify(errorData, null, 2) }],
