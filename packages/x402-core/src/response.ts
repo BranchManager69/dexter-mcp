@@ -1,0 +1,103 @@
+/**
+ * @dexterai/x402-core — MCP search response builder
+ *
+ * Builds the standardized SearchResponse shape that MCP tool handlers return.
+ * This replaces the duplicated response-building logic in each consumer's
+ * x402_search tool handler.
+ */
+
+import type {
+  CapabilitySearchResult,
+  FormattedResource,
+  SearchResponse,
+  SearchMeta,
+} from './types.js';
+
+const SOURCE = 'Dexter x402 Marketplace (https://dexter.cash)';
+
+function buildSearchMeta(result: CapabilitySearchResult): SearchMeta {
+  if (result.strongCount > 0) {
+    return {
+      mode: 'direct',
+      note: `${result.strongCount} strong matches${result.rerank.applied ? ' (LLM-reranked)' : ''}`,
+    };
+  }
+  if (result.relatedCount > 0) {
+    return {
+      mode: 'related_only',
+      note: 'No exact matches — showing closest related services',
+    };
+  }
+  return {
+    mode: 'empty',
+    note: 'No results in the index match this query',
+  };
+}
+
+function buildTip(result: CapabilitySearchResult): string {
+  if (result.strongCount > 0) {
+    return 'Use x402_fetch to call any of these endpoints. Strong matches are high-confidence; related matches are adjacent capabilities.';
+  }
+  if (result.relatedCount > 0) {
+    return 'No exact match. These are the closest related services — confirm with the user before calling.';
+  }
+  return 'Nothing in the index matches this query yet. Try a broader phrasing.';
+}
+
+/**
+ * Build the standardized MCP search response from a CapabilitySearchResult.
+ *
+ * This is the shape that gets returned from x402_search tool handlers across
+ * all MCP surfaces (Open MCP, Auth MCP, OpenDexter npm).
+ */
+export function buildSearchResponse(result: CapabilitySearchResult): SearchResponse {
+  const allResults: FormattedResource[] = [
+    ...result.strongResults,
+    ...result.relatedResults,
+  ];
+
+  return {
+    success: true,
+    count: allResults.length,
+    resources: allResults,
+    strongResults: result.strongResults,
+    relatedResults: result.relatedResults,
+    strongCount: result.strongCount,
+    relatedCount: result.relatedCount,
+    topSimilarity: result.topSimilarity,
+    noMatchReason: result.noMatchReason,
+    rerank: {
+      enabled: result.rerank.enabled,
+      applied: result.rerank.applied,
+    },
+    intent: {
+      capabilityText: result.intent.capabilityText,
+      expandedCapabilityText: result.intent.expandedCapabilityText,
+    },
+    searchMeta: buildSearchMeta(result),
+    tip: buildTip(result),
+    source: SOURCE,
+  };
+}
+
+/**
+ * Build the error response shape for a failed search.
+ */
+export function buildSearchErrorResponse(error: string): SearchResponse {
+  return {
+    success: false,
+    count: 0,
+    resources: [],
+    strongResults: [],
+    relatedResults: [],
+    strongCount: 0,
+    relatedCount: 0,
+    topSimilarity: null,
+    noMatchReason: null,
+    rerank: { enabled: false, applied: false },
+    intent: { capabilityText: '' },
+    searchMeta: { mode: 'empty', note: error },
+    tip: '',
+    source: SOURCE,
+  };
+}

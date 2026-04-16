@@ -1,0 +1,46 @@
+{
+  "name": "@dexterai/x402-core",
+  "version": "1.0.0",
+  "description": "Canonical types, formatters, and search client for the Dexter x402 ecosystem. Shared by all MCP servers, the SDK, and the ChatGPT widget.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "x402",
+    "dexter",
+    "x402-core",
+    "mcp",
+    "opendexter",
+    "types"
+  ],
+  "author": "Dexter",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Dexter-DAO/dexter-mcp",
+    "directory": "packages/x402-core"
+  },
+  "homepage": "https://dexter.cash"
+}
