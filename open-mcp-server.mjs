@@ -663,7 +663,7 @@ const SKILLS_ROOT = (() => {
 const SERVER_INSTRUCTIONS = `You are connected to the Dexter x402 Gateway — a public MCP server for searching and paying for x402 APIs.
 
 Tools (use in this order):
-1. x402_search — Semantic search over 5,000+ paid APIs. Pass a natural-language query (e.g. "ETH price feed", "generate an image"). Returns strongResults (high-confidence) and relatedResults (adjacent). Do NOT pre-filter by chain or category — the ranker handles expansion internally.
+1. x402_search — Semantic search over thousands of paid APIs. Pass a natural-language query (e.g. "ETH price feed", "generate an image"). Returns strongResults (high-confidence) and relatedResults (adjacent). Do NOT pre-filter by chain or category — the ranker handles expansion internally.
 2. x402_check — Probe an endpoint for pricing per chain without paying. Use before first paid call.
 3. x402_fetch — Call any x402 endpoint with automatic USDC payment. Returns the API response + settlement receipt.
 4. x402_pay — Alias for x402_fetch.
@@ -676,12 +676,12 @@ Workflows:
 - "Check my balance" → x402_wallet
 
 Key facts:
-- Supported chains: Solana, Base, Polygon, Arbitrum, Optimism, Avalanche, SKALE Base
+- Supported chains for session funding: Solana, Base, Polygon, Arbitrum, Optimism, Avalanche (the facilitator additionally supports BSC and SKALE Base for paid calls)
 - Most endpoints cost $0.01–$0.10/call
 - Quality scores: 90-100 excellent, 75-89 good, 50-74 mediocre, <50 untested
 - If wallet has no USDC, check x402_wallet first and tell the user to fund
 - Search is semantic — typos and synonyms handled. Describe what you want in plain English.
-- After a successful paid call, link the transaction hash to the appropriate explorer (Solscan for Solana, Basescan for Base)
+- After a successful paid call, link the transaction hash to the appropriate explorer (Solscan for Solana, Basescan for Base, Polygonscan, Arbiscan, Optimistic Etherscan, Snowtrace for Avalanche)
 
 Read docs://opendexter/workflow, docs://opendexter/protocol, or docs://opendexter/debugging for deeper reference.`;
 
