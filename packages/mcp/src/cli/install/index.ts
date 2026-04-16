@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, cpSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { intro, outro, log, select, spinner } from "@clack/prompts";
 import chalk from "chalk";
 import { loadOrCreateWallet } from "../../wallet/index.js";
@@ -51,6 +52,69 @@ function writeClientConfig(clientId: ClientId, dev: boolean): { ok: boolean; mes
   return {
     ok: true,
     message: `Installed into ${CLIENTS[clientId].name} (${config.configPath})`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Package root resolution (for copying plugin assets)
+// ---------------------------------------------------------------------------
+
+function getPackageRoot(): string {
+  const __filename = fileURLToPath(import.meta.url);
+  let dir = dirname(__filename);
+  for (let i = 0; i < 6; i++) {
+    if (existsSync(join(dir, "package.json")) && existsSync(join(dir, "skills"))) {
+      return dir;
+    }
+    dir = dirname(dir);
+  }
+  throw new Error("Could not locate opendexter package root");
+}
+
+// ---------------------------------------------------------------------------
+// Cursor full plugin installation (MCP + skills + rules + agents + commands)
+// ---------------------------------------------------------------------------
+
+function installCursorPlugin(dev: boolean): { ok: boolean; message: string } {
+  const pkgRoot = getPackageRoot();
+  const target = join(homedir(), ".cursor", "plugins", "opendexter");
+
+  mkdirSync(target, { recursive: true });
+
+  // Copy plugin content directories
+  const dirs = ["skills", "rules", "agents", "commands", "assets"];
+  for (const d of dirs) {
+    const src = join(pkgRoot, d);
+    if (existsSync(src)) {
+      const dest = join(target, d);
+      cpSync(src, dest, { recursive: true, force: true });
+    }
+  }
+
+  // Copy .cursor-plugin/plugin.json
+  const cursorPluginSrc = join(pkgRoot, ".cursor-plugin", "plugin.json");
+  if (existsSync(cursorPluginSrc)) {
+    mkdirSync(join(target, ".cursor-plugin"), { recursive: true });
+    copyFileSync(cursorPluginSrc, join(target, ".cursor-plugin", "plugin.json"));
+  }
+
+  // Write mcp.json inside the plugin directory
+  const mcpEntry = dev
+    ? { command: "node", args: [process.cwd() + "/dist/index.js", "--dev"] }
+    : { command: "npx", args: ["-y", "@dexterai/opendexter@latest"] };
+
+  writeFileSync(
+    join(target, "mcp.json"),
+    JSON.stringify({ mcpServers: { "dexter-x402": mcpEntry } }, null, 2) + "\n",
+  );
+
+  const skillCount = existsSync(join(target, "skills"))
+    ? readdirSync(join(target, "skills"), { withFileTypes: true }).filter((d) => d.isDirectory()).length
+    : 0;
+
+  return {
+    ok: true,
+    message: `Full plugin installed into Cursor (${skillCount} skills, rules, agent, commands) at ${target}`,
   };
 }
 
@@ -207,6 +271,23 @@ export async function runInstall(opts: InstallOpts): Promise<void> {
       } else {
         ps.stop("Automatic plugin install unavailable");
         failures.push(pluginResult.message);
+      }
+    } else if (clientId === "cursor") {
+      // Cursor gets full plugin install (skills, rules, agents, commands, MCP)
+      // into ~/.cursor/plugins/opendexter/ — plus MCP config in ~/.cursor/mcp.json
+      const s = spinner();
+      s.start("Installing OpenDexter plugin into Cursor");
+      const result = writeClientConfig(clientId, opts.dev);
+      if (result.ok) {
+        successes.push(result.message);
+      }
+      try {
+        const pluginResult = installCursorPlugin(opts.dev);
+        s.stop("Cursor plugin installed (MCP + skills)");
+        successes.push(pluginResult.message);
+      } catch (err: any) {
+        s.stop("Cursor MCP installed (skills copy failed)");
+        failures.push(`Skills install failed: ${err.message}`);
       }
     } else {
       // All other clients: write MCP server entry to their config file

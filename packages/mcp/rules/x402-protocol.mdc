@@ -1,0 +1,26 @@
+---
+description: x402 v2 protocol conventions — networks, headers, amounts, and infrastructure
+alwaysApply: true
+---
+
+x402-protocol:
+
+- x402 is an open protocol for machine-to-machine payments over HTTP. When an API returns `402 Payment Required`, it includes payment instructions. The client pays (USDC), and the API delivers the response.
+- x402 v2 uses CAIP-2 network identifiers, not chain names:
+  - Solana mainnet: `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp`
+  - Base mainnet: `eip155:8453`
+  - Polygon: `eip155:137`
+  - Arbitrum: `eip155:42161`
+  - Optimism: `eip155:10`
+  - Avalanche: `eip155:43114`
+  - SKALE Europa: `eip155:2046399126`
+  - Sui mainnet: `sui:1`
+- Three HTTP headers carry payment data, all base64-encoded JSON:
+  - `PAYMENT-REQUIRED` (server → client): payment options in `accepts` array
+  - `PAYMENT-SIGNATURE` (client → server): signed payment authorization
+  - `PAYMENT-RESPONSE` (server → client): settlement proof with transaction hash
+- Amounts are always in atomic units. 1 USDC = `1000000` (6 decimals).
+- The Dexter facilitator at `https://x402.dexter.cash` handles verification and on-chain settlement. Endpoints: `/verify`, `/settle`, `/supported`, `/healthz`.
+- The SDK package is `@dexterai/x402` with subpath exports: `/client`, `/server`, `/react`, `/adapters`, `/utils`.
+- The MCP gateway is `@dexterai/opendexter` — install with `npx @dexterai/opendexter install`.
+- Five tools cover everything: `x402_search` (find APIs), `x402_check` (see pricing), `x402_fetch` (call and pay), `x402_pay` (manual flow), `x402_wallet` (check balance). All other capabilities are marketplace resources discovered through search.

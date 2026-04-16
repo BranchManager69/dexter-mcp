@@ -1,6 +1,6 @@
 ---
 name: x402-react
-description: "Add x402 payment UI to React applications using @dexterai/x402/react. Trigger when the user wants React payment hooks, x402 payment components, wallet-connected payment flows, or useX402Payment/useAccessPass integration."
+description: "Add x402 payment UI to React applications using @dexterai/x402/react. Trigger when the user wants React payment hooks, x402 payment components, wallet-connected payment flows, useX402Payment/useAccessPass integration, or sponsored access recommendations in React."
 ---
 
 # @dexterai/x402 React Hooks
@@ -25,8 +25,12 @@ function PayButton() {
   const {
     fetch: x402Fetch,
     isLoading,
+    status,
+    error,
     balances,
     connectedChains,
+    transactionUrl,
+    sponsoredRecommendations,
   } = useX402Payment({
     wallets: { solana: solanaWallet },
   });
@@ -47,6 +51,11 @@ function PayButton() {
       >
         {isLoading ? 'Paying...' : 'Get Data ($0.01)'}
       </button>
+      {status === 'error' && <p>Error: {error?.message}</p>}
+      {transactionUrl && <a href={transactionUrl}>View tx</a>}
+      {sponsoredRecommendations?.map(r => (
+        <p key={r.resourceUrl}>{r.sponsor}: {r.description}</p>
+      ))}
     </div>
   );
 }
@@ -82,50 +91,96 @@ function MultiChainPay() {
 | `wallets` | { solana?, evm? } | Wallet instances per chain |
 | `preferredNetwork` | string | CAIP-2 network to prefer |
 | `rpcUrls` | Record<string, string> | Custom RPC URLs |
-| `maxAmountAtomic` | string | Safety limit |
 | `verbose` | boolean | Debug logging |
-| `accessPass` | AccessPassClientConfig | Prefer time-limited passes |
 
 ### UseX402PaymentReturn
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `fetch` | function | x402-enabled fetch |
+| `fetch` | function | x402-enabled fetch (same signature as global fetch) |
 | `isLoading` | boolean | Payment in progress |
+| `status` | PaymentStatus | `'idle'` / `'pending'` / `'success'` / `'error'` |
+| `error` | Error \| null | Error from last payment attempt |
+| `transactionId` | string \| null | Transaction hash on success |
+| `transactionNetwork` | string \| null | CAIP-2 network the payment was made on |
+| `transactionUrl` | string \| null | Explorer URL for the transaction |
 | `balances` | BalanceInfo[] | USDC balances per chain |
 | `connectedChains` | { solana, evm } | Which chains have wallets |
+| `isAnyWalletConnected` | boolean | True if at least one wallet connected |
+| `reset` | () => void | Clear errors and transaction info |
+| `refreshBalances` | () => Promise<void> | Manually refresh balances |
+| `accessPass` | object \| null | Access pass state (use `useAccessPass` for full control) |
+| `sponsoredRecommendations` | SponsoredRecommendation[] \| null | Sponsored recs from most recent payment |
 
 ## useAccessPass
 
-Manage time-limited access passes in React:
+Manage time-limited access passes with tier discovery and purchase:
 
 ```tsx
 import { useAccessPass } from '@dexterai/x402/react';
 
-function ProtectedContent() {
+function DataDashboard() {
   const {
-    hasPass,
-    passExpiresAt,
-    purchase,
+    tiers,
+    pass,
+    isPassValid,
+    purchasePass,
     isPurchasing,
-    fetchWithPass,
+    purchaseError,
+    fetch: apFetch,
   } = useAccessPass({
-    url: 'https://api.example.com',
-    wallets: { solana: wallet },
-    preferTier: '1h',
+    wallets: { solana: solanaWallet },
+    resourceUrl: 'https://api.example.com',
   });
 
-  if (!hasPass) {
-    return (
-      <button onClick={purchase} disabled={isPurchasing}>
-        {isPurchasing ? 'Purchasing...' : 'Buy 1h Access ($0.50)'}
+  return (
+    <div>
+      {!isPassValid && tiers && (
+        <div>
+          {tiers.map(t => (
+            <button key={t.id} onClick={() => purchasePass(t.id)} disabled={isPurchasing}>
+              {t.label} — ${t.price}
+            </button>
+          ))}
+        </div>
+      )}
+      {isPassValid && <p>Pass active! Expires: {pass?.expiresAt}</p>}
+      {purchaseError && <p>Error: {purchaseError.message}</p>}
+      <button onClick={() => apFetch('/api/data').then(r => r.json()).then(console.log)}>
+        Fetch Data
       </button>
-    );
-  }
-
-  return <div>Access until {new Date(passExpiresAt!).toLocaleTimeString()}</div>;
+    </div>
+  );
 }
 ```
+
+### UseAccessPassConfig
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `wallets` | { solana?, evm? } | Wallet instances per chain |
+| `preferredNetwork` | string | CAIP-2 network to prefer |
+| `rpcUrls` | Record<string, string> | Custom RPC URLs |
+| `resourceUrl` | string | Base URL of the x402 resource (required) |
+| `autoConnect` | boolean | Auto-fetch tier info on mount (default true) |
+| `verbose` | boolean | Debug logging |
+
+### UseAccessPassReturn
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tiers` | AccessPassTier[] \| null | Available tiers from the server (null until fetched) |
+| `customRatePerHour` | string \| null | Per-hour rate for custom durations (if server supports it) |
+| `isLoadingTiers` | boolean | Whether tier info is being loaded |
+| `pass` | object \| null | Current pass: `{ jwt, tier, expiresAt, remainingSeconds }` |
+| `isPassValid` | boolean | Whether the current pass is valid and not expired |
+| `fetchTiers` | () => Promise<void> | Manually fetch tier info from server |
+| `purchasePass` | (tier?, durationSeconds?) => Promise<void> | Purchase a pass for a tier or custom duration |
+| `isPurchasing` | boolean | Whether a purchase is in progress |
+| `purchaseError` | Error \| null | Error from last purchase attempt |
+| `fetch` | (path, init?) => Promise<Response> | Fetch with automatic pass inclusion |
+
+Pass JWTs are stored in `sessionStorage` (cleared on browser close). The server re-verifies the JWT signature on every request.
 
 ## Wallet Provider Setup
 
@@ -149,10 +204,29 @@ function App() {
 }
 ```
 
+## Sponsored Access in React
+
+Sponsored recommendations are automatically extracted after each payment:
+
+```tsx
+const { fetch, sponsoredRecommendations } = useX402Payment({ wallets });
+
+// After a successful payment, sponsoredRecommendations is populated
+// Impression beacons are fired automatically by the hook
+```
+
+For manual control, import the helpers directly:
+
+```tsx
+import { getSponsoredRecommendations, fireImpressionBeacon } from '@dexterai/x402/react';
+```
+
 ## Exports
 
 | Export | Description |
 |--------|-------------|
-| `useX402Payment` | Main payment hook with fetch, loading, balances |
-| `useAccessPass` | Time-limited access pass management |
+| `useX402Payment` | Main payment hook with fetch, loading, balances, tx info |
+| `useAccessPass` | Access pass lifecycle: tiers, purchase, validation, auto-fetch |
+| `getSponsoredRecommendations` | Extract sponsored recs from payment response |
+| `fireImpressionBeacon` | Confirm sponsored rec delivery to ad network |
 | `X402Error` | Error class with `.code` |

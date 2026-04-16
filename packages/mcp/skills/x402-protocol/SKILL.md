@@ -22,10 +22,10 @@ Client ──GET──▶ Resource Server
 
 Client picks payment method, signs authorization
 
-Client ──retry + PaymentPayload──▶ Resource Server ──verify──▶ Facilitator
-                                                    ◀── valid ──┘
-                                   Resource Server ──settle──▶ Facilitator
-                                                    ◀── tx hash ──┘
+Client ──retry + PaymentSignature──▶ Resource Server ──verify──▶ Facilitator
+                                                      ◀── valid ──┘
+                                     Resource Server ──settle──▶ Facilitator
+                                                      ◀── tx hash ──┘
        ◀── 200 + resource + SettlementResponse
 ```
 
@@ -46,20 +46,22 @@ Client ──retry + PaymentPayload──▶ Resource Server ──verify──�
       "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "payTo": "SellerAddress...",
       "maxTimeoutSeconds": 60,
-      "extra": { "feePayer": "FacilitatorAddress..." }
+      "extra": { "feePayer": "FacilitatorAddress...", "decimals": 6 }
     }
-  ]
+  ],
+  "extensions": {}
 }
 ```
 
-### PaymentPayload (Client → Server)
+### PaymentSignature (Client → Server)
 
 ```json
 {
   "x402Version": 2,
   "resource": { "url": "...", "description": "...", "mimeType": "..." },
   "accepted": { "scheme": "exact", "network": "...", "amount": "...", "...": "..." },
-  "payload": { "transaction": "base64-encoded-signed-tx" }
+  "payload": { "transaction": "base64-encoded-signed-tx" },
+  "extensions": {}
 }
 ```
 
@@ -72,6 +74,8 @@ Client ──retry + PaymentPayload──▶ Resource Server ──verify──�
 | `network` | string | CAIP-2 network |
 | `payer` | string | Payer wallet address |
 | `errorReason` | string | Error if failed |
+| `errorCode` | string | Machine-readable error code if failed |
+| `extensions` | object | Protocol extensions (e.g., sponsored-access recommendations) |
 
 ### VerifyResponse
 
@@ -81,6 +85,15 @@ Client ──retry + PaymentPayload──▶ Resource Server ──verify──�
 | `invalidReason` | string | Reason if invalid |
 | `payer` | string | Payer wallet address |
 
+## Payment Schemes
+
+| Scheme | Description | Chains |
+|--------|-------------|--------|
+| `exact` | Direct transfer via TransferChecked (SVM) or EIP-3009 transferWithAuthorization (EVM) | All chains |
+| `exact-approval` | Approval-based ERC-20 transfer (for chains without EIP-3009) | BSC |
+| `upto` | Batched/metered payments — pay up to an amount, settle actual usage | Base, Polygon, Arbitrum |
+| `bridge` | Cross-chain settlement — pay on one chain, resource on another | Solana ↔ Base |
+
 ## HTTP Transport
 
 Headers carry base64-encoded JSON:
@@ -88,7 +101,7 @@ Headers carry base64-encoded JSON:
 | Header | Direction | Content |
 |--------|-----------|---------|
 | `PAYMENT-REQUIRED` | Server → Client | PaymentRequired |
-| `PAYMENT-SIGNATURE` | Client → Server | PaymentPayload |
+| `PAYMENT-SIGNATURE` | Client → Server | PaymentSignature |
 | `PAYMENT-RESPONSE` | Server → Client | SettlementResponse |
 
 ## MCP Transport
@@ -124,6 +137,10 @@ Fee payer must NOT appear in any instruction's accounts.
 
 Uses EIP-3009 `transferWithAuthorization` for gasless ERC-20 transfers. Payer signs EIP-712 typed data; facilitator submits on-chain.
 
+## Exact-Approval Scheme — BSC
+
+Uses standard ERC-20 `approve` + facilitator-submitted `transferFrom` for chains that don't support EIP-3009 (e.g., BSC's USDC contract).
+
 ## CAIP-2 Network Identifiers
 
 | Network | CAIP-2 ID |
@@ -134,10 +151,12 @@ Uses EIP-3009 `transferWithAuthorization` for gasless ERC-20 transfers. Payer si
 | Arbitrum | `eip155:42161` |
 | Optimism | `eip155:10` |
 | Avalanche C-Chain | `eip155:43114` |
+| BSC (BNB Chain) | `eip155:56` |
 | SKALE Base | `eip155:1187947933` |
-| Sui mainnet | `sui:1` |
 | Base Sepolia (testnet) | `eip155:84532` |
 | Solana devnet | `solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1` |
+
+Note: Sui (`sui:1`) is listed in some specs but not currently supported by the Dexter facilitator.
 
 ## Error Codes
 
@@ -167,8 +186,9 @@ Uses EIP-3009 `transferWithAuthorization` for gasless ERC-20 transfers. Payer si
 | Payment header | `X-PAYMENT` | `PAYMENT-SIGNATURE` |
 | Amount field | `maxAmountRequired` | `amount` |
 | Response format | Simple JSON | `accepts` array with options |
-| Payment schemes | Exact only | Exact + Upto (batched) |
+| Payment schemes | Exact only | Exact, Exact-Approval, Upto, Bridge |
 | Transports | HTTP only | HTTP, MCP, A2A |
+| Extensions | None | `extensions` field for protocol plugins |
 
 v2 facilitators are backward-compatible with v1 clients.
 

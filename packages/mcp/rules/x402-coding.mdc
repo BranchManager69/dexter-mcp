@@ -1,0 +1,27 @@
+---
+description: "@dexterai/x402 SDK conventions and OpenDexter tool usage patterns"
+alwaysApply: true
+---
+
+x402-coding:
+
+- Import from subpaths, never from the root package:
+  - `import { wrapFetch } from '@dexterai/x402/client'`
+  - `import { x402Middleware } from '@dexterai/x402/server'`
+  - `import { useX402Payment } from '@dexterai/x402/react'`
+- For Node.js agents and scripts, prefer `wrapFetch()` — it's the simplest one-function pattern:
+  ```typescript
+  const x402Fetch = wrapFetch(fetch, { walletPrivateKey: process.env.SOLANA_PRIVATE_KEY });
+  const res = await x402Fetch('https://x402-api.example.com/data');
+  ```
+- For Express servers, prefer `x402Middleware()` — one-liner paywall:
+  ```typescript
+  app.get('/api/data', x402Middleware({ payTo: 'YourAddress', amount: '0.01' }), handler);
+  ```
+- Handle errors with `X402Error` and its `.code` property for programmatic branching:
+  - `insufficient_balance`, `payment_rejected`, `missing_fee_payer`, `no_matching_payment_option`
+- Solana payments require `feePayer` in the `extra` field (provided by the facilitator). EVM payments do not.
+- `wrapFetch` supports dual-chain: pass `walletPrivateKey` for Solana and `evmPrivateKey` for EVM simultaneously.
+- When using OpenDexter tools, follow this workflow: `x402_search` → `x402_check` → `x402_fetch` → `x402_wallet` when needed.
+- Most marketplace APIs cost $0.01–$0.10 per call. Creative/compute-heavy endpoints cost more.
+- The local wallet lives at `~/.dexterai-mcp/wallet.json`. Override with `DEXTER_PRIVATE_KEY` or `SOLANA_PRIVATE_KEY` env vars.

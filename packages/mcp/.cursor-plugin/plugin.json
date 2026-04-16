@@ -1,0 +1,40 @@
+{
+  "name": "x402",
+  "displayName": "x402 Payments",
+  "version": "1.0.0",
+  "description": "Search, pay, and build with x402 — the open protocol for machine-to-machine payments. Ships with OpenDexter MCP for instant access to 5,000+ paid APIs, plus deep SDK knowledge for building x402 clients, servers, and React apps via @dexterai/x402.",
+  "author": {
+    "name": "Dexter",
+    "email": "dev@dexter.cash"
+  },
+  "homepage": "https://dexter.cash/opendexter",
+  "repository": "https://github.com/Dexter-DAO/opendexter",
+  "license": "MIT",
+  "logo": "assets/logo.svg",
+  "keywords": [
+    "x402",
+    "payments",
+    "crypto",
+    "solana",
+    "base",
+    "evm",
+    "dexter",
+    "opendexter",
+    "web3",
+    "stripe",
+    "agent-payments",
+    "mcp",
+    "machine-payments"
+  ],
+  "category": "developer-tools",
+  "tags": [
+    "payments",
+    "web3",
+    "ai-agents",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "rules": "./rules/",
+  "agents": "./agents/",
+  "commands": "./commands/"
+}
