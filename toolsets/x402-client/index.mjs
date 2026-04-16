@@ -170,6 +170,13 @@ function formatResource(r) {
     similarity: Math.round((r.similarity ?? 0) * 1000) / 1000,
     why: r.why ?? '',
     score: r.score ?? 0,
+    // Enrichment data (scraped from origin during verification)
+    ogImageUrl: r.ogImage ?? null,
+    docsUrl: r.docsUrl ?? null,
+    openapiSpecUrl: r.openapiSpecUrl ?? null,
+    latencyP50Ms: r.latency?.p50Ms ?? null,
+    latencyP95Ms: r.latency?.p95Ms ?? null,
+    uptimePct: r.uptime?.pct ?? null,
   };
 }
 
