@@ -16,13 +16,14 @@
   · <a href="https://github.com/BranchManager69/pumpstreams">PumpStreams</a>
 </p>
 
-This repo contains two MCP servers and one npm package:
+This repo contains two hosted MCP servers and the shared `@dexterai/x402-core` package:
 
 | Product | Endpoint | Auth | Payment |
 |---------|----------|------|---------|
 | **Dexter MCP** (authenticated) | `mcp.dexter.cash/mcp` | Dexter OAuth | Managed wallet, automatic |
 | **OpenDexter MCP** (public) | `open.dexter.cash/mcp` | None | Session wallets, user-funded |
-| **@dexterai/x402-discovery** (npm) | Local stdio | None | Local wallet at `~/.dexterai-mcp/wallet.json` |
+
+The npm packages (`@dexterai/opendexter`, `@dexterai/x402-discovery`) live in [Dexter-DAO/opendexter-ide](https://github.com/Dexter-DAO/opendexter-ide).
 
 ---
 
@@ -45,7 +46,7 @@ OpenDexter remains the product brand. `@dexterai/x402-discovery` is the descript
 | Multi-chain | Yes (6 chains, auto-select) | Solana (local key) |
 | Best for | ChatGPT, Claude, web agents | Cursor, Codex, CLI agents |
 
-Source: `open-mcp-server.mjs` (server), `packages/mcp/` (npm package).
+Source: `open-mcp-server.mjs` (hosted server). npm package source is in [opendexter-ide/packages/mcp](https://github.com/Dexter-DAO/opendexter-ide/tree/main/packages/mcp).
 
 ---
 

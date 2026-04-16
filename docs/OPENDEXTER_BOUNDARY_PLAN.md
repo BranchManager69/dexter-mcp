@@ -1,5 +1,13 @@
 # OpenDexter Boundary Review and Migration Plan
 
+> **STATUS: EXECUTED (2026-04-16)**
+>
+> This plan was fully executed. `packages/mcp/` and `packages/x402-discovery/` moved to
+> [Dexter-DAO/opendexter-ide](https://github.com/Dexter-DAO/opendexter-ide). Published
+> as `@dexterai/opendexter@1.4.0`. Skills, rules, agents, and commands are now a single
+> source of truth in `opendexter-ide/packages/mcp/`. The hosted servers remain here and
+> import only from `@dexterai/x402-core` (npm). See `ARCHITECTURE.md` for current state.
+
 ## Why This Document Exists
 
 OpenDexter currently lives inside `dexter-mcp`, but it is only one product surface in a much broader repository. That has created a packaging and visibility problem:
