@@ -21,6 +21,9 @@ import './instrument.open-mcp.mjs';
 
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
@@ -641,11 +644,76 @@ async function x402Wallet(args, extra) {
 
 // ─── MCP Server Setup ───────────────────────────────────────────────────────
 
+// ─── Server instructions + skill resources ──────────────────────────────────
+
+// The opendexter-ide repo lives alongside dexter-mcp under ~/websites/.
+// If the repo is there, expose skill files as readable resources.
+// If not, degrade gracefully — instructions still work, resources return an error.
+const SKILLS_ROOT = (() => {
+  try {
+    const candidate = join(dirname(fileURLToPath(import.meta.url)),
+      '..', 'opendexter-ide', 'opendexter-plugin', 'skills');
+    readFileSync(join(candidate, 'opendexter', 'SKILL.md'), 'utf-8');
+    return candidate;
+  } catch {
+    return null;
+  }
+})();
+
+const SERVER_INSTRUCTIONS = `You are connected to the Dexter x402 Gateway — a public MCP server for searching and paying for x402 APIs.
+
+Tools (use in this order):
+1. x402_search — Semantic search over 5,000+ paid APIs. Pass a natural-language query (e.g. "ETH price feed", "generate an image"). Returns strongResults (high-confidence) and relatedResults (adjacent). Do NOT pre-filter by chain or category — the ranker handles expansion internally.
+2. x402_check — Probe an endpoint for pricing per chain without paying. Use before first paid call.
+3. x402_fetch — Call any x402 endpoint with automatic USDC payment. Returns the API response + settlement receipt.
+4. x402_pay — Alias for x402_fetch.
+5. x402_access — Access identity-gated endpoints with wallet proof (Sign-In-With-X) instead of payment.
+6. x402_wallet — Create or resume a multi-chain session. Shows deposit addresses and USDC balances across Solana, Base, Polygon, Arbitrum, Optimism, Avalanche.
+
+Workflows:
+- "Find an API for X" → x402_search → present results with prices/scores → x402_check to confirm → x402_fetch to call
+- "Call this URL" → x402_check first → x402_fetch
+- "Check my balance" → x402_wallet
+
+Key facts:
+- Supported chains: Solana, Base, Polygon, Arbitrum, Optimism, Avalanche, SKALE Base
+- Most endpoints cost $0.01–$0.10/call
+- Quality scores: 90-100 excellent, 75-89 good, 50-74 mediocre, <50 untested
+- If wallet has no USDC, check x402_wallet first and tell the user to fund
+- Search is semantic — typos and synonyms handled. Describe what you want in plain English.
+- After a successful paid call, link the transaction hash to the appropriate explorer (Solscan for Solana, Basescan for Base)
+
+Read docs://opendexter/workflow, docs://opendexter/protocol, or docs://opendexter/debugging for deeper reference.`;
+
 function createOpenMcpServer() {
   const server = new McpServer({
     name: 'Dexter x402 Gateway',
     version: '1.0.0',
+  }, {
+    instructions: SERVER_INSTRUCTIONS,
   });
+
+  // ─── Skill-file resources (read from opendexter-ide repo on disk) ──────────
+
+  const SKILL_RESOURCES = [
+    { name: 'workflow', uri: 'docs://opendexter/workflow', file: 'opendexter/SKILL.md', description: 'OpenDexter tool reference — search → check → fetch workflow, parameter tables, quality scores, tips' },
+    { name: 'protocol', uri: 'docs://opendexter/protocol', file: 'x402-protocol/SKILL.md', description: 'x402 v2 protocol specification — payment flow, core types, CAIP-2 networks, error codes, transport layers' },
+    { name: 'debugging', uri: 'docs://opendexter/debugging', file: 'x402-debugging/SKILL.md', description: 'x402 payment debugging — facilitator health, error code reference, common issues and fixes' },
+  ];
+
+  for (const res of SKILL_RESOURCES) {
+    server.resource(res.name, res.uri, { description: res.description, mimeType: 'text/markdown' }, async () => {
+      if (!SKILLS_ROOT) {
+        return { contents: [{ uri: res.uri, mimeType: 'text/markdown', text: `Resource unavailable — skills directory not found on this server.` }] };
+      }
+      try {
+        const content = readFileSync(join(SKILLS_ROOT, res.file), 'utf-8');
+        return { contents: [{ uri: res.uri, mimeType: 'text/markdown', text: content }] };
+      } catch (err) {
+        return { contents: [{ uri: res.uri, mimeType: 'text/markdown', text: `Failed to read ${res.file}: ${err?.message}` }] };
+      }
+    });
+  }
 
   server.registerTool('x402_search', {
     title: 'x402 Search',
