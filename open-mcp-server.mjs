@@ -38,6 +38,7 @@ import {
   buildSearchErrorResponse,
   checkEndpointPricing,
 } from '@dexterai/x402-core';
+import { SERVER_INSTRUCTIONS as SHARED_SERVER_INSTRUCTIONS } from '@dexterai/mcp-instructions';
 
 const PORT = parseInt(process.env.OPEN_MCP_PORT || '3931', 10);
 const DEXTER_API = (process.env.X402_API_URL || 'https://x402.dexter.cash').replace(/\/+$/, '');
@@ -660,30 +661,11 @@ const SKILLS_ROOT = (() => {
   }
 })();
 
-const SERVER_INSTRUCTIONS = `You are connected to the Dexter x402 Gateway — a public MCP server for searching and paying for x402 APIs.
-
-Tools (use in this order):
-1. x402_search — Semantic search over thousands of paid APIs. Pass a natural-language query (e.g. "ETH price feed", "generate an image"). Returns strongResults (high-confidence) and relatedResults (adjacent). Do NOT pre-filter by chain or category — the ranker handles expansion internally.
-2. x402_check — Probe an endpoint for pricing per chain without paying. Use before first paid call.
-3. x402_fetch — Call any x402 endpoint with automatic USDC payment. Returns the API response + settlement receipt.
-4. x402_pay — Alias for x402_fetch.
-5. x402_access — Access identity-gated endpoints with wallet proof (Sign-In-With-X) instead of payment.
-6. x402_wallet — Create or resume a multi-chain session. Shows deposit addresses and USDC balances across Solana, Base, Polygon, Arbitrum, Optimism, Avalanche.
-
-Workflows:
-- "Find an API for X" → x402_search → present results with prices/scores → x402_check to confirm → x402_fetch to call
-- "Call this URL" → x402_check first → x402_fetch
-- "Check my balance" → x402_wallet
-
-Key facts:
-- Supported chains for session funding: Solana, Base, Polygon, Arbitrum, Optimism, Avalanche (the facilitator additionally supports BSC and SKALE Base for paid calls)
-- Most endpoints cost $0.01–$0.10/call
-- Quality scores: 90-100 excellent, 75-89 good, 50-74 mediocre, <50 untested
-- If wallet has no USDC, check x402_wallet first and tell the user to fund
-- Search is semantic — typos and synonyms handled. Describe what you want in plain English.
-- After a successful paid call, link the transaction hash to the appropriate explorer (Solscan for Solana, Basescan for Base, Polygonscan, Arbiscan, Optimistic Etherscan, Snowtrace for Avalanche)
-
-Read docs://opendexter/workflow, docs://opendexter/protocol, or docs://opendexter/debugging for deeper reference.`;
+// Instructions now live in @dexterai/mcp-instructions — single source of truth
+// shared with the npm-installable server at opendexter-ide/packages/mcp/.
+// Update the text there, publish a patch to @dexterai/mcp-instructions, bump
+// the dependency here, and both servers ship the new guidance together.
+const SERVER_INSTRUCTIONS = SHARED_SERVER_INSTRUCTIONS;
 
 function createOpenMcpServer() {
   const server = new McpServer({
