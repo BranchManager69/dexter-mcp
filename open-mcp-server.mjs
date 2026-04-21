@@ -22,6 +22,8 @@ import './instrument.open-mcp.mjs';
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { readFile, stat } from 'node:fs/promises';
+import { basename } from 'node:path';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -267,7 +269,131 @@ async function x402Pay({ url, method, body, sessionToken, sessionKey }, extra) {
 
 // ─── Tool: x402_fetch (auto-pay) ─────────────────────────────────────────────
 
-async function x402Fetch({ url, method, body, sessionToken, sessionKey }, extra) {
+// Multipart cap matches the dexter-api side (see x402Pay.ts MULTIPART_MAX_BYTES).
+const MCP_MULTIPART_MAX_BYTES = 200 * 1024 * 1024;
+const MCP_MULTIPART_CONTROL_KEYS = new Set(['sessionToken', 'url', 'method', 'requestId']);
+
+/**
+ * Read files for a multipart request and validate sizes. Returns a list of
+ * { fieldName, filename, mimeType, data: Buffer } descriptors. Throws on
+ * missing/oversized files.
+ */
+async function readMultipartFiles(files) {
+  const loaded = [];
+  let total = 0;
+  for (const f of files) {
+    if (!f || typeof f !== 'object' || !f.fieldName || !f.path) {
+      throw new Error('multipart.files entries must include { fieldName, path }');
+    }
+    const info = await stat(f.path);
+    if (!info.isFile()) throw new Error(`multipart.files[${f.fieldName}]: not a file — ${f.path}`);
+    total += info.size;
+    if (info.size > MCP_MULTIPART_MAX_BYTES || total > MCP_MULTIPART_MAX_BYTES) {
+      throw new Error(`multipart payload exceeds ${MCP_MULTIPART_MAX_BYTES} bytes`);
+    }
+    const data = await readFile(f.path);
+    loaded.push({
+      fieldName: f.fieldName,
+      filename: f.filename || basename(f.path),
+      mimeType: f.contentType || 'application/octet-stream',
+      data,
+    });
+  }
+  return loaded;
+}
+
+async function x402Fetch({ url, method, body, multipart, sessionToken, sessionKey }, extra) {
+  // Multipart path: build a FormData, route through dexter-api's
+  // /v2/pay/open/x402/fetch/multipart handler which signs server-side and
+  // forwards the body to the upstream endpoint. Requires an OpenDexter session.
+  if (multipart && typeof multipart === 'object') {
+    const requestMethod = String(method || 'POST').toUpperCase();
+    if (requestMethod !== 'POST' && requestMethod !== 'PUT') {
+      return { status: 400, mode: 'session_error', error: 'multipart_requires_post_or_put' };
+    }
+    const paymentSession = await resolveSessionForPayment({ sessionToken, sessionKey }, extra);
+    if (paymentSession.error) {
+      return { ...paymentSession.error, sessionResolution: paymentSession.sessionResolution };
+    }
+    const resolvedSessionToken = paymentSession.session?.sessionToken || null;
+    if (!resolvedSessionToken) {
+      return { status: 402, mode: 'session_required', error: 'session_required_for_multipart', sessionResolution: paymentSession.sessionResolution };
+    }
+
+    let loadedFiles;
+    try {
+      loadedFiles = await readMultipartFiles(multipart.files || []);
+    } catch (err) {
+      return { status: 400, mode: 'session_error', error: err?.message || 'multipart_file_read_failed' };
+    }
+
+    const form = new FormData();
+    form.append('sessionToken', resolvedSessionToken);
+    form.append('url', url);
+    form.append('method', requestMethod);
+    form.append('requestId', randomUUID());
+    const fields = multipart.fields || {};
+    for (const [k, v] of Object.entries(fields)) {
+      if (MCP_MULTIPART_CONTROL_KEYS.has(k)) continue;
+      form.append(k, typeof v === 'string' ? v : JSON.stringify(v));
+    }
+    for (const f of loadedFiles) {
+      form.append(f.fieldName, new Blob([new Uint8Array(f.data)], { type: f.mimeType }), f.filename);
+    }
+
+    try {
+      const bases = [DEXTER_API, API_BASE_FALLBACK].filter(Boolean);
+      let openRes = null;
+      let openBody = null;
+      for (const base of bases) {
+        const attempt = await fetch(`${base}/v2/pay/open/x402/fetch/multipart`, {
+          method: 'POST',
+          body: form,
+          signal: AbortSignal.timeout(120_000),
+        });
+        const parsed = await attempt.json().catch(() => null);
+        const is404PathNotFound = attempt.status === 404 && !parsed?.error;
+        if (!is404PathNotFound) { openRes = attempt; openBody = parsed; break; }
+      }
+
+      if (!openRes || !openRes.ok || !openBody?.ok) {
+        console.error(`[open-mcp] x402_fetch multipart API failed: status=${openRes?.status} ok=${openBody?.ok} error=${openBody?.error} url=${url}`, JSON.stringify(openBody)?.slice(0, 500));
+        return {
+          status: openRes?.status || 500,
+          mode: 'session_error',
+          error: openBody?.error || 'multipart_fetch_failed',
+          details: openBody || null,
+          sessionResolution: paymentSession.sessionResolution,
+        };
+      }
+      if (openBody?.session?.sessionToken) {
+        rememberOpenSessionHint(openBody.session);
+        linkSessionToContext(extra, openBody.session.sessionToken);
+      } else if (resolvedSessionToken) {
+        linkSessionToContext(extra, resolvedSessionToken);
+      }
+      return {
+        status: openBody.status ?? 200,
+        mode: openBody.paid ? 'session_ready' : 'session_error',
+        data: openBody.data,
+        payment: openBody.payment?.settlement
+          ? { settled: true, details: openBody.payment.settlement }
+          : { settled: Boolean(openBody.paid) },
+        session: { ...(openBody.session ?? { sessionToken: resolvedSessionToken }), funding: undefined },
+        sessionFunding: normalizeSessionFunding(openBody.session?.funding || readOpenSessionHint(resolvedSessionToken)?.funding),
+        sessionResolution: paymentSession.sessionResolution,
+      };
+    } catch (err) {
+      console.error(`[open-mcp] x402_fetch multipart exception: url=${url} error=${err?.message || String(err)}`, err?.stack || '');
+      return {
+        status: 500,
+        mode: 'session_error',
+        error: `Multipart fetch failed: ${err?.message || String(err)}`,
+        sessionResolution: paymentSession.sessionResolution,
+      };
+    }
+  }
+
   const fetchOpts = { method: method || 'GET', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(15000) };
   if (body && method && method.toUpperCase() !== 'GET') {
     fetchOpts.body = typeof body === 'string' ? body : JSON.stringify(body);
@@ -754,6 +880,7 @@ function createOpenMcpServer() {
       url: z.string().url().describe('The x402 resource URL to call'),
       method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).default('GET').describe('HTTP method'),
       body: z.string().optional().describe('JSON request body for POST/PUT'),
+      multipart: z.object({}).optional().describe('Multipart mode (reserved — schema shape TBD).'),
       sessionToken: z.string().optional().describe('Anonymous OpenDexter session token for canonical x402 settlement when no local key is configured.'),
       sessionKey: z.string().optional().describe('Optional stable session key for reusable OpenDexter sessions (for example, caller-hash on phone).'),
     },
