@@ -157,8 +157,6 @@ Tools that need widgets, ordered by priority:
 | `jupiter_quote_pro` | `jupiter-quote` | `x402Dynamic` ✨ | ✅ Both |
 | `slippage_sentinel` | `slippage-sentinel` | `trading` | ✅ Both |
 | `twitter_topic_analysis` | `twitter-search` | `twitterSearch` | ✅ Both |
-| `sora_video_job` | `media-jobs` | `mediaJobs` | ✅ Both |
-| `meme_generator_job` | `media-jobs` | `mediaJobs` | ✅ Both |
 | `x402_scan_stats` | `x402-stats` | `x402Dynamic` ✨ | ✅ Both |
 | `shield_create` | `shield` | `x402Dynamic` ✨ | ✅ Both |
 | `tools_spaces_jobs` | `async-job` | `x402Dynamic` ✨ | ✅ Both |

@@ -16,8 +16,6 @@ const WIDGET_META_BY_TOOL = new Map([
   ['solscan_trending_tokens', createWidgetMeta({ templateUri: 'ui://dexter/solscan-trending', invoking: 'Loading…', invoked: 'Trending loaded' })],
   ['tools_solscan_trending_pro', createWidgetMeta({ templateUri: 'ui://dexter/solscan-trending', invoking: 'Loading…', invoked: 'Trending loaded' })],
   ['twitter_topic_analysis', createWidgetMeta({ templateUri: 'ui://dexter/twitter-search', invoking: 'Searching…', invoked: 'Results ready' })],
-  ['sora_video_job', createWidgetMeta({ templateUri: 'ui://dexter/media-jobs', invoking: 'Submitting…', invoked: 'Job submitted' })],
-  ['meme_generator_job', createWidgetMeta({ templateUri: 'ui://dexter/media-jobs', invoking: 'Submitting…', invoked: 'Job submitted' })],
   ['x402_scan_stats', createWidgetMeta({ templateUri: 'ui://dexter/x402-stats', invoking: 'Loading…', invoked: 'Stats loaded' })],
   ['stream_public_shout', createWidgetMeta({ templateUri: 'ui://dexter/stream-shout', invoking: 'Sending…', invoked: 'Shout sent' })],
   ['onchain_activity_overview', createWidgetMeta({ templateUri: 'ui://dexter/onchain-activity', invoking: 'Loading…', invoked: 'Activity loaded' })],
@@ -116,28 +114,6 @@ const PATH_OVERRIDES = new Map([
       category: 'research.market',
       access: 'member',
       tags: ['solscan', 'trending'],
-    },
-  ],
-  [
-    '/api/tools/sora/jobs',
-    {
-      name: 'sora_video_job',
-      title: 'Submit Sora Video Job',
-      description: 'Generate a video clip using OpenAI Sora. Use this only when the user explicitly requests video, animation, or motion. This tool cannot edit existing images - use meme_generator_job for any image work.',
-      category: 'creative.jobs',
-      access: 'member',
-      tags: ['sora', 'video', 'job'],
-    },
-  ],
-  [
-    '/api/tools/memes/jobs',
-    {
-      name: 'meme_generator_job',
-      title: 'Submit Meme Generator Job',
-      description: 'Generate or edit static images including memes, posters, and graphics. Can create from scratch or modify reference images. Use this for any image request - creating, editing, modifying, or remixing. Accepts reference images to edit or use as inspiration.',
-      category: 'creative.jobs',
-      access: 'member',
-      tags: ['memes', 'image', 'edit', 'job'],
     },
   ],
   [

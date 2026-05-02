@@ -18,10 +18,8 @@ These now ship solely via the `x402` bundle. Next step is to document prompt slu
 2. **jupiter_quote_preview**
 3. **twitter_topic_analysis** (supersedes the removed `twitter_search` bundle)
 4. **solscan_trending_tokens**
-5. **sora_video_job**
-6. **meme_generator_job**
-7. **gmgn_snapshot_access**
-8. **x402_scan_stats** (new catalog slug; document scope + prompt slug before wiring)
+5. **gmgn_snapshot_access**
+6. **x402_scan_stats** (new catalog slug; document scope + prompt slug before wiring)
 
 ## Bucket 3 – (none)
 

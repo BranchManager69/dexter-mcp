@@ -96,10 +96,6 @@ This document tracks the capabilities of the Dexter MCP server, distinguishing b
 - `games_king_usurp`: Pay to become the "King" of the hill.
 - `games_king_state`: Check current King status.
 
-### 📦 Creative Jobs
-- `sora_video_job`: Generate video with Sora.
-- `meme_generator_job`: Generate AI memes.
-
 ---
 
 ## Architecture Visualization
@@ -144,9 +140,9 @@ This document tracks the capabilities of the Dexter MCP server, distinguishing b
     │ • swap_preview  │                           │                            │ • king_usurp    │
     │ • swap_execute  │                           │                            │ • king_state    │
     │                 │                           │                            │                 │
-    │ 📦 CODEX        │                           │                            │ 📦 CREATIVE     │
-    │ • start         │                           │                            │ • sora_video_job│
-    │ • reply         │                           │                            │ • meme_gen_job  │
+    │ 📦 CODEX        │                           │                            │                 │
+    │ • start         │                           │                            │                 │
+    │ • reply         │                           │                            │                 │
     │ • exec          │                           │                            │                 │
     │                 │                           │                            └────────┬────────┘
     │ 📦 MARKETS      │                           │                                     │
@@ -181,4 +177,4 @@ This document tracks the capabilities of the Dexter MCP server, distinguishing b
 *   **How it runs:** Same as Bridge (calls API), but setup is automatic.
 *   **Pros:** **Zero Maintenance.** You can add a new tool to the API database, and *every* Dexter MCP server instantly gets it without updating software. This is the "App Store" model.
 *   **Cons:** Relies 100% on the API being online (hence the 504 errors earlier).
-*   **Example:** `sora_video_job` (You never wrote code for this; it just appeared because the API offered it).
+*   **Example:** `solscan_trending_tokens` (You never wrote code for this; it just appeared because the API offered it).

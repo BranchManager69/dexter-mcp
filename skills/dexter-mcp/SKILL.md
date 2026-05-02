@@ -53,10 +53,6 @@ When the user wants to trade, the typical flow is: resolve the token → preview
 - **search**: Web search powered by Tavily
 - **fetch**: Fetch and extract content from any URL
 
-### Creative / Media
-- **sora_video_job**: Generate short AI videos using OpenAI Sora
-- **meme_generator_job**: Generate or edit images, memes, and graphics
-
 ### Hyperliquid Perps
 - **hyperliquid_markets**: Browse available perpetual futures markets
 - **hyperliquid_perp_trade**: Execute a perp trade
