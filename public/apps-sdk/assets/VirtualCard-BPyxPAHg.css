@@ -1,0 +1,373 @@
+/*
+ * Dextercard widget styles.
+ *
+ * Faithful port of dexter-fe/app/components/wallet/VirtualCard.module.css
+ * with class names re-prefixed `.dxc-*` to avoid collisions with other
+ * widget bundles. Layout, typography, and interaction (glare, grid,
+ * engraved variant) are unchanged.
+ */
+
+.dxc-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.dxc-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 1.586 / 1;
+  border-radius: 18px;
+  padding: 24px 26px;
+  overflow: hidden;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  transition: opacity 380ms ease;
+}
+
+.dxc-glare {
+  position: absolute;
+  inset: -50%;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, calc(var(--card-glare-strength, 0.22) * 0.55)) 45%,
+    rgba(255, 255, 255, var(--card-glare-strength, 0.22)) 50%,
+    rgba(255, 255, 255, calc(var(--card-glare-strength, 0.22) * 0.55)) 55%,
+    transparent 70%
+  );
+  animation: dxcCardGlare 6s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dxc-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, var(--card-texture, rgba(255, 255, 255, 0.04)) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--card-texture, rgba(255, 255, 255, 0.04)) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dxc-card-engraved .dxc-grid {
+  background-image:
+    linear-gradient(
+      to right,
+      transparent 0%,
+      var(--card-texture) 0.5px,
+      transparent 1px,
+      transparent 3px
+    );
+  background-size: 3px 100%;
+  opacity: 0.6;
+}
+
+.dxc-top-row,
+.dxc-bottom-row,
+.dxc-chip,
+.dxc-pan {
+  position: relative;
+  z-index: 1;
+}
+
+.dxc-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dxc-brand-mark {
+  height: 22px;
+  width: 66px;
+  display: block;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.25));
+}
+
+.dxc-brand-mark-engraved {
+  display: block;
+  width: 66px;
+  height: 22px;
+  background:
+    linear-gradient(180deg,
+      var(--card-accent-light, #f0d9a3) 0%,
+      var(--card-accent, #d4b87e) 50%,
+      color-mix(in srgb, var(--card-accent, #d4b87e) 70%, black 0%) 100%);
+  -webkit-mask: var(--card-wordmark-mask) no-repeat center / contain;
+          mask: var(--card-wordmark-mask) no-repeat center / contain;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.55));
+}
+
+/* Stage pill — replaces the dexter-fe waitlist CTA. Stage-aware,
+ * non-interactive, sits on the card top-right. */
+.dxc-stage-pill {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: var(--card-text-primary);
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.dxc-stage-pill[data-stage="frozen"] {
+  background: rgba(120, 180, 255, 0.28);
+}
+
+.dxc-stage-pill[data-stage="active"] {
+  background: rgba(80, 200, 130, 0.28);
+}
+
+.dxc-stage-pill[data-stage="onboarding_required"],
+.dxc-stage-pill[data-stage="pending_kyc"],
+.dxc-stage-pill[data-stage="pending_finalize"],
+.dxc-stage-pill[data-stage="not_issued"] {
+  background: rgba(255, 200, 80, 0.32);
+}
+
+.dxc-chip {
+  width: 46px;
+  height: 34px;
+  margin-top: 22px;
+  margin-left: 18px;
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg,
+      var(--card-accent-light, #f6d680) 0%,
+      var(--card-accent, #c9a14a) 50%,
+      color-mix(in srgb, var(--card-accent, #c9a14a) 50%, black 0%) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 1px 2px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dxc-chip-inner {
+  width: 80%;
+  height: 70%;
+  border-radius: 3px;
+  background:
+    linear-gradient(to bottom,
+      transparent 0%, transparent 22%,
+      rgba(0,0,0,0.25) 22%, rgba(0,0,0,0.25) 26%,
+      transparent 26%, transparent 47%,
+      rgba(0,0,0,0.25) 47%, rgba(0,0,0,0.25) 51%,
+      transparent 51%, transparent 72%,
+      rgba(0,0,0,0.25) 72%, rgba(0,0,0,0.25) 76%,
+      transparent 76%);
+  border: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+.dxc-pan {
+  display: flex;
+  gap: 14px;
+  margin-top: auto;
+  padding-top: 18px;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--card-text-primary, #ffffff);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+
+.dxc-card-engraved .dxc-pan {
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.5),
+    0 -1px 0 color-mix(in srgb, var(--card-accent-light, #f0d9a3) 18%, transparent);
+}
+
+.dxc-pan-group,
+.dxc-pan-group-last {
+  display: inline-block;
+}
+
+.dxc-pan-group-last {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+.dxc-bottom-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 18px;
+  align-items: end;
+  margin-top: 14px;
+}
+
+.dxc-cardholder-block,
+.dxc-expiry-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.dxc-field-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--card-text-secondary, rgba(255, 255, 255, 0.7));
+}
+
+.dxc-cardholder-name {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--card-text-primary, #ffffff);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 26ch;
+}
+
+.dxc-card-engraved .dxc-cardholder-name {
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.45),
+    0 -0.5px 0 color-mix(in srgb, var(--card-accent-light, #f0d9a3) 14%, transparent);
+}
+
+.dxc-expiry-value {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--card-text-primary, #ffffff);
+}
+
+.dxc-visa-wordmark {
+  width: 60px;
+  height: 20px;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.25));
+}
+
+.dxc-network-mark {
+  width: 44px;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+@keyframes dxcCardGlare {
+  0%   { transform: translateX(-20%) translateY(-10%) rotate(0deg); }
+  100% { transform: translateX(20%) translateY(10%) rotate(0deg); }
+}
+
+@media (max-width: 540px) {
+  .dxc-card { padding: 18px 20px; border-radius: 14px; }
+  .dxc-pan { font-size: 16.5px; gap: 11px; }
+  .dxc-brand-mark { height: 18px; width: 54px; }
+  .dxc-chip { width: 38px; height: 28px; }
+  .dxc-cardholder-name { font-size: 12.5px; }
+  .dxc-network-mark { width: 38px; }
+}
+
+/* ---- Below-the-card meta block (stage-aware) ---- */
+
+.dxc-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 420px;
+  width: 100%;
+}
+
+.dxc-meta-copy {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary, #cbd5f5);
+}
+
+.dxc-next-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #f8fafc);
+  background: var(--surface-muted, rgba(15, 23, 42, 0.45));
+  padding: 8px 14px;
+  border-radius: 999px;
+}
+
+.dxc-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 18px;
+  font-size: 12px;
+}
+
+.dxc-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dxc-field-row > span:first-child {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary, #94a3b8);
+}
+
+.dxc-field-row > span:last-child {
+  color: var(--text-primary, #f8fafc);
+  word-break: break-word;
+}
+
+.dxc-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-tertiary, #94a3b8);
+  margin: 8px 0 4px;
+}
+
+.dxc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dxc-list li {
+  font-size: 12px;
+  color: var(--text-primary, #f8fafc);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.dxc-list code {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-tertiary, #94a3b8);
+}
+
+.dxc-empty {
+  font-size: 12px;
+  color: var(--text-tertiary, #94a3b8);
+  font-style: italic;
+}

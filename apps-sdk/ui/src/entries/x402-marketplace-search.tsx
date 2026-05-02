@@ -12,30 +12,42 @@ import { DebugPanel } from '../components/x402';
 import { MarketplaceSummaryHeader } from '../components/x402/search/MarketplaceSummaryHeader';
 import { SearchResultCard } from '../components/x402/search/SearchResultCard';
 import { SearchResourceDetail } from '../components/x402/search/SearchResourceDetail';
-import type { SearchResource } from '../components/x402/search/types';
+import type {
+  SearchResource,
+  SearchRerankInfo,
+  SearchIntent,
+  SearchMeta,
+  SearchNoMatchReason,
+} from '../components/x402/search/types';
 import { addWidgetBreadcrumb, captureWidgetException } from '../sdk/init-sentry';
 import { SET_GLOBALS_EVENT_TYPE, type OpenAIGlobals, type Theme, type DisplayMode, type SetGlobalsEvent } from '../sdk/types';
 
 type SearchPayload = {
-  success: boolean;
+  success?: boolean;
+  // Flat legacy field: strongResults + relatedResults concatenated, for
+  // anything still pattern-matching the old shape.
   count: number;
   resources: SearchResource[];
-  searchMeta?: {
-    mode?: string;
-    note?: string;
-  };
+  // Tiered shape from capability search. These are the canonical source of
+  // truth — the widget renders from them, not from `resources`.
+  strongResults?: SearchResource[];
+  relatedResults?: SearchResource[];
+  strongCount?: number;
+  relatedCount?: number;
+  topSimilarity?: number | null;
+  noMatchReason?: SearchNoMatchReason;
+  rerank?: SearchRerankInfo;
+  intent?: SearchIntent;
+  searchMeta?: SearchMeta;
   tip?: string;
   error?: string;
 };
 
 type SearchToolInput = {
   query?: string;
-  category?: string;
-  network?: string;
-  maxPriceUsdc?: number;
-  verifiedOnly?: boolean;
-  sort?: string;
   limit?: number;
+  unverified?: boolean;
+  testnets?: boolean;
 };
 
 type SearchWidgetSnapshot = {
@@ -147,9 +159,18 @@ function normalizeSearchResource(resource: SearchResource): SearchResource {
 
 function normalizeSearchPayload(payload: SearchPayload | null): SearchPayload | null {
   if (!payload) return payload;
+  const resources = Array.isArray(payload.resources) ? payload.resources.map(normalizeSearchResource) : [];
+  const strongResults = Array.isArray(payload.strongResults)
+    ? payload.strongResults.map(normalizeSearchResource)
+    : undefined;
+  const relatedResults = Array.isArray(payload.relatedResults)
+    ? payload.relatedResults.map(normalizeSearchResource)
+    : undefined;
   return {
     ...payload,
-    resources: Array.isArray(payload.resources) ? payload.resources.map(normalizeSearchResource) : [],
+    resources,
+    strongResults,
+    relatedResults,
   };
 }
 
@@ -183,7 +204,18 @@ function MarketplaceSearch() {
     });
   }, [activeOutput]);
 
-  const resources = activeOutput?.resources ?? [];
+  const strongResults = activeOutput?.strongResults ?? [];
+  const relatedResults = activeOutput?.relatedResults ?? [];
+  // Fallback: if the tool emitted the flat legacy shape only, use it as the
+  // strong section so nothing disappears.
+  const hasTieredShape = strongResults.length > 0 || relatedResults.length > 0;
+  const resources = hasTieredShape
+    ? [...strongResults, ...relatedResults]
+    : (activeOutput?.resources ?? []);
+  const strongCount = activeOutput?.strongCount ?? strongResults.length;
+  const relatedCount = activeOutput?.relatedCount ?? relatedResults.length;
+  const rerankApplied = activeOutput?.rerank?.applied === true;
+  const noMatchReason = activeOutput?.noMatchReason ?? null;
   const searchMode = activeOutput?.searchMeta?.mode ?? 'none';
   const searchNote = activeOutput?.searchMeta?.note ?? '';
   const effectiveSelectedUrl = useMemo(() => {
@@ -227,12 +259,9 @@ function MarketplaceSearch() {
       const previousDetailOpen = detailOpen;
       const response = await callTool('x402_search', {
         query: nextQuery,
-        category: typeof toolInput?.category === 'string' ? toolInput.category : undefined,
-        network: typeof toolInput?.network === 'string' ? toolInput.network : undefined,
-        maxPriceUsdc: typeof toolInput?.maxPriceUsdc === 'number' ? toolInput.maxPriceUsdc : undefined,
-        verifiedOnly: typeof toolInput?.verifiedOnly === 'boolean' ? toolInput.verifiedOnly : undefined,
-        sort: typeof toolInput?.sort === 'string' ? toolInput.sort : undefined,
         limit: typeof toolInput?.limit === 'number' ? toolInput.limit : undefined,
+        unverified: typeof toolInput?.unverified === 'boolean' ? toolInput.unverified : undefined,
+        testnets: typeof toolInput?.testnets === 'boolean' ? toolInput.testnets : undefined,
       }) as { structuredContent?: SearchPayload } | null;
       const next = normalizeSearchPayload(response?.structuredContent ?? null);
       if (!next) return;
@@ -298,12 +327,23 @@ function MarketplaceSearch() {
   }
 
   if (activeOutput.count === 0) {
+    const queryLabel = externalQuery || queryDraft;
+    const emptyTitle =
+      noMatchReason === 'below_strong_threshold'
+        ? `Only weak matches${queryLabel ? ` for "${queryLabel}"` : ''}`
+        : `No x402 APIs found${queryLabel ? ` for "${queryLabel}"` : ''}`;
+    const emptyDescription =
+      noMatchReason === 'below_similarity_threshold'
+        ? 'Nothing in our capability index matches that query yet. Try rephrasing, or widen the description of what you want to do.'
+        : noMatchReason === 'below_strong_threshold'
+          ? 'We found some adjacent services but nothing cleared the strong-match bar. Try a more specific verb for the capability you want.'
+          : 'Try a broader query or a different angle.';
     return (
       <div data-theme={theme} className="p-4" style={{ maxHeight: maxHeight ?? undefined }}>
         <EmptyMessage className="rounded-2xl border border-subtle bg-surface px-4 py-8">
           <EmptyMessage.Icon><Search /></EmptyMessage.Icon>
-          <EmptyMessage.Title>No x402 APIs found{externalQuery ? ` for "${externalQuery}"` : ''}</EmptyMessage.Title>
-          <EmptyMessage.Description>Try a broader query or a different provider/category angle.</EmptyMessage.Description>
+          <EmptyMessage.Title>{emptyTitle}</EmptyMessage.Title>
+          <EmptyMessage.Description>{emptyDescription}</EmptyMessage.Description>
         </EmptyMessage>
       </div>
     );
@@ -321,6 +361,9 @@ function MarketplaceSearch() {
           onQueryChange={setQueryDraft}
           onSearchSubmit={handleSearchSubmit}
           resultCount={activeOutput.count}
+          strongCount={hasTieredShape ? strongCount : undefined}
+          relatedCount={hasTieredShape ? relatedCount : undefined}
+          rerankApplied={rerankApplied}
           isSearching={isSearching}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
@@ -340,19 +383,76 @@ function MarketplaceSearch() {
       )}
 
       <div className={`px-4 py-4 ${isFullscreen ? 'grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]' : ''}`}>
-        <div className={`grid gap-3 ${isFullscreen ? 'xl:grid-cols-2' : 'grid-cols-1'}`}>
-          {resources.map((resource, index) => (
-            <SearchResultCard
-              key={`${resource.url}-${index}`}
-              resource={resource}
-              index={index}
-              featured={index === 0}
-              selected={effectiveSelectedUrl === resource.url}
-              onInspect={handleInspectResource}
-              onCheckPrice={runCheckPrice}
-              onFetch={runFetch}
-            />
-          ))}
+        <div className="flex flex-col gap-5">
+          {hasTieredShape ? (
+            <>
+              {strongResults.length > 0 && (
+                <section>
+                  <div className="mb-2 flex items-center gap-2 px-0.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#ff9a52]">
+                      Strong matches
+                    </span>
+                    <span className="text-[10px] text-tertiary">{strongResults.length}</span>
+                    <span className="flex-1 border-t border-[rgba(255,107,0,0.18)]" />
+                  </div>
+                  <div className={`grid gap-3 ${isFullscreen ? 'xl:grid-cols-2' : 'grid-cols-1'}`}>
+                    {strongResults.map((resource, index) => (
+                      <SearchResultCard
+                        key={`strong-${resource.url}-${index}`}
+                        resource={resource}
+                        index={index}
+                        featured={index === 0}
+                        selected={effectiveSelectedUrl === resource.url}
+                        onInspect={handleInspectResource}
+                        onCheckPrice={runCheckPrice}
+                        onFetch={runFetch}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+              {relatedResults.length > 0 && (
+                <section>
+                  <div className="mb-2 flex items-center gap-2 px-0.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-tertiary">
+                      Related services
+                    </span>
+                    <span className="text-[10px] text-tertiary">{relatedResults.length}</span>
+                    <span className="flex-1 border-t border-white/8" />
+                  </div>
+                  <div className={`grid gap-3 ${isFullscreen ? 'xl:grid-cols-2' : 'grid-cols-1'}`}>
+                    {relatedResults.map((resource, index) => (
+                      <SearchResultCard
+                        key={`related-${resource.url}-${index}`}
+                        resource={resource}
+                        index={index}
+                        featured={false}
+                        selected={effectiveSelectedUrl === resource.url}
+                        onInspect={handleInspectResource}
+                        onCheckPrice={runCheckPrice}
+                        onFetch={runFetch}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
+          ) : (
+            <div className={`grid gap-3 ${isFullscreen ? 'xl:grid-cols-2' : 'grid-cols-1'}`}>
+              {resources.map((resource, index) => (
+                <SearchResultCard
+                  key={`${resource.url}-${index}`}
+                  resource={resource}
+                  index={index}
+                  featured={index === 0}
+                  selected={effectiveSelectedUrl === resource.url}
+                  onInspect={handleInspectResource}
+                  onCheckPrice={runCheckPrice}
+                  onFetch={runFetch}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {isFullscreen && !isMobile && (
@@ -406,6 +506,13 @@ function MarketplaceSearch() {
           queryDraft,
           liveResultCount: liveResult?.count ?? 0,
           activeResultCount: activeOutput?.count ?? 0,
+          strongCount,
+          relatedCount,
+          topSimilarity: activeOutput?.topSimilarity ?? null,
+          noMatchReason: noMatchReason ?? '',
+          rerankApplied,
+          rerankReason: activeOutput?.rerank?.reason ?? '',
+          intentCapabilityText: activeOutput?.intent?.capabilityText ?? '',
           searchMode,
           searchNote,
           selectedUrl: effectiveSelectedUrl ?? '',
@@ -421,7 +528,7 @@ function MarketplaceSearch() {
 
 const root = document.getElementById('x402-marketplace-search-root');
 if (root) {
-  root.setAttribute('data-widget-build', '2026-03-07.1');
+  root.setAttribute('data-widget-build', '2026-04-16.1');
   createRoot(root).render(<MarketplaceSearch />);
 }
 

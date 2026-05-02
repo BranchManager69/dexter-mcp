@@ -123,5 +123,9 @@ export function formatResource(r: RawCapabilityResult): FormattedResource {
     latencyP50Ms: r.latency?.p50Ms ?? null,
     latencyP95Ms: r.latency?.p95Ms ?? null,
     uptimePct: r.uptime?.pct ?? null,
+
+    // Schemas (corpus-cached; null when the resource doesn't publish them)
+    inputSchema: r.inputSchema ?? null,
+    outputSchema: r.outputSchema ?? null,
   };
 }

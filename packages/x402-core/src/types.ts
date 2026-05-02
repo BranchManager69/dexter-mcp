@@ -80,6 +80,11 @@ export interface RawCapabilityResult {
   openapiSpecUrl?: string | null;
   latency?: { p50Ms: number | null; p95Ms: number | null } | null;
   uptime?: { pct: number | null } | null;
+  // Schemas extracted from the resource's accepts[] JSONB (when the verifier
+  // has captured them). Null when the resource doesn't publish them. Corpus-
+  // cached as of the last verification pass — call `x402_check` for live data.
+  inputSchema?: unknown;
+  outputSchema?: unknown;
 }
 
 export interface RawCapabilityResponse {
@@ -175,6 +180,10 @@ export interface FormattedResource {
   latencyP50Ms: number | null;
   latencyP95Ms: number | null;
   uptimePct: number | null;
+
+  // Schemas (corpus-cached; call x402_check for live data)
+  inputSchema: unknown | null;
+  outputSchema: unknown | null;
 }
 
 /**

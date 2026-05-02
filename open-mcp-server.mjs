@@ -20,7 +20,7 @@ import './instrument.open-mcp.mjs';
  */
 
 import http from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { basename } from 'node:path';
@@ -995,10 +995,101 @@ function createOpenMcpServer() {
 
 const transports = new Map();
 
+// Per-session user bindings. Populated when a request arrives with a valid
+// Bearer JWT minted by dexter-api (HS256 / MCP_JWT_SECRET). Tools that need
+// a real user (Dextercard issuance, etc.) read from this map via the
+// session id stamped on the MCP request context. Anonymous tools ignore it.
+const userBindings = new Map(); // sessionId -> { userId, email, scope, exp }
+
+const MCP_JWT_SECRET = (process.env.MCP_JWT_SECRET || '').trim();
+
+function base64UrlDecode(input) {
+  try {
+    const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = normalized.length % 4 === 0 ? normalized : normalized + '='.repeat(4 - (normalized.length % 4));
+    return Buffer.from(pad, 'base64').toString('utf8');
+  } catch {
+    return null;
+  }
+}
+
+function base64UrlEncode(buf) {
+  return Buffer.from(buf).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+function timingSafeEqualB64(a, b) {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i += 1) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return out === 0;
+}
+
+// Minimal HS256 JWT verifier (no external deps). Returns the decoded payload
+// when the signature matches MCP_JWT_SECRET and the token has not expired.
+// Mirrors the helper in http-server-oauth.mjs so both servers accept the
+// same Dexter-minted JWTs.
+function verifyHs256Jwt(token, secret) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const [headerB64, payloadB64, sigB64] = parts;
+    const data = `${headerB64}.${payloadB64}`;
+    const expected = base64UrlEncode(createHmac('sha256', secret).update(data).digest());
+    if (!timingSafeEqualB64(expected, sigB64)) return null;
+    const payload = JSON.parse(base64UrlDecode(payloadB64));
+    if (payload && typeof payload.exp === 'number') {
+      const nowSec = Math.floor(Date.now() / 1000);
+      if (nowSec >= payload.exp) return null;
+    }
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function extractBearer(req) {
+  const auth = req.headers['authorization'] || req.headers['Authorization'];
+  if (typeof auth !== 'string') return '';
+  const trimmed = auth.trim();
+  if (!trimmed.toLowerCase().startsWith('bearer ')) return '';
+  return trimmed.slice(7).trim();
+}
+
+// Attempt to verify the Bearer on this request. Returns a binding payload or
+// null. The open server treats auth as strictly optional — anonymous calls
+// remain fully supported. Tools that require auth surface their own
+// auth_required error.
+function tryBindUserFromRequest(req) {
+  if (!MCP_JWT_SECRET) return null;
+  const token = extractBearer(req);
+  if (!token) return null;
+  const payload = verifyHs256Jwt(token, MCP_JWT_SECRET);
+  if (!payload) return null;
+  const userId = payload.supabase_user_id || (payload.sub && payload.sub !== 'guest' ? payload.sub : null);
+  if (!userId) return null;
+  return {
+    userId,
+    email: payload.supabase_email || null,
+    scope: payload.scope || null,
+    exp: typeof payload.exp === 'number' ? payload.exp : null,
+  };
+}
+
+export function getUserBinding(sessionId) {
+  if (!sessionId) return null;
+  const b = userBindings.get(sessionId);
+  if (!b) return null;
+  if (b.exp && Math.floor(Date.now() / 1000) >= b.exp) {
+    userBindings.delete(sessionId);
+    return null;
+  }
+  return b;
+}
+
 function writeCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id, Authorization');
   res.setHeader('Access-Control-Expose-Headers', 'mcp-session-id');
 }
 
@@ -1080,7 +1171,18 @@ const httpServer = http.createServer(async (req, res) => {
   if (req.method === 'POST') {
     const sessionId = req.headers['mcp-session-id'];
 
+    // Optional auth: re-evaluate Bearer on every POST so token rotation
+    // and revocation propagate without forcing a session restart.
+    const incomingBinding = tryBindUserFromRequest(req);
+
     if (sessionId && transports.has(sessionId)) {
+      if (incomingBinding) {
+        const prior = userBindings.get(sessionId);
+        userBindings.set(sessionId, incomingBinding);
+        if (!prior || prior.userId !== incomingBinding.userId) {
+          console.log(`[open-mcp] bound session ${sessionId} to user ${incomingBinding.userId}${incomingBinding.email ? ` (${incomingBinding.email})` : ''}`);
+        }
+      }
       const transport = transports.get(sessionId);
       await transport.handleRequest(req, res);
       return;
@@ -1090,7 +1192,12 @@ const httpServer = http.createServer(async (req, res) => {
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (sid) => {
         transports.set(sid, transport);
-        console.log(`[open-mcp] session created: ${sid} (active: ${transports.size})`);
+        if (incomingBinding) {
+          userBindings.set(sid, incomingBinding);
+          console.log(`[open-mcp] session created: ${sid} (active: ${transports.size}) bound user=${incomingBinding.userId}${incomingBinding.email ? ` (${incomingBinding.email})` : ''}`);
+        } else {
+          console.log(`[open-mcp] session created: ${sid} (active: ${transports.size})`);
+        }
       },
     });
 
@@ -1098,6 +1205,7 @@ const httpServer = http.createServer(async (req, res) => {
       const sid = transport.sessionId;
       if (sid) {
         transports.delete(sid);
+        userBindings.delete(sid);
         console.log(`[open-mcp] session closed: ${sid} (active: ${transports.size})`);
       }
     };
@@ -1115,6 +1223,7 @@ const httpServer = http.createServer(async (req, res) => {
       const transport = transports.get(sessionId);
       await transport.handleRequest(req, res);
       transports.delete(sessionId);
+      userBindings.delete(sessionId);
     } else {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Session not found' }));
@@ -1133,6 +1242,7 @@ setInterval(() => {
   for (const [sid, transport] of transports) {
     if (transport._lastActivity && now - transport._lastActivity > SESSION_MAX_AGE_MS) {
       transports.delete(sid);
+      userBindings.delete(sid);
       console.log(`[open-mcp] reaped stale session: ${sid}`);
     }
   }

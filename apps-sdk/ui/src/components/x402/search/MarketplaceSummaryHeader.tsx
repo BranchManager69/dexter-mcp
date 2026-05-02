@@ -8,6 +8,9 @@ export function MarketplaceSummaryHeader({
   onQueryChange,
   onSearchSubmit,
   resultCount,
+  strongCount,
+  relatedCount,
+  rerankApplied = false,
   isSearching,
   isFullscreen,
   onToggleFullscreen,
@@ -16,10 +19,18 @@ export function MarketplaceSummaryHeader({
   onQueryChange: (value: string) => void;
   onSearchSubmit: () => void;
   resultCount: number;
+  strongCount?: number;
+  relatedCount?: number;
+  rerankApplied?: boolean;
   isSearching: boolean;
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
 }) {
+  const hasTieredCounts =
+    typeof strongCount === 'number' && typeof relatedCount === 'number';
+  const tierLabel = hasTieredCounts
+    ? `${strongCount} strong · ${relatedCount} related`
+    : `${resultCount.toLocaleString()} result${resultCount !== 1 ? 's' : ''}`;
   return (
     <div
       className="relative overflow-hidden rounded-[24px] border border-[rgba(255,107,0,0.16)] px-4 py-4 sm:px-5"
@@ -64,9 +75,15 @@ export function MarketplaceSummaryHeader({
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
-            <span className="text-[11px] text-tertiary">
-              {resultCount.toLocaleString()} result{resultCount !== 1 ? 's' : ''}
-            </span>
+            <span className="text-[11px] text-tertiary">{tierLabel}</span>
+            {rerankApplied && (
+              <span
+                className="inline-flex items-center rounded-full bg-[rgba(255,107,0,0.1)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ff9a52] ring-1 ring-[rgba(255,107,0,0.28)]"
+                title="Top results reordered by an LLM cross-encoder pass"
+              >
+                Reranked
+              </span>
+            )}
             <Button variant="soft" color="secondary" size="sm" onClick={onToggleFullscreen}>
               {isFullscreen ? 'Minimize' : 'Expand'}
             </Button>

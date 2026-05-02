@@ -61,6 +61,15 @@ export function SearchResultCard({
   });
   const fetchLabel = resource.price === 'free' ? 'Fetch free' : resource.price.replace(/^\$/, '');
 
+  const tier = resource.tier;
+  const similarityPct =
+    typeof resource.similarity === 'number' && resource.similarity > 0
+      ? Math.round(resource.similarity * 100)
+      : null;
+  const whyText = resource.why?.trim() || '';
+  const gamingSuspicious = resource.gamingSuspicious === true;
+  const gamingFlags = Array.isArray(resource.gamingFlags) ? resource.gamingFlags : [];
+
   return (
     <div
       className={`group relative rounded-[24px] border p-4 transition-all duration-300 ${
@@ -76,7 +85,25 @@ export function SearchResultCard({
       role="button"
       tabIndex={0}
     >
-      <div className="absolute right-4 top-4 z-10">
+      <div className="absolute right-4 top-4 z-10 flex items-center gap-1.5">
+        {tier === 'strong' && (
+          <span className="inline-flex items-center rounded-full bg-[rgba(255,107,0,0.14)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ff9a52] ring-1 ring-[rgba(255,107,0,0.32)]">
+            Strong
+          </span>
+        )}
+        {tier === 'related' && (
+          <span className="inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-tertiary ring-1 ring-white/10">
+            Related
+          </span>
+        )}
+        {similarityPct !== null && (
+          <span
+            className="inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-mono text-secondary ring-1 ring-white/8"
+            title="Cosine similarity between your query and this resource"
+          >
+            {similarityPct}%
+          </span>
+        )}
         <SearchScoreBadge score={resource.qualityScore} variant="card" />
       </div>
 
@@ -96,6 +123,15 @@ export function SearchResultCard({
                     <span>Verified</span>
                   </span>
                 )}
+                {gamingSuspicious && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-300"
+                    title={gamingFlags.length ? `Gaming signals: ${gamingFlags.join(', ')}` : 'Usage signals look suspicious'}
+                  >
+                    <span aria-hidden="true">⚠</span>
+                    <span>Suspicious usage</span>
+                  </span>
+                )}
                 {resource.totalCalls > 0 && (
                   <span className="text-xs text-tertiary">{formatCompactNumber(resource.totalCalls)} calls</span>
                 )}
@@ -113,6 +149,13 @@ export function SearchResultCard({
                 </CopyButton>
               </div>
             </div>
+
+            {whyText && (
+              <div className="mt-3 rounded-xl border border-[rgba(255,107,0,0.18)] bg-[rgba(255,107,0,0.04)] px-3 py-2 text-xs leading-5 text-[#ffb787] sm:pr-4">
+                <div className="text-[9px] uppercase tracking-[0.2em] text-[#ff9a52]/80">Why this matches</div>
+                <p className="mt-1">{whyText}</p>
+              </div>
+            )}
 
             <p className="mt-3 text-sm leading-6 text-secondary sm:pr-4">
               {resource.description || 'No description yet. Inspect the endpoint before paying.'}
@@ -134,8 +177,13 @@ export function SearchResultCard({
             )}
           </div>
 
-          {featured && (
+          {featured && tier === 'strong' && (
             <span className="text-[11px] uppercase tracking-[0.16em] text-[#ff9a52]">
+              Top strong match
+            </span>
+          )}
+          {featured && tier !== 'strong' && (
+            <span className="text-[11px] uppercase tracking-[0.16em] text-tertiary">
               Lead result
             </span>
           )}

@@ -67,19 +67,30 @@ function formatWhen(iso: string | null | undefined): string {
   return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function buildDexterAssessment(resource: SearchResource, statusPayload: VerificationStatusPayload | null) {
-  if (statusPayload?.notes) return statusPayload.notes;
+function buildWhyBlock(resource: SearchResource) {
+  // Capability search's `why` is a grounded per-query explanation — always
+  // prefer it when present. Falls back to the verifier's own notes, then a
+  // minimal heuristic for old/flat payloads.
+  if (resource.why && resource.why.trim().length > 0) return resource.why.trim();
   if (resource.verificationNotes) return resource.verificationNotes;
   if (resource.verified && (resource.qualityScore ?? 0) >= 85) {
-    return 'Dexter sees this as a high-confidence candidate with strong trust and quality signals.';
+    return 'High-confidence candidate with strong verification and quality signals.';
   }
   if (resource.verified) {
-    return 'Dexter sees positive trust signals here, but this endpoint still merits a quick inspection before paying.';
+    return 'Positive trust signals, but inspect before paying.';
   }
   if (resource.authRequired) {
-    return 'Dexter can surface it, but this provider requires an additional auth step before it will behave cleanly.';
+    return 'Surfaced as a candidate, but this provider requires an auth step before it will behave cleanly.';
   }
-  return 'Dexter surfaced this as a promising candidate, but the trust picture is still lightweight until more verification data is reviewed.';
+  return 'Candidate surfaced from the capability index — trust picture is still lightweight until more verification data lands.';
+}
+
+function buildDexterAssessment(resource: SearchResource, statusPayload: VerificationStatusPayload | null) {
+  // Prefer the live verifier notes when they exist; otherwise fall through to
+  // the grounded capability-search `why`.
+  if (statusPayload?.notes) return statusPayload.notes;
+  if (resource.verificationNotes) return resource.verificationNotes;
+  return buildWhyBlock(resource);
 }
 
 export function SearchResourceDetail({
@@ -118,8 +129,8 @@ export function SearchResourceDetail({
           url: resource.url,
         });
         const [historyRes, statusRes, schemaRes] = await Promise.all([
-          fetch(`${API_ORIGIN}/api/facilitator/marketplace/resources/${encodeURIComponent(resource.resourceId)}/history?limit=10`, { cache: 'no-store' }),
-          fetch(`${API_ORIGIN}/api/facilitator/marketplace/resources/${encodeURIComponent(resource.resourceId)}/verification-status`, { cache: 'no-store' }),
+          fetch(`${API_ORIGIN}/api/x402gle/capability/resources/${encodeURIComponent(resource.resourceId)}/history?limit=10`, { cache: 'no-store' }),
+          fetch(`${API_ORIGIN}/api/x402gle/capability/resources/${encodeURIComponent(resource.resourceId)}/verification-status`, { cache: 'no-store' }),
           fetch(`${API_ORIGIN}/api/facilitator/resource/schema?url=${encodeURIComponent(resource.url)}`, { cache: 'no-store' }),
         ]);
 
@@ -170,6 +181,14 @@ export function SearchResourceDetail({
     [history, selectedHistoryId],
   );
   const assessment = buildDexterAssessment(resource, statusPayload);
+  const whyText = resource.why?.trim() || '';
+  const similarityPct =
+    typeof resource.similarity === 'number' && resource.similarity > 0
+      ? Math.round(resource.similarity * 100)
+      : null;
+  const tier = resource.tier;
+  const gamingSuspicious = resource.gamingSuspicious === true;
+  const gamingFlags = Array.isArray(resource.gamingFlags) ? resource.gamingFlags : [];
   const chainOptions = resource.chains?.length ? resource.chains : [{ network: resource.network ?? null }];
   const fetchLabel = resource.price === 'free' ? 'free' : resource.price.replace(/^\$/, '');
 
@@ -232,6 +251,46 @@ export function SearchResourceDetail({
             </Button>
           </div>
         </div>
+
+        {(whyText || similarityPct !== null || tier || gamingSuspicious) && (
+          <section className="rounded-[22px] border border-[rgba(255,107,0,0.22)] bg-[rgba(255,107,0,0.04)] px-4 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-[#ff9a52]">Why This Result</div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {tier === 'strong' && (
+                  <span className="inline-flex items-center rounded-full bg-[rgba(255,107,0,0.14)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ff9a52] ring-1 ring-[rgba(255,107,0,0.32)]">
+                    Strong
+                  </span>
+                )}
+                {tier === 'related' && (
+                  <span className="inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-tertiary ring-1 ring-white/10">
+                    Related
+                  </span>
+                )}
+                {similarityPct !== null && (
+                  <span
+                    className="inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-mono text-secondary ring-1 ring-white/8"
+                    title="Cosine similarity between your query and this resource"
+                  >
+                    {similarityPct}% match
+                  </span>
+                )}
+                {gamingSuspicious && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 ring-1 ring-amber-500/30"
+                    title={gamingFlags.length ? `Gaming signals: ${gamingFlags.join(', ')}` : 'Usage signals look suspicious'}
+                  >
+                    <span aria-hidden="true">⚠</span>
+                    <span>Suspicious usage</span>
+                  </span>
+                )}
+              </div>
+            </div>
+            {whyText && (
+              <p className="mt-3 text-sm leading-6 text-[#ffcfa8]">{whyText}</p>
+            )}
+          </section>
+        )}
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
           <section className="rounded-[22px] border border-subtle bg-surface-secondary/80 px-4 py-4">

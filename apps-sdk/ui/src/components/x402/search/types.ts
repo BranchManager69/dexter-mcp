@@ -13,6 +13,8 @@ export type SearchChainOption = {
   priceLabel?: string | null;
 };
 
+export type SearchTier = 'strong' | 'related';
+
 export type SearchResource = {
   resourceId: string;
   name: string;
@@ -43,7 +45,34 @@ export type SearchResource = {
   authType?: string | null;
   authHint?: string | null;
   sessionCompatible?: boolean;
+  // Capability-search signals (added in the 2026-04-16 widget rebuild)
+  tier?: SearchTier;
+  similarity?: number;
+  why?: string;
+  score?: number;
+  gamingFlags?: string[];
+  gamingSuspicious?: boolean;
 };
+
+export type SearchRerankInfo = {
+  enabled: boolean;
+  applied: boolean;
+  reason?: string | null;
+};
+
+export type SearchIntent = {
+  capabilityText?: string;
+};
+
+export type SearchMeta = {
+  mode?: string;
+  note?: string;
+};
+
+export type SearchNoMatchReason =
+  | 'below_similarity_threshold'
+  | 'below_strong_threshold'
+  | null;
 
 export type SearchWidgetState = {
   selectedUrl?: string;
