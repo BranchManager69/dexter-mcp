@@ -68,6 +68,8 @@ const BOOTSTRAP_TEMPLATE = (baseUrl, runtimeConfig) => `
       // base-uri to external domains. Asset URLs are already absolute.
       // Just store the base URL for use by fetch rewriting below.
 
+      var isInIframe = window.self !== window.top;
+
       window.innerBaseUrl = normalizedBase;
       window.__isChatGptApp = typeof window.openai !== 'undefined';
       window.__isMcpApp = !window.__isChatGptApp && isInIframe;
@@ -93,8 +95,6 @@ const BOOTSTRAP_TEMPLATE = (baseUrl, runtimeConfig) => `
       } catch (_err) {
         appOrigin = window.location.origin;
       }
-
-      var isInIframe = window.self !== window.top;
 
       var originalReplaceState = history.replaceState;
       history.replaceState = function (state, unused, url) {

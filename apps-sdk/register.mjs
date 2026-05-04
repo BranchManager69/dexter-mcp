@@ -2,11 +2,15 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
 import { buildWidgetBootstrapScript } from './bootstrap.js';
-import { X402_WIDGET_URIS } from './widget-uris.mjs';
+import { X402_WIDGET_URIS, CARD_WIDGET_URIS } from './widget-uris.mjs';
 import { resolveAppsSdkRelease } from '../scripts/apps-sdk-release.mjs';
 import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 
-const SKYBRIDGE_MIME = 'text/html+skybridge';
+// MCP Apps spec-compliant MIME (per @modelcontextprotocol/ext-apps).
+// Was 'text/html+skybridge' (OpenAI/ChatGPT's proprietary form), which
+// Claude's MCP Apps host rejects with "Unsupported UI resource content format".
+// ChatGPT accepts the spec form too, so this MIME works for both clients.
+const SKYBRIDGE_MIME = RESOURCE_MIME_TYPE;
 const APPS_SDK_DIR = path.resolve(new URL('.', import.meta.url).pathname, '../public/apps-sdk');
 
 /**
@@ -585,6 +589,36 @@ export function registerAppsSdkResources(server, options = {}) {
       widgetDescription: 'Shows wallet address with copy button, USDC/SOL balances, and deposit QR code.',
       invoking: 'Loading wallet…',
       invoked: 'Wallet loaded',
+    },
+    {
+      name: 'dexter_card_status',
+      templateUri: CARD_WIDGET_URIS.status,
+      file: 'card-status.html',
+      title: 'Dextercard status',
+      description: 'Shows the user\'s current Dextercard provisioning state, balances, and next-step actions.',
+      widgetDescription: 'Displays Dextercard status — issued vs unissued, available balance, freeze state, and pairing prompts when the MCP session is unbound.',
+      invoking: 'Loading Dextercard status…',
+      invoked: 'Dextercard status ready',
+    },
+    {
+      name: 'dexter_card_issue',
+      templateUri: CARD_WIDGET_URIS.issue,
+      file: 'card-issue.html',
+      title: 'Dextercard issuance',
+      description: 'Walks the user through Dextercard issuance and confirms the issued card details.',
+      widgetDescription: 'Shows the Dextercard issuance flow — required user input, MoonPay handoff, and the resulting card metadata once issued.',
+      invoking: 'Issuing Dextercard…',
+      invoked: 'Dextercard issued',
+    },
+    {
+      name: 'dexter_card_link_wallet',
+      templateUri: CARD_WIDGET_URIS.linkWallet,
+      file: 'card-link-wallet.html',
+      title: 'Dextercard wallet link',
+      description: 'Links a self-custody wallet to the user\'s Dextercard for top-ups.',
+      widgetDescription: 'Displays the wallet-link flow for funding a Dextercard — chain selection, address verification, and confirmation of the active funding wallet.',
+      invoking: 'Linking wallet…',
+      invoked: 'Wallet linked',
     },
   ];
 

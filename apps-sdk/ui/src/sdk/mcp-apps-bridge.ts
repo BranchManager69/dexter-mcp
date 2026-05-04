@@ -117,14 +117,87 @@ export async function initialize(): Promise<McpAppsInitResult> {
 
   window.addEventListener('message', handleMessage);
 
+  // MCP Apps spec / official @modelcontextprotocol/ext-apps SDK requires:
+  //   - protocolVersion = "2026-01-26"
+  //   - appCapabilities (NOT `capabilities`) declaring availableDisplayModes
+  //   - appInfo with name + version (REQUIRED — host rejects init without it)
+  //   - widget MUST send `ui/notifications/initialized` after receiving result
+  //   - widget MUST send `ui/notifications/size-changed` with non-zero height
+  //     or the host iframe stays collapsed (empty render space)
+  //
+  // ChatGPT uses window.openai globals (a different code path entirely) and
+  // is unaffected by these handshake requirements.
   const result = await sendRequest('ui/initialize', {
-    protocolVersion: '2025-03-26',
-    capabilities: {},
+    protocolVersion: '2026-01-26',
+    appCapabilities: {
+      availableDisplayModes: ['inline'],
+    },
+    appInfo: {
+      name: 'dexter-apps-sdk',
+      version: '0.1.0',
+    },
   }) as McpAppsInitResult;
+
+  sendNotification('ui/notifications/initialized');
 
   _initResult = result;
   _initialized = true;
+
+  // Start emitting size-changed notifications so the host can grow the
+  // iframe to fit our content. Without this the iframe renders at height: 0
+  // and the user sees an empty space where the widget should be.
+  startSizeChangedNotifications();
+
   return result;
+}
+
+/**
+ * Mirror of @modelcontextprotocol/ext-apps' setupSizeChangedNotifications.
+ * Watches the document for size changes and posts ui/notifications/size-changed
+ * to the host so it can grow the iframe to fit content.
+ */
+function startSizeChangedNotifications(): void {
+  if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') return;
+
+  let scheduled = false;
+  let lastWidth = 0;
+  let lastHeight = 0;
+
+  const measure = () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      const root = document.documentElement;
+      // Snapshot inline styles so we can probe natural size without
+      // permanently changing layout.
+      const prevWidth = root.style.width;
+      const prevHeight = root.style.height;
+      root.style.width = 'fit-content';
+      root.style.height = 'max-content';
+      const rect = root.getBoundingClientRect();
+      root.style.width = prevWidth;
+      root.style.height = prevHeight;
+
+      const scrollbarWidth = window.innerWidth - root.clientWidth;
+      const width = Math.ceil(rect.width + scrollbarWidth);
+      const height = Math.ceil(rect.height);
+
+      if (width !== lastWidth || height !== lastHeight) {
+        lastWidth = width;
+        lastHeight = height;
+        sendNotification('ui/notifications/size-changed', { width, height });
+      }
+    });
+  };
+
+  // Initial measurement.
+  measure();
+
+  // Observe both <html> and <body> so we catch React-driven content changes.
+  const observer = new ResizeObserver(measure);
+  observer.observe(document.documentElement);
+  if (document.body) observer.observe(document.body);
 }
 
 export function getInitResult(): McpAppsInitResult | null {
