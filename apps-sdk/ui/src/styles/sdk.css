@@ -5,11 +5,13 @@
 
 @import "tailwindcss";
 @import "@openai/apps-sdk-ui/css";
+@import "./base.css";
+@import "./widget-shell.css";
 
 /* Required for Tailwind to find class references in Apps SDK UI components */
 @source "../../../../node_modules/@openai/apps-sdk-ui";
 
-/* Custom overrides if needed */
+/* Body reset (kept; base.css also defines one — last-write-wins is fine here) */
 body {
   margin: 0;
   padding: 0;

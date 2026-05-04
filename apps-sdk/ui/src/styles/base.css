@@ -1,32 +1,191 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   BASE STYLES
-   CSS variables, resets, and common keyframes
+   BASE STYLES — design tokens, resets, and common keyframes.
+   Imported by every widget (directly or via sdk.css). Tokens are dials,
+   not decisions: per-widget visual language is set in widgets/*.css and
+   in the components/widget/* shell.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
   color-scheme: dark;
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --surface: rgba(15, 23, 42, 0.68);
-  --surface-muted: rgba(15, 23, 42, 0.45);
-  --surface-border: rgba(148, 163, 184, 0.35);
+
+  /* ───── Spacing scale (4px base, geometric) ──────────────────────────── */
+  --dx-space-0: 0;
+  --dx-space-1: 4px;
+  --dx-space-2: 8px;
+  --dx-space-3: 12px;
+  --dx-space-4: 16px;
+  --dx-space-5: 20px;
+  --dx-space-6: 24px;
+  --dx-space-7: 32px;
+  --dx-space-8: 40px;
+  --dx-space-9: 56px;
+
+  /* ───── Type scale ───────────────────────────────────────────────────── */
+  --dx-text-xs: 11px;
+  --dx-text-sm: 12px;
+  --dx-text-base: 13px;
+  --dx-text-md: 14px;
+  --dx-text-lg: 16px;
+  --dx-text-xl: 18px;
+  --dx-text-2xl: 22px;
+  --dx-text-3xl: 28px;
+
+  --dx-leading-tight: 1.2;
+  --dx-leading-snug: 1.35;
+  --dx-leading-normal: 1.5;
+  --dx-leading-relaxed: 1.65;
+
+  --dx-tracking-tight: -0.01em;
+  --dx-tracking-normal: 0;
+  --dx-tracking-wide: 0.04em;
+  --dx-tracking-wider: 0.08em;
+  --dx-tracking-widest: 0.14em;
+
+  --dx-weight-regular: 400;
+  --dx-weight-medium: 500;
+  --dx-weight-semibold: 600;
+  --dx-weight-bold: 700;
+
+  --dx-font-mono: 'IBM Plex Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* ───── Radii — small, deliberate. No "rounded everywhere" defaults. ── */
+  --dx-radius-sm: 6px;
+  --dx-radius-md: 10px;
+  --dx-radius-lg: 14px;
+  --dx-radius-pill: 999px;
+
+  /* ───── Color roles ──────────────────────────────────────────────────── */
+  /* Surfaces: layered dark with subtle elevation differences */
+  --dx-bg: rgba(15, 23, 42, 0.68);
+  --dx-bg-elevated: rgba(22, 32, 54, 0.78);
+  --dx-bg-sunken: rgba(10, 16, 30, 0.55);
+  --dx-bg-quiet: rgba(15, 23, 42, 0.45);
+
+  /* Foreground (text) */
+  --dx-fg: #f8fafc;
+  --dx-fg-muted: #cbd5f5;
+  --dx-fg-quiet: #94a3b8;
+  --dx-fg-faint: rgba(148, 163, 184, 0.55);
+
+  /* Borders */
+  --dx-border: rgba(148, 163, 184, 0.22);
+  --dx-border-strong: rgba(148, 163, 184, 0.38);
+  --dx-border-quiet: rgba(148, 163, 184, 0.10);
+
+  /* Brand accent — Dexter orange */
+  --dx-accent: #ff7a1a;
+  --dx-accent-bright: #ff8f3c;
+  --dx-accent-soft: rgba(255, 122, 26, 0.16);
+  --dx-accent-fg: #ffd5a8;
+
+  /* Semantic tones */
+  --dx-info: #60a5fa;
+  --dx-info-soft: rgba(96, 165, 250, 0.16);
+  --dx-success: #34d399;
+  --dx-success-soft: rgba(52, 211, 153, 0.14);
+  --dx-warn: #fbbf24;
+  --dx-warn-soft: rgba(251, 191, 36, 0.14);
+  --dx-danger: #f87171;
+  --dx-danger-soft: rgba(248, 113, 113, 0.16);
+
+  /* Code / mono color — used for addresses, hashes, mints */
+  --dx-code: #c4b5fd;
+
+  /* ───── Elevation — flat, just enough to separate layers ─────────────── */
+  --dx-shadow-sm: 0 1px 2px rgba(2, 6, 23, 0.35);
+  --dx-shadow-md: 0 6px 16px rgba(2, 6, 23, 0.32);
+  --dx-shadow-lg: 0 18px 40px rgba(2, 6, 23, 0.38);
+
+  /* ───── Motion ───────────────────────────────────────────────────────── */
+  --dx-duration-fast: 120ms;
+  --dx-duration-base: 220ms;
+  --dx-duration-slow: 380ms;
+  --dx-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dx-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ───── Z-index scale ────────────────────────────────────────────────── */
+  --dx-z-base: 0;
+  --dx-z-elevated: 10;
+  --dx-z-overlay: 100;
+  --dx-z-popover: 200;
+  --dx-z-toast: 300;
+
+  /* ───── Legacy aliases — keep until widget CSS files are migrated ─────
+     Existing widget styles reference --surface, --text-primary etc.
+     These aliases let token consumers and legacy consumers coexist. */
+  --surface: var(--dx-bg);
+  --surface-muted: var(--dx-bg-quiet);
+  --surface-border: var(--dx-border-strong);
   --surface-highlight: rgba(94, 234, 212, 0.12);
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5f5;
-  --text-tertiary: #94a3b8;
-  --accent: #60a5fa;
-  --accent-soft: rgba(96, 165, 250, 0.16);
-  --danger-soft: rgba(239, 68, 68, 0.15);
-  --radius-lg: 16px;
-  --radius-md: 12px;
-  --radius-sm: 10px;
+  --text-primary: var(--dx-fg);
+  --text-secondary: var(--dx-fg-muted);
+  --text-tertiary: var(--dx-fg-quiet);
+  --accent: var(--dx-info);
+  --accent-soft: var(--dx-info-soft);
+  --danger-soft: var(--dx-danger-soft);
+  --radius-lg: var(--dx-radius-lg);
+  --radius-md: var(--dx-radius-md);
+  --radius-sm: var(--dx-radius-sm);
+
   background: transparent;
+}
+
+/* Light-mode override — host signals via prefers-color-scheme or
+   data-theme="light" on <html>. Tokens flip; widget code stays the same. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --dx-bg: rgba(255, 255, 255, 0.92);
+    --dx-bg-elevated: #ffffff;
+    --dx-bg-sunken: rgba(241, 245, 249, 0.85);
+    --dx-bg-quiet: rgba(241, 245, 249, 0.65);
+
+    --dx-fg: #0f172a;
+    --dx-fg-muted: #334155;
+    --dx-fg-quiet: #64748b;
+    --dx-fg-faint: rgba(100, 116, 139, 0.55);
+
+    --dx-border: rgba(15, 23, 42, 0.12);
+    --dx-border-strong: rgba(15, 23, 42, 0.22);
+    --dx-border-quiet: rgba(15, 23, 42, 0.06);
+
+    --dx-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --dx-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+    --dx-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.10);
+
+    --dx-code: #6d28d9;
+  }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --dx-bg: rgba(255, 255, 255, 0.92);
+  --dx-bg-elevated: #ffffff;
+  --dx-bg-sunken: rgba(241, 245, 249, 0.85);
+  --dx-bg-quiet: rgba(241, 245, 249, 0.65);
+
+  --dx-fg: #0f172a;
+  --dx-fg-muted: #334155;
+  --dx-fg-quiet: #64748b;
+  --dx-fg-faint: rgba(100, 116, 139, 0.55);
+
+  --dx-border: rgba(15, 23, 42, 0.12);
+  --dx-border-strong: rgba(15, 23, 42, 0.22);
+  --dx-border-quiet: rgba(15, 23, 42, 0.06);
+
+  --dx-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --dx-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --dx-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.10);
+
+  --dx-code: #6d28d9;
 }
 
 body {
   margin: 0;
   padding: 0;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--dx-fg);
   font-family: inherit;
 }
 
@@ -49,5 +208,13 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
