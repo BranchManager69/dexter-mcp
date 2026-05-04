@@ -976,7 +976,16 @@ function createOpenMcpServer() {
         enrichment,
         enrichment_source: enrichmentSource,
       };
-      return { content: [{ type: 'text', text: JSON.stringify(merged, null, 2) }], structuredContent: merged, _meta: CHECK_META };
+      // Keep the text content LEAN — the widget reads structuredContent, the
+      // LLM reads text. Dumping the full enriched payload (with embedded
+      // response_preview JSON-in-JSON strings) into text was tripping the
+      // Anthropic proxy's content validator and breaking the widget render.
+      // The structuredContent still carries everything the widget needs.
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        structuredContent: merged,
+        _meta: CHECK_META,
+      };
     } catch (err) {
       const data = { error: true, statusCode: 500, message: err?.message || String(err) };
       return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }], structuredContent: data, isError: true, _meta: CHECK_META };
