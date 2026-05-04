@@ -8,7 +8,8 @@ import { Alert } from '@openai/apps-sdk-ui/components/Alert';
 import { Warning } from '@openai/apps-sdk-ui/components/Icon';
 import { useToolOutput, useAdaptiveOpenExternal, useAdaptiveTheme, useMaxHeight, useDisplayMode, useRequestDisplayMode } from '../sdk';
 import { captureWidgetException } from '../sdk/init-sentry';
-import { JsonViewer, useIntrinsicHeight, DebugPanel, formatUsdc, shortenHash, getExplorerUrl, getChain } from '../components/x402';
+import { JsonViewer, useIntrinsicHeight, DebugPanel, formatUsdc, shortenHash, getExplorerUrl, getChain, SponsoredCard } from '../components/x402';
+import type { Recommendation } from '../components/x402';
 
 const WORDMARK_URL = 'https://dexter.cash/wordmarks/dexter-wordmark.svg';
 const LOGO_MARK_URL = 'https://dexter.cash/assets/pokedexter/dexter-logo.svg';
@@ -49,6 +50,8 @@ type FetchPayload = {
   requirements?: unknown;
   sessionFunding?: SessionFunding;
   merchantSettlement?: Array<{ network?: string | null; asset?: string | null; amountAtomic?: string; payTo?: string | null }>;
+  recommendations?: Recommendation[];
+  _recommendations_hint?: string;
 };
 
 type SessionFunding = {
@@ -311,6 +314,18 @@ function FetchResult() {
             ) : toolOutput.data !== undefined ? (
               <JsonViewer data={toolOutput.data} />
             ) : null}
+
+            {/* Sponsored — Instinct recommendation surfaced from the
+                facilitator's match for this paid call. Promoted into
+                toolOutput.recommendations by open-mcp; we render the
+                top pick as a visible card so demo audiences see it
+                instead of the LLM-only _recommendations_hint string. */}
+            {toolOutput.recommendations && toolOutput.recommendations.length > 0 && (
+              <SponsoredCard
+                recommendation={toolOutput.recommendations[0]}
+                onAct={(url) => openExternal(url)}
+              />
+            )}
           </>
         )}
         <DebugPanel widgetName="x402-fetch-result" />
@@ -321,7 +336,7 @@ function FetchResult() {
 
 const root = document.getElementById('x402-fetch-result-root');
 if (root) {
-  root.setAttribute('data-widget-build', '2026-03-04.2');
+  root.setAttribute('data-widget-build', '2026-05-04.sponsored-card');
   createRoot(root).render(<FetchResult />);
 }
 

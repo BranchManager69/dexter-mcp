@@ -6,3 +6,5 @@ export { formatCalls, shortenHash, shortenAddress, formatUsdc, formatUsdcFloat, 
 export { DebugPanel } from './DebugPanel';
 export { normalizeWalletPayload } from './walletPayload';
 export type { CanonicalWalletPayload, WalletChainBalance } from './walletPayload';
+export { SponsoredCard } from './SponsoredCard';
+export type { Recommendation } from './SponsoredCard';
