@@ -153,10 +153,26 @@ function PricingCheck() {
     );
   }
 
-  // Auth required
+  // Auth required — same pattern as the unavailable branch: render whatever
+  // catalog identity + verdict context we have alongside the warning.
   if (toolOutput.authRequired) {
+    const authEnrichment = toolOutput.enrichment ?? null;
+    const authRecent: HistoryRow[] = authEnrichment?.history?.recent ?? [];
+    const authPrimary = pickPrimaryRun(authRecent);
+    const authFix = pickFixInstructions(authRecent);
+    const authPasses = authRecent.length
+      ? {
+          passes: authRecent.filter((r) => r.final_status === 'pass').length,
+          total: authRecent.length,
+        }
+      : null;
     return (
-      <StateFrame theme={theme} maxHeight={maxHeight}>
+      <StateFrame theme={theme} maxHeight={maxHeight} containerRef={containerRef}>
+        <ResourceIdentity
+          resource={authEnrichment?.resource ?? null}
+          fallbackUrl={toolInput?.url ?? null}
+        />
+        <ResourceDescription description={authEnrichment?.resource?.description ?? null} />
         <Alert
           color="warning"
           title="Authentication required"
@@ -164,15 +180,42 @@ function PricingCheck() {
             toolOutput.message ? ' ' + toolOutput.message : ''
           }`}
         />
+        {authPrimary ? (
+          <ProfessorDexterCard run={authPrimary} passesOfRecent={authPasses} animate={animate} />
+        ) : null}
+        {authFix ? <DoctorDexterCard fixText={authFix} animate={animate} /> : null}
       </StateFrame>
     );
   }
 
-  // Error / unavailable
+  // Error / unavailable — still render the verdict scaffolding when we have
+  // catalog enrichment for this URL. The live probe failed (endpoint down,
+  // misconfigured 402, etc.) but Dexter has historical evidence: previous
+  // verifier runs, the Professor's grade, and crucially Doctor Dexter's
+  // prescription which often explains *why* the endpoint is in this state.
   if (isPricingUnavailable(toolOutput)) {
+    const errEnrichment = toolOutput.enrichment ?? null;
+    const errRecent: HistoryRow[] = errEnrichment?.history?.recent ?? [];
+    const errPrimary = pickPrimaryRun(errRecent);
+    const errFix = pickFixInstructions(errRecent);
+    const errPasses = errRecent.length
+      ? {
+          passes: errRecent.filter((r) => r.final_status === 'pass').length,
+          total: errRecent.length,
+        }
+      : null;
     return (
-      <StateFrame theme={theme} maxHeight={maxHeight}>
+      <StateFrame theme={theme} maxHeight={maxHeight} containerRef={containerRef}>
+        <ResourceIdentity
+          resource={errEnrichment?.resource ?? null}
+          fallbackUrl={toolInput?.url ?? null}
+        />
+        <ResourceDescription description={errEnrichment?.resource?.description ?? null} />
         <Alert color="danger" title="Pricing unavailable" description={unavailableMessage(toolOutput)} />
+        {errPrimary ? (
+          <ProfessorDexterCard run={errPrimary} passesOfRecent={errPasses} animate={animate} />
+        ) : null}
+        {errFix ? <DoctorDexterCard fixText={errFix} animate={animate} /> : null}
       </StateFrame>
     );
   }

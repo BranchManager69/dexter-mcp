@@ -1,12 +1,12 @@
 import { j as jsxRuntimeExports, r as reactExports, u as useToolOutput, g as useToolInput, h as useAdaptiveCallToolFn, f as useAdaptiveTheme } from "./adapter-DSGU3rCd.js";
-import { B as Button } from "./Button-D6fIwcYA.js";
+import { B as Button } from "./Button-C3pHnmQh.js";
 import { c as clientExports } from "./types-CzSJWBfH.js";
-import { B as Badge } from "./index-CWsZEuDd.js";
-import { A as Alert } from "./Alert-Bcm9nqUO.js";
+import { B as Badge } from "./index-noiJc41v.js";
+import { A as Alert } from "./Alert-2Vc-bic4.js";
 import { u as useMaxHeight } from "./use-max-height-_e37jL2O.js";
 import { u as useSendFollowUp } from "./use-send-followup-DfEQBBoC.js";
 import { u as useIntrinsicHeight } from "./useIntrinsicHeight-B0m6hBCQ.js";
-import { g as getChain, a as ChainIcon, C as CopyButton, D as DebugPanel } from "./DebugPanel-Bj-D3n8w.js";
+import { g as getChain, a as ChainIcon, C as CopyButton, D as DebugPanel } from "./DebugPanel-COk2WZHh.js";
 import "./Warning-LBzaUP6h.js";
 import "./use-openai-global-CzM08Fyj.js";
 import "./Check-CAIG7aXU.js";
@@ -721,17 +721,57 @@ function PricingCheck() {
     return /* @__PURE__ */ jsxRuntimeExports.jsx(StateFrame, { theme, maxHeight, variant: "loading", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-pricing__state", children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: loadingElapsed < 5 ? "Checking pricing…" : "Still probing endpoint — hang tight." }) }) });
   }
   if (toolOutput.authRequired) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx(StateFrame, { theme, maxHeight, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-      Alert,
-      {
-        color: "warning",
-        title: "Authentication required",
-        description: `This endpoint requires provider authentication before the x402 payment flow.${toolOutput.message ? " " + toolOutput.message : ""}`
-      }
-    ) });
+    const authEnrichment = toolOutput.enrichment ?? null;
+    const authRecent = authEnrichment?.history?.recent ?? [];
+    const authPrimary = pickPrimaryRun(authRecent);
+    const authFix = pickFixInstructions(authRecent);
+    const authPasses = authRecent.length ? {
+      passes: authRecent.filter((r) => r.final_status === "pass").length,
+      total: authRecent.length
+    } : null;
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(StateFrame, { theme, maxHeight, containerRef, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        ResourceIdentity,
+        {
+          resource: authEnrichment?.resource ?? null,
+          fallbackUrl: toolInput?.url ?? null
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(ResourceDescription, { description: authEnrichment?.resource?.description ?? null }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        Alert,
+        {
+          color: "warning",
+          title: "Authentication required",
+          description: `This endpoint requires provider authentication before the x402 payment flow.${toolOutput.message ? " " + toolOutput.message : ""}`
+        }
+      ),
+      authPrimary ? /* @__PURE__ */ jsxRuntimeExports.jsx(ProfessorDexterCard, { run: authPrimary, passesOfRecent: authPasses, animate }) : null,
+      authFix ? /* @__PURE__ */ jsxRuntimeExports.jsx(DoctorDexterCard, { fixText: authFix, animate }) : null
+    ] });
   }
   if (isPricingUnavailable(toolOutput)) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx(StateFrame, { theme, maxHeight, children: /* @__PURE__ */ jsxRuntimeExports.jsx(Alert, { color: "danger", title: "Pricing unavailable", description: unavailableMessage(toolOutput) }) });
+    const errEnrichment = toolOutput.enrichment ?? null;
+    const errRecent = errEnrichment?.history?.recent ?? [];
+    const errPrimary = pickPrimaryRun(errRecent);
+    const errFix = pickFixInstructions(errRecent);
+    const errPasses = errRecent.length ? {
+      passes: errRecent.filter((r) => r.final_status === "pass").length,
+      total: errRecent.length
+    } : null;
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(StateFrame, { theme, maxHeight, containerRef, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        ResourceIdentity,
+        {
+          resource: errEnrichment?.resource ?? null,
+          fallbackUrl: toolInput?.url ?? null
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(ResourceDescription, { description: errEnrichment?.resource?.description ?? null }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Alert, { color: "danger", title: "Pricing unavailable", description: unavailableMessage(toolOutput) }),
+      errPrimary ? /* @__PURE__ */ jsxRuntimeExports.jsx(ProfessorDexterCard, { run: errPrimary, passesOfRecent: errPasses, animate }) : null,
+      errFix ? /* @__PURE__ */ jsxRuntimeExports.jsx(DoctorDexterCard, { fixText: errFix, animate }) : null
+    ] });
   }
   if (isFreeEndpoint(toolOutput)) {
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(StateFrame, { theme, maxHeight, children: [
