@@ -10,6 +10,58 @@ function reportToServer(payload) {
     keepalive: true
   }).then(() => void 0).catch(() => void 0);
 }
+async function runPopupProbe(setOutcome) {
+  setOutcome({ kind: "running" });
+  const env = nowEnv();
+  const target = "https://dexter.cash/connector/auth/done?probe=popup";
+  let win = null;
+  try {
+    win = window.open(target, "dexterPopupProbe", "noopener=no,popup=yes");
+  } catch (err) {
+    const e = err;
+    const o2 = {
+      kind: "error",
+      errorName: e?.name ?? "UnknownError",
+      message: e?.message ?? String(err)
+    };
+    setOutcome(o2);
+    await reportToServer({ probe: "popup", outcome: o2, env, target });
+    return;
+  }
+  if (!win) {
+    const o2 = {
+      kind: "blocked",
+      reason: "window.open() returned null — sandbox or popup blocker rejected the call."
+    };
+    setOutcome(o2);
+    await reportToServer({ probe: "popup", outcome: o2, env, target });
+    return;
+  }
+  let sameOrigin = false;
+  try {
+    void win.location.href;
+    sameOrigin = true;
+  } catch {
+  }
+  const hadOpenerRef = !!win;
+  const o = {
+    kind: "opened",
+    sameOrigin,
+    noopener: false,
+    hadOpenerRef
+  };
+  setOutcome(o);
+  await reportToServer({ probe: "popup", outcome: o, env, target });
+  try {
+    setTimeout(() => {
+      try {
+        win?.close();
+      } catch {
+      }
+    }, 1500);
+  } catch {
+  }
+}
 function randomBytes(len) {
   const bytes = new Uint8Array(len);
   crypto.getRandomValues(bytes);
@@ -43,7 +95,7 @@ async function runProbe(setOutcome) {
       message: "PublicKeyCredential is not available on window."
     };
     setOutcome(o);
-    await reportToServer({ outcome: o, env });
+    await reportToServer({ probe: "passkey", outcome: o, env });
     return;
   }
   const challenge = randomBytes(32);
@@ -77,7 +129,7 @@ async function runProbe(setOutcome) {
         stack: null
       };
       setOutcome(o);
-      await reportToServer({ outcome: o, env });
+      await reportToServer({ probe: "passkey", outcome: o, env });
       return;
     }
     creationCred = rawCred;
@@ -85,7 +137,7 @@ async function runProbe(setOutcome) {
     const e = err;
     const o = classifyError("create", e);
     setOutcome(o);
-    await reportToServer({ outcome: o, env });
+    await reportToServer({ probe: "passkey", outcome: o, env });
     return;
   }
   const response = creationCred.response;
@@ -128,14 +180,14 @@ async function runProbe(setOutcome) {
         stack: null
       };
       setOutcome(o);
-      await reportToServer({ outcome: o, env });
+      await reportToServer({ probe: "passkey", outcome: o, env });
       return;
     }
   } catch (err) {
     const e = err;
     const o = classifyError("get", e);
     setOutcome(o);
-    await reportToServer({ outcome: o, env });
+    await reportToServer({ probe: "passkey", outcome: o, env });
     return;
   }
   const success = {
@@ -146,7 +198,7 @@ async function runProbe(setOutcome) {
     authenticatorAttachment
   };
   setOutcome(success);
-  await reportToServer({ outcome: success, env });
+  await reportToServer({ probe: "passkey", outcome: success, env });
 }
 function classifyError(phase, err) {
   const name = err?.name ?? "UnknownError";
@@ -170,11 +222,16 @@ function classifyError(phase, err) {
 }
 function PasskeyProbe() {
   const [outcome, setOutcome] = reactExports.useState({ kind: "idle" });
+  const [popup, setPopup] = reactExports.useState({ kind: "idle" });
   const onTap = reactExports.useCallback(() => {
     runProbe(setOutcome);
   }, []);
+  const onTapPopup = reactExports.useCallback(() => {
+    runPopupProbe(setPopup);
+  }, []);
   const env = nowEnv();
   const running = outcome.kind === "running";
+  const popupRunning = popup.kind === "running";
   const buttonLabel = (() => {
     if (outcome.kind === "idle") return "Test passkey support";
     if (outcome.kind === "running") {
@@ -192,6 +249,11 @@ function PasskeyProbe() {
       }
     }
     return "Run again";
+  })();
+  const popupButtonLabel = (() => {
+    if (popup.kind === "idle") return "Test window.open() (popout)";
+    if (popup.kind === "running") return "Opening tab…";
+    return "Run popup test again";
   })();
   return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "passkey-probe-container", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "passkey-probe-card", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("header", { className: "passkey-probe-header", children: [
@@ -212,6 +274,38 @@ function PasskeyProbe() {
     outcome.kind === "success" ? /* @__PURE__ */ jsxRuntimeExports.jsx(SuccessView, { outcome }) : null,
     outcome.kind === "blocked" ? /* @__PURE__ */ jsxRuntimeExports.jsx(BlockedView, { outcome }) : null,
     outcome.kind === "other" ? /* @__PURE__ */ jsxRuntimeExports.jsx(OtherView, { outcome }) : null,
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        className: "passkey-probe-button",
+        onClick: onTapPopup,
+        disabled: popupRunning,
+        style: { marginTop: 4 },
+        children: popupButtonLabel
+      }
+    ),
+    popup.kind === "opened" ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "passkey-probe-result passkey-probe-result--success", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "passkey-probe-result__heading", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "passkey-probe-result__label", children: "Popup opened" }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "passkey-probe-result__detail-list", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "passkey-probe-result__detail-key", children: "handle:" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "passkey-probe-result__detail-val", children: String(popup.hadOpenerRef) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "passkey-probe-result__detail-key", children: "same-origin:" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "passkey-probe-result__detail-val", children: String(popup.sameOrigin) })
+      ] })
+    ] }) : null,
+    popup.kind === "blocked" ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "passkey-probe-result passkey-probe-result--blocked", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "passkey-probe-result__heading", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "passkey-probe-result__label", children: "Popup blocked" }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "passkey-probe-result__error", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: popup.reason }) })
+    ] }) : null,
+    popup.kind === "error" ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "passkey-probe-result passkey-probe-result--other", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "passkey-probe-result__heading", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "passkey-probe-result__label", children: "Popup error" }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "passkey-probe-result__error", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "passkey-probe-result__error-name", children: popup.errorName }),
+        " — ",
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: popup.message })
+      ] })
+    ] }) : null,
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "passkey-probe-env", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "passkey-probe-env__row", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "passkey-probe-env__key", children: "iframe:" }),

@@ -71,6 +71,96 @@ function reportToServer(payload: unknown): Promise<void> {
   }).then(() => undefined).catch(() => undefined);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Popup probe
+//
+// Determines whether window.open() can launch a new tab from inside the chat
+// client's widget iframe. The popout-based passkey flow depends on this — if
+// blocked, we fall back to a deep link the user manually taps.
+//
+// Test target: the existing dexter.cash/connector/auth/done page (always
+// reachable, no side effects, returns immediately to the user). We don't try
+// to round-trip a result; we just observe whether the call returned a window
+// reference and whether it actually opened.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type PopupOutcome =
+  | { kind: 'idle' }
+  | { kind: 'running' }
+  | {
+      kind: 'opened';
+      sameOrigin: boolean;
+      noopener: boolean;
+      hadOpenerRef: boolean;
+    }
+  | {
+      kind: 'blocked';
+      reason: string;
+    }
+  | {
+      kind: 'error';
+      errorName: string;
+      message: string;
+    };
+
+async function runPopupProbe(setOutcome: (o: PopupOutcome) => void): Promise<void> {
+  setOutcome({ kind: 'running' });
+  const env = nowEnv();
+  const target = 'https://dexter.cash/connector/auth/done?probe=popup';
+  let win: Window | null = null;
+  try {
+    win = window.open(target, 'dexterPopupProbe', 'noopener=no,popup=yes');
+  } catch (err) {
+    const e = err as Error;
+    const o: PopupOutcome = {
+      kind: 'error',
+      errorName: e?.name ?? 'UnknownError',
+      message: e?.message ?? String(err),
+    };
+    setOutcome(o);
+    await reportToServer({ probe: 'popup', outcome: o, env, target });
+    return;
+  }
+
+  if (!win) {
+    const o: PopupOutcome = {
+      kind: 'blocked',
+      reason: 'window.open() returned null — sandbox or popup blocker rejected the call.',
+    };
+    setOutcome(o);
+    await reportToServer({ probe: 'popup', outcome: o, env, target });
+    return;
+  }
+
+  // The handle came back. We can't reliably read the popup's location due to
+  // cross-origin restrictions, but the existence of the WindowProxy plus the
+  // ability to call .closed on it tells us the host accepted the open() call.
+  let sameOrigin = false;
+  try {
+    // Reading .location.href on a same-origin popup works; on cross-origin
+    // it throws a SecurityError. dexter.cash is the popup target so this
+    // should succeed when it does navigate (and only after navigation
+    // settles, which is usually later than now). Treat both outcomes as
+    // "opened" — the failure mode we care about is null, not cross-origin.
+    void win.location.href;
+    sameOrigin = true;
+  } catch { /* cross-origin is fine */ }
+
+  const hadOpenerRef = !!win;
+  const o: PopupOutcome = {
+    kind: 'opened',
+    sameOrigin,
+    noopener: false,
+    hadOpenerRef,
+  };
+  setOutcome(o);
+  await reportToServer({ probe: 'popup', outcome: o, env, target });
+
+  // Auto-close the probe tab so we don't leave a stray window — the user
+  // shouldn't have to clean up after a capability test.
+  try { setTimeout(() => { try { win?.close(); } catch {} }, 1500); } catch {}
+}
+
 function randomBytes(len: number): Uint8Array {
   const bytes = new Uint8Array(len);
   crypto.getRandomValues(bytes);
@@ -130,7 +220,7 @@ async function runProbe(setOutcome: (o: ProbeOutcome) => void): Promise<void> {
       message: 'PublicKeyCredential is not available on window.',
     };
     setOutcome(o);
-    await reportToServer({ outcome: o, env });
+    await reportToServer({ probe: 'passkey', outcome: o, env });
     return;
   }
 
@@ -166,7 +256,7 @@ async function runProbe(setOutcome: (o: ProbeOutcome) => void): Promise<void> {
         stack: null,
       };
       setOutcome(o);
-      await reportToServer({ outcome: o, env });
+      await reportToServer({ probe: 'passkey', outcome: o, env });
       return;
     }
     creationCred = rawCred;
@@ -174,7 +264,7 @@ async function runProbe(setOutcome: (o: ProbeOutcome) => void): Promise<void> {
     const e = err as Error;
     const o = classifyError('create', e);
     setOutcome(o);
-    await reportToServer({ outcome: o, env });
+    await reportToServer({ probe: 'passkey', outcome: o, env });
     return;
   }
 
@@ -218,14 +308,14 @@ async function runProbe(setOutcome: (o: ProbeOutcome) => void): Promise<void> {
         stack: null,
       };
       setOutcome(o);
-      await reportToServer({ outcome: o, env });
+      await reportToServer({ probe: 'passkey', outcome: o, env });
       return;
     }
   } catch (err) {
     const e = err as Error;
     const o = classifyError('get', e);
     setOutcome(o);
-    await reportToServer({ outcome: o, env });
+    await reportToServer({ probe: 'passkey', outcome: o, env });
     return;
   }
 
@@ -237,7 +327,7 @@ async function runProbe(setOutcome: (o: ProbeOutcome) => void): Promise<void> {
     authenticatorAttachment,
   };
   setOutcome(success);
-  await reportToServer({ outcome: success, env });
+  await reportToServer({ probe: 'passkey', outcome: success, env });
 }
 
 function classifyError(phase: ProbePhase, err: Error): ProbeOutcome {
@@ -270,13 +360,18 @@ function classifyError(phase: ProbePhase, err: Error): ProbeOutcome {
 
 function PasskeyProbe() {
   const [outcome, setOutcome] = useState<ProbeOutcome>({ kind: 'idle' });
+  const [popup, setPopup] = useState<PopupOutcome>({ kind: 'idle' });
 
   const onTap = useCallback(() => {
     runProbe(setOutcome);
   }, []);
+  const onTapPopup = useCallback(() => {
+    runPopupProbe(setPopup);
+  }, []);
 
   const env = nowEnv();
   const running = outcome.kind === 'running';
+  const popupRunning = popup.kind === 'running';
   const buttonLabel = (() => {
     if (outcome.kind === 'idle') return 'Test passkey support';
     if (outcome.kind === 'running') {
@@ -289,6 +384,11 @@ function PasskeyProbe() {
       }
     }
     return 'Run again';
+  })();
+  const popupButtonLabel = (() => {
+    if (popup.kind === 'idle') return 'Test window.open() (popout)';
+    if (popup.kind === 'running') return 'Opening tab…';
+    return 'Run popup test again';
   })();
 
   return (
@@ -317,6 +417,52 @@ function PasskeyProbe() {
         {outcome.kind === 'success' ? <SuccessView outcome={outcome} /> : null}
         {outcome.kind === 'blocked' ? <BlockedView outcome={outcome} /> : null}
         {outcome.kind === 'other' ? <OtherView outcome={outcome} /> : null}
+
+        <button
+          type="button"
+          className="passkey-probe-button"
+          onClick={onTapPopup}
+          disabled={popupRunning}
+          style={{ marginTop: 4 }}
+        >
+          {popupButtonLabel}
+        </button>
+
+        {popup.kind === 'opened' ? (
+          <div className="passkey-probe-result passkey-probe-result--success">
+            <div className="passkey-probe-result__heading">
+              <span className="passkey-probe-result__label">Popup opened</span>
+            </div>
+            <div className="passkey-probe-result__detail-list">
+              <span className="passkey-probe-result__detail-key">handle:</span>
+              <span className="passkey-probe-result__detail-val">{String(popup.hadOpenerRef)}</span>
+              <span className="passkey-probe-result__detail-key">same-origin:</span>
+              <span className="passkey-probe-result__detail-val">{String(popup.sameOrigin)}</span>
+            </div>
+          </div>
+        ) : null}
+        {popup.kind === 'blocked' ? (
+          <div className="passkey-probe-result passkey-probe-result--blocked">
+            <div className="passkey-probe-result__heading">
+              <span className="passkey-probe-result__label">Popup blocked</span>
+            </div>
+            <div className="passkey-probe-result__error">
+              <span>{popup.reason}</span>
+            </div>
+          </div>
+        ) : null}
+        {popup.kind === 'error' ? (
+          <div className="passkey-probe-result passkey-probe-result--other">
+            <div className="passkey-probe-result__heading">
+              <span className="passkey-probe-result__label">Popup error</span>
+            </div>
+            <div className="passkey-probe-result__error">
+              <span className="passkey-probe-result__error-name">{popup.errorName}</span>
+              {' — '}
+              <span>{popup.message}</span>
+            </div>
+          </div>
+        ) : null}
 
         <div className="passkey-probe-env">
           <span className="passkey-probe-env__row">
