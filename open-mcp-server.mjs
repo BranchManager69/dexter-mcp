@@ -951,7 +951,11 @@ function createOpenMcpServer() {
       let enrichment = null;
       let enrichmentSource = 'unavailable';
       try {
-        const enrichUrl = `${apiBase}/api/x402/resource?url=${encodeURIComponent(args.url)}&history=3`;
+        // full_previews=1 ships the verifier's full per-run detail:
+        // ai_fix_instructions (drives Doctor Dexter), test_input_generated,
+        // test_input_reasoning, chains_evaluated, ai_tokens_used. The widget
+        // is the consumer here; missing fields are tolerated.
+        const enrichUrl = `${apiBase}/api/x402/resource?url=${encodeURIComponent(args.url)}&history=3&full_previews=1`;
         const enrichRes = await fetch(enrichUrl, {
           headers: { Accept: 'application/json' },
           signal: AbortSignal.timeout(2000),
