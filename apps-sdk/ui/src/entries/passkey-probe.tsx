@@ -4,6 +4,11 @@ import '../styles/widgets/passkey-probe.css';
 
 import { createRoot } from 'react-dom/client';
 import { useCallback, useState } from 'react';
+// Side-effect import: triggers initMcpAppsOnce() so the iframe runs the
+// MCP Apps handshake (ui/initialize + size-changed notifications) and the
+// host actually grows the iframe to fit the rendered React tree. Without
+// this the widget mounts at height 0 and never becomes visible.
+import '../sdk';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Probe outcome model
