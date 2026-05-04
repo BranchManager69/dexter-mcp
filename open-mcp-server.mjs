@@ -34,7 +34,7 @@ dotenv.config();
 dotenv.config({ path: '.env.local' });
 import { createOpenSessionResolver } from './lib/open-session-resolution.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { X402_WIDGET_URIS, CARD_WIDGET_URIS } from './apps-sdk/widget-uris.mjs';
+import { X402_WIDGET_URIS, CARD_WIDGET_URIS, DIAGNOSTIC_WIDGET_URIS } from './apps-sdk/widget-uris.mjs';
 import {
   composeCardTools,
   buildCardToolMetas,
@@ -104,8 +104,9 @@ const FETCH_META = widgetMeta(X402_WIDGET_URIS.fetch, 'Calling API…', 'Respons
 const ACCESS_META = widgetMeta(X402_WIDGET_URIS.fetch, 'Signing access proof…', 'Access response ready', 'Shows identity-gated API responses with wallet proof details and any follow-up requirements.');
 const CHECK_META = widgetMeta(X402_WIDGET_URIS.pricing, 'Checking pricing…', 'Pricing loaded', 'Shows endpoint pricing per blockchain with payment amounts and a pay button.');
 const WALLET_META = widgetMeta(X402_WIDGET_URIS.wallet, 'Loading wallet…', 'Wallet loaded', 'Shows wallet addresses with copy button, USDC balances across chains, and deposit QR code.');
+const PASSKEY_PROBE_META = widgetMeta(DIAGNOSTIC_WIDGET_URIS.passkeyProbe, 'Loading probe…', 'Probe ready', 'One-button WebAuthn iframe-sandbox capability test. Renders a button that calls navigator.credentials.create() and .get() against rp.id=dexter.cash and reports the outcome.');
 
-const ALL_TOOLS = ['x402_search', 'x402_pay', 'x402_fetch', 'x402_check', 'x402_access', 'x402_wallet', 'card_status', 'card_issue', 'card_link_wallet', 'card_freeze', 'card_login_request_otp', 'card_login_complete'];
+const ALL_TOOLS = ['x402_search', 'x402_pay', 'x402_fetch', 'x402_check', 'x402_access', 'x402_wallet', 'card_status', 'card_issue', 'card_link_wallet', 'card_freeze', 'card_login_request_otp', 'card_login_complete', 'dexter_passkey_probe'];
 const OPEN_SESSION_HINT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 // Set env vars required by registerAppsSdkResources before importing it
@@ -1045,6 +1046,42 @@ function createOpenMcpServer() {
     }
   });
 
+  // ─── dexter_passkey_probe ─────────────────────────────────────────────────
+  //
+  // Diagnostic tool. Renders a one-button widget that runs a real WebAuthn
+  // ceremony (navigator.credentials.create + .get against rp.id=dexter.cash)
+  // inside the chat client's widget iframe sandbox. Result is also POSTed
+  // to /dbg/webauthn-probe so the operator can read the outcome on the
+  // server without copy-paste from the device.
+  //
+  // Purpose: empirically determine whether the OpenAI Apps SDK widget
+  // sandbox (used by both ChatGPT and Claude) grants
+  // 'publickey-credentials-create' and 'publickey-credentials-get'. The
+  // answer decides whether the production passkey-controlled wallet flow
+  // ships inline or via popout fallback.
+  //
+  // Not a stub. The OS biometric prompt should fire. The credential is
+  // discarded — this is a capability check, not enrollment.
+  server.registerTool('dexter_passkey_probe', {
+    title: 'Passkey iframe probe',
+    description: 'Diagnostic: tests whether navigator.credentials.create() and .get() can run inside the chat client\'s widget iframe against rp.id=dexter.cash. Renders a button that triggers a real WebAuthn ceremony; the OS biometric prompt should fire. The outcome (success / blocked / other) is rendered inline AND POSTed to a server-side log at /tmp/webauthn-probe.log so the operator can read it without copy-paste. Use this to decide whether the production wallet flow ships inline or via popout fallback.',
+    inputSchema: {},
+    annotations: { readOnlyHint: true },
+    _meta: PASSKEY_PROBE_META,
+  }, async () => {
+    const result = {
+      ok: true,
+      instructions: 'Tap the button. The OS biometric prompt should fire. Outcome will be logged server-side and shown in the widget.',
+      rp_id: 'dexter.cash',
+      log_path: '/tmp/webauthn-probe.log',
+    };
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+      structuredContent: result,
+      _meta: PASSKEY_PROBE_META,
+    };
+  });
+
   // ─── Dextercard Tools (via shared @dexterai/x402-mcp-tools registrars) ────
   //
   // The open MCP doesn't hold any user's carrier session. It binds a
@@ -1492,6 +1529,7 @@ function createOpenMcpServer() {
         CARD_WIDGET_URIS.status,
         CARD_WIDGET_URIS.issue,
         CARD_WIDGET_URIS.linkWallet,
+        DIAGNOSTIC_WIDGET_URIS.passkeyProbe,
       ],
     });
   } catch (err) {
@@ -1633,6 +1671,46 @@ const httpServer = http.createServer(async (req, res) => {
       sessions: transports.size,
       timestamp: new Date().toISOString(),
     }));
+    return;
+  }
+
+  // ─── /dbg/webauthn-probe ─────────────────────────────────────────────
+  //
+  // Append-only debug log sink for the dexter_passkey_probe widget. The
+  // widget POSTs { outcome, env } here from inside the chat client's
+  // iframe; we write a JSON line to /tmp/webauthn-probe.log so the operator
+  // can `tail -f` it without copy-paste from the device.
+  //
+  // Modeled after dexter-fe's /dbg/log pattern. Not for production
+  // telemetry — strip caller sites before they ship beyond demo prep.
+  if (url.pathname === '/dbg/webauthn-probe') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'method_not_allowed' }));
+      return;
+    }
+    let raw = '';
+    req.on('data', (chunk) => { raw += chunk; if (raw.length > 64 * 1024) req.destroy(); });
+    req.on('end', async () => {
+      let body = null;
+      try { body = JSON.parse(raw); } catch { /* keep null */ }
+      const ts = new Date().toISOString();
+      const ua = req.headers['user-agent'] || '';
+      const ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || (req.socket && req.socket.remoteAddress) || 'local';
+      const line = JSON.stringify({ ts, ip, ua, body }) + '\n';
+      try {
+        const fs = await import('node:fs/promises');
+        await fs.appendFile('/tmp/webauthn-probe.log', line, 'utf8');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: err?.message || String(err) }));
+      }
+    });
+    req.on('error', () => {
+      try { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'request_error' })); } catch {}
+    });
     return;
   }
 

@@ -28,3 +28,7 @@ export const CARD_WIDGET_URIS = Object.freeze({
   issue: versionedWidgetUri('ui://dexter/card-issue', 'card-issue.html'),
   linkWallet: versionedWidgetUri('ui://dexter/card-link-wallet', 'card-link-wallet.html'),
 });
+
+export const DIAGNOSTIC_WIDGET_URIS = Object.freeze({
+  passkeyProbe: versionedWidgetUri('ui://dexter/passkey-probe', 'passkey-probe.html'),
+});

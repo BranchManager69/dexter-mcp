@@ -2,7 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
 import { buildWidgetBootstrapScript } from './bootstrap.js';
-import { X402_WIDGET_URIS, CARD_WIDGET_URIS } from './widget-uris.mjs';
+import { X402_WIDGET_URIS, CARD_WIDGET_URIS, DIAGNOSTIC_WIDGET_URIS } from './widget-uris.mjs';
 import { resolveAppsSdkRelease } from '../scripts/apps-sdk-release.mjs';
 import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 
@@ -619,6 +619,16 @@ export function registerAppsSdkResources(server, options = {}) {
       widgetDescription: 'Displays the wallet-link flow for funding a Dextercard — chain selection, address verification, and confirmation of the active funding wallet.',
       invoking: 'Linking wallet…',
       invoked: 'Wallet linked',
+    },
+    {
+      name: 'dexter_passkey_probe',
+      templateUri: DIAGNOSTIC_WIDGET_URIS.passkeyProbe,
+      file: 'passkey-probe.html',
+      title: 'Passkey iframe probe',
+      description: 'Diagnostic widget that tests whether a real WebAuthn ceremony can run inside the chat client\'s widget iframe.',
+      widgetDescription: 'One-button capability test — calls navigator.credentials.create()/get() against rp.id=dexter.cash and reports the outcome.',
+      invoking: 'Loading probe…',
+      invoked: 'Probe ready',
     },
   ];
 

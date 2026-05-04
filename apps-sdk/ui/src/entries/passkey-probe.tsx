@@ -1,0 +1,403 @@
+import '../styles/base.css';
+import '../styles/components.css';
+import '../styles/widgets/passkey-probe.css';
+
+import { createRoot } from 'react-dom/client';
+import { useCallback, useState } from 'react';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Probe outcome model
+//
+// The only thing this widget exists to learn: can a real WebAuthn ceremony
+// run end-to-end inside the chat client's widget iframe? The answer is one of
+// three states:
+//
+//   success  — both create() and get() returned credentials. The OS prompt
+//              fired. The full ceremony round-tripped.
+//   blocked  — the iframe sandbox refused. We capture the precise error name
+//              ("NotAllowedError", "SecurityError", "NotSupportedError"…) and
+//              the message verbatim so the post-mortem can attribute cause.
+//   other    — something else broke (timeout, abort, transient). Stack
+//              captured so we don't have to guess.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type ProbePhase =
+  | 'idle'
+  | 'requesting-challenge'
+  | 'create'
+  | 'get'
+  | 'reporting'
+  | 'done';
+
+type ProbeOutcome =
+  | { kind: 'idle' }
+  | { kind: 'running'; phase: ProbePhase }
+  | {
+      kind: 'success';
+      credentialIdPrefix: string;
+      transports: string[] | null;
+      alg: number | null;
+      authenticatorAttachment: string | null;
+    }
+  | {
+      kind: 'blocked';
+      phase: ProbePhase;
+      errorName: string;
+      message: string;
+    }
+  | {
+      kind: 'other';
+      phase: ProbePhase;
+      errorName: string;
+      message: string;
+      stack: string | null;
+    };
+
+// Mirrors dexter-fe's debugLog pattern: fire-and-forget POST to the
+// open-mcp HTTP server's /dbg/webauthn-probe endpoint. open-mcp appends
+// the line to /tmp/webauthn-probe.log so the operator can tail it.
+function reportToServer(payload: unknown): Promise<void> {
+  const body = JSON.stringify(payload);
+  return fetch('https://open.dexter.cash/dbg/webauthn-probe', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body,
+    keepalive: true,
+  }).then(() => undefined).catch(() => undefined);
+}
+
+function randomBytes(len: number): Uint8Array {
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  return bytes;
+}
+
+function bytesToBase64Url(bytes: Uint8Array | ArrayBuffer): string {
+  const view = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes;
+  let binary = '';
+  for (let i = 0; i < view.byteLength; i++) binary += String.fromCharCode(view[i]);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function nowEnv(): Record<string, string> {
+  const u = typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown';
+  return {
+    ua: u,
+    href: typeof location !== 'undefined' ? location.href : 'unknown',
+    origin: typeof location !== 'undefined' ? location.origin : 'unknown',
+    isInIframe: String(typeof window !== 'undefined' && window.self !== window.top),
+    hasPKC: String(typeof window !== 'undefined' && 'PublicKeyCredential' in window),
+    hasCredentials: String(typeof navigator !== 'undefined' && 'credentials' in navigator),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Real ceremony — no stub
+//
+// 1. Generate fresh challenge + user.id locally (32 random bytes each). The
+//    point is to test the call surface, not to mint a usable credential, so
+//    no server round-trip for the challenge.
+// 2. Call navigator.credentials.create() with rp.id = "dexter.cash" so we
+//    are exercising the same RP id production will use. This requires the
+//    iframe to be authorized via the WebAuthn related-origins manifest at
+//    https://dexter.cash/.well-known/webauthn — if it isn't, we'll see a
+//    SecurityError here. That IS one of the answers we want.
+// 3. If create() returns, immediately call navigator.credentials.get() with
+//    allowCredentials = [the new id]. This proves the assertion path works
+//    too, not just registration.
+// 4. POST the outcome (success or specific error) to the debug log so the
+//    operator can read it without copy-paste.
+//
+// We never persist the credential. The platform retains it locally; we just
+// drop it. That's acceptable for a probe — the user can clean it up later in
+// their OS-level passkey manager if they want.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function runProbe(setOutcome: (o: ProbeOutcome) => void): Promise<void> {
+  const env = nowEnv();
+  setOutcome({ kind: 'running', phase: 'requesting-challenge' });
+
+  if (!('PublicKeyCredential' in window)) {
+    const o: ProbeOutcome = {
+      kind: 'blocked',
+      phase: 'requesting-challenge',
+      errorName: 'NotSupportedError',
+      message: 'PublicKeyCredential is not available on window.',
+    };
+    setOutcome(o);
+    await reportToServer({ outcome: o, env });
+    return;
+  }
+
+  const challenge = randomBytes(32);
+  const userId = randomBytes(32);
+
+  let creationCred: PublicKeyCredential;
+  try {
+    setOutcome({ kind: 'running', phase: 'create' });
+    const rawCred = await navigator.credentials.create({
+      publicKey: {
+        rp: { id: 'dexter.cash', name: 'Dexter' },
+        user: {
+          id: userId,
+          name: 'probe',
+          displayName: 'probe',
+        },
+        challenge,
+        pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+        authenticatorSelection: {
+          userVerification: 'required',
+          residentKey: 'preferred',
+        },
+        timeout: 60_000,
+      },
+    });
+    if (!(rawCred instanceof PublicKeyCredential)) {
+      const o: ProbeOutcome = {
+        kind: 'other',
+        phase: 'create',
+        errorName: 'UnexpectedReturn',
+        message: 'navigator.credentials.create() did not return a PublicKeyCredential.',
+        stack: null,
+      };
+      setOutcome(o);
+      await reportToServer({ outcome: o, env });
+      return;
+    }
+    creationCred = rawCred;
+  } catch (err) {
+    const e = err as Error;
+    const o = classifyError('create', e);
+    setOutcome(o);
+    await reportToServer({ outcome: o, env });
+    return;
+  }
+
+  // Surface a few details about the new credential before we move on so the
+  // server log captures them even if get() fails.
+  const response = creationCred.response as AuthenticatorAttestationResponse;
+  const transports = (() => {
+    try {
+      const fn = (response as unknown as { getTransports?: () => string[] }).getTransports;
+      return typeof fn === 'function' ? fn.call(response) : null;
+    } catch { return null; }
+  })();
+  const alg = (() => {
+    try {
+      const fn = (response as unknown as { getPublicKeyAlgorithm?: () => number }).getPublicKeyAlgorithm;
+      return typeof fn === 'function' ? fn.call(response) : null;
+    } catch { return null; }
+  })();
+  const credentialIdPrefix = bytesToBase64Url(creationCred.rawId).slice(0, 16);
+  const authenticatorAttachment = (creationCred as unknown as { authenticatorAttachment?: string }).authenticatorAttachment ?? null;
+
+  // ─── Now exercise the assertion path ──────────────────────────────────
+  try {
+    setOutcome({ kind: 'running', phase: 'get' });
+    const getChallenge = randomBytes(32);
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge: getChallenge,
+        rpId: 'dexter.cash',
+        allowCredentials: [{ type: 'public-key', id: creationCred.rawId }],
+        userVerification: 'required',
+        timeout: 60_000,
+      },
+    });
+    if (!(assertion instanceof PublicKeyCredential)) {
+      const o: ProbeOutcome = {
+        kind: 'other',
+        phase: 'get',
+        errorName: 'UnexpectedReturn',
+        message: 'navigator.credentials.get() did not return a PublicKeyCredential.',
+        stack: null,
+      };
+      setOutcome(o);
+      await reportToServer({ outcome: o, env });
+      return;
+    }
+  } catch (err) {
+    const e = err as Error;
+    const o = classifyError('get', e);
+    setOutcome(o);
+    await reportToServer({ outcome: o, env });
+    return;
+  }
+
+  const success: ProbeOutcome = {
+    kind: 'success',
+    credentialIdPrefix,
+    transports,
+    alg,
+    authenticatorAttachment,
+  };
+  setOutcome(success);
+  await reportToServer({ outcome: success, env });
+}
+
+function classifyError(phase: ProbePhase, err: Error): ProbeOutcome {
+  const name = err?.name ?? 'UnknownError';
+  const message = err?.message ?? String(err);
+  // Treat sandbox-rejection class errors as "blocked" so the operator can
+  // see at a glance whether the iframe permissions denied us. Anything else
+  // (AbortError, TimeoutError, transient platform glitch) is "other".
+  const blockedNames = new Set([
+    'NotAllowedError',
+    'SecurityError',
+    'NotSupportedError',
+    'InvalidStateError',
+  ]);
+  if (blockedNames.has(name)) {
+    return { kind: 'blocked', phase, errorName: name, message };
+  }
+  return {
+    kind: 'other',
+    phase,
+    errorName: name,
+    message,
+    stack: err?.stack ?? null,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// View
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PasskeyProbe() {
+  const [outcome, setOutcome] = useState<ProbeOutcome>({ kind: 'idle' });
+
+  const onTap = useCallback(() => {
+    runProbe(setOutcome);
+  }, []);
+
+  const env = nowEnv();
+  const running = outcome.kind === 'running';
+  const buttonLabel = (() => {
+    if (outcome.kind === 'idle') return 'Test passkey support';
+    if (outcome.kind === 'running') {
+      switch (outcome.phase) {
+        case 'requesting-challenge': return 'Preparing challenge…';
+        case 'create': return 'Awaiting biometric (create)…';
+        case 'get': return 'Awaiting biometric (assert)…';
+        case 'reporting': return 'Logging result…';
+        default: return 'Working…';
+      }
+    }
+    return 'Run again';
+  })();
+
+  return (
+    <div className="passkey-probe-container">
+      <div className="passkey-probe-card">
+        <header className="passkey-probe-header">
+          <span className="passkey-probe-eyebrow">DEXTER</span>
+          <span className="passkey-probe-title">Passkey iframe probe</span>
+          <p className="passkey-probe-supporting">
+            Tests whether navigator.credentials.create() and .get() can run inside this
+            chat client's widget sandbox against rp.id = dexter.cash. The OS biometric
+            prompt should fire. The credential is discarded — this is a sandbox capability
+            check, not enrollment.
+          </p>
+        </header>
+
+        <button
+          type="button"
+          className="passkey-probe-button"
+          onClick={onTap}
+          disabled={running}
+        >
+          {buttonLabel}
+        </button>
+
+        {outcome.kind === 'success' ? <SuccessView outcome={outcome} /> : null}
+        {outcome.kind === 'blocked' ? <BlockedView outcome={outcome} /> : null}
+        {outcome.kind === 'other' ? <OtherView outcome={outcome} /> : null}
+
+        <div className="passkey-probe-env">
+          <span className="passkey-probe-env__row">
+            <span className="passkey-probe-env__key">iframe:</span>
+            <span>{env.isInIframe}</span>
+          </span>
+          <span className="passkey-probe-env__row">
+            <span className="passkey-probe-env__key">PKC:</span>
+            <span>{env.hasPKC}</span>
+          </span>
+          <span className="passkey-probe-env__row">
+            <span className="passkey-probe-env__key">creds:</span>
+            <span>{env.hasCredentials}</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SuccessView({ outcome }: { outcome: Extract<ProbeOutcome, { kind: 'success' }> }) {
+  return (
+    <div className="passkey-probe-result passkey-probe-result--success">
+      <div className="passkey-probe-result__heading">
+        <span className="passkey-probe-result__label">Success — full ceremony completed</span>
+      </div>
+      <div className="passkey-probe-result__detail-list">
+        <span className="passkey-probe-result__detail-key">credential:</span>
+        <span className="passkey-probe-result__detail-val">{outcome.credentialIdPrefix}…</span>
+        <span className="passkey-probe-result__detail-key">alg:</span>
+        <span className="passkey-probe-result__detail-val">{outcome.alg ?? 'unknown'}</span>
+        <span className="passkey-probe-result__detail-key">transports:</span>
+        <span className="passkey-probe-result__detail-val">
+          {outcome.transports && outcome.transports.length ? outcome.transports.join(', ') : 'unknown'}
+        </span>
+        <span className="passkey-probe-result__detail-key">attachment:</span>
+        <span className="passkey-probe-result__detail-val">{outcome.authenticatorAttachment ?? 'unknown'}</span>
+        <span className="passkey-probe-result__detail-key">create:</span>
+        <span className="passkey-probe-result__detail-val">ok</span>
+        <span className="passkey-probe-result__detail-key">get:</span>
+        <span className="passkey-probe-result__detail-val">ok</span>
+      </div>
+    </div>
+  );
+}
+
+function BlockedView({ outcome }: { outcome: Extract<ProbeOutcome, { kind: 'blocked' }> }) {
+  return (
+    <div className="passkey-probe-result passkey-probe-result--blocked">
+      <div className="passkey-probe-result__heading">
+        <span className="passkey-probe-result__label">Blocked by sandbox</span>
+        <span className="passkey-probe-result__phase">phase: {outcome.phase}</span>
+      </div>
+      <div className="passkey-probe-result__error">
+        <span className="passkey-probe-result__error-name">{outcome.errorName}</span>
+        {' — '}
+        <span>{outcome.message}</span>
+      </div>
+    </div>
+  );
+}
+
+function OtherView({ outcome }: { outcome: Extract<ProbeOutcome, { kind: 'other' }> }) {
+  return (
+    <div className="passkey-probe-result passkey-probe-result--other">
+      <div className="passkey-probe-result__heading">
+        <span className="passkey-probe-result__label">Other failure</span>
+        <span className="passkey-probe-result__phase">phase: {outcome.phase}</span>
+      </div>
+      <div className="passkey-probe-result__error">
+        <span className="passkey-probe-result__error-name">{outcome.errorName}</span>
+        {' — '}
+        <span>{outcome.message}</span>
+      </div>
+      {outcome.stack ? <pre className="passkey-probe-stack">{outcome.stack}</pre> : null}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mount
+// ─────────────────────────────────────────────────────────────────────────────
+
+const root = document.getElementById('passkey-probe-root');
+if (root) {
+  createRoot(root).render(<PasskeyProbe />);
+}
+
+export default PasskeyProbe;
