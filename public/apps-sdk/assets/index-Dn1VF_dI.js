@@ -1,5 +1,5 @@
 import { j as jsxRuntimeExports } from "./adapter-CqwUQG-H.js";
-import { w as wrapTextNodeSiblings, c as clsx } from "./Button-BEVHLOsY.js";
+import { w as wrapTextNodeSiblings, c as clsx } from "./Button-CKCwcRlZ.js";
 const Badge$1 = "_Badge_1viyg_1";
 const s = {
   Badge: Badge$1

@@ -1,7 +1,7 @@
 import { j as jsxRuntimeExports, r as reactExports } from "./adapter-CqwUQG-H.js";
 import { C as Check } from "./Check-CrQkv80N.js";
 import { C as Copy } from "./Copy-BBVfhfly.js";
-import { c as clsx, T as TransitionGroup, t as toTransformProperty, a as toCssVariables, b as toFilterProperty, d as toOpacityProperty, e as toMsDurationProperty, B as Button } from "./Button-BEVHLOsY.js";
+import { c as clsx, T as TransitionGroup, t as toTransformProperty, a as toCssVariables, b as toFilterProperty, d as toOpacityProperty, e as toMsDurationProperty, B as Button } from "./Button-CKCwcRlZ.js";
 const supportsRichClipboard = () => typeof ClipboardItem !== "undefined" && !!navigator.clipboard?.write;
 function toClipboardItem(content) {
   const { "text/plain": text, ...rest } = content;

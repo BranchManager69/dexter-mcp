@@ -1,9 +1,9 @@
-import { j as jsxRuntimeExports, u as useToolOutput, e as useAdaptiveOpenExternal, f as useAdaptiveTheme, r as reactExports, b as captureWidgetException } from "./adapter-CqwUQG-H.js";
-import { B as Button } from "./Button-BEVHLOsY.js";
+import { r as reactExports, j as jsxRuntimeExports, u as useToolOutput, e as useAdaptiveOpenExternal, f as useAdaptiveTheme, b as captureWidgetException } from "./adapter-CqwUQG-H.js";
+import { B as Button } from "./Button-CKCwcRlZ.js";
 import { c as clientExports } from "./types-CpN0_0sx.js";
-import { B as Badge } from "./index-DprCgvvG.js";
-import { g as getChain, C as CopyButton, D as DebugPanel } from "./DebugPanel-oSk-zrnj.js";
-import { A as Alert } from "./Alert-DfnBqTCd.js";
+import { B as Badge } from "./index-Dn1VF_dI.js";
+import { g as getChain, C as CopyButton, D as DebugPanel } from "./DebugPanel-sMUmJuev.js";
+import { A as Alert } from "./Alert-DrsCh2GH.js";
 import { u as useDisplayMode, a as useRequestDisplayMode } from "./use-request-display-mode-CgVPcwaY.js";
 import { u as useMaxHeight } from "./use-max-height-CxuGjBaG.js";
 import { J as JsonViewer } from "./JsonViewer-DMWDype9.js";
@@ -28,6 +28,90 @@ function getExplorerUrl(tx, network) {
   if (network?.includes("42161")) return `https://arbiscan.io/tx/${tx}`;
   if (network?.includes("10") && network?.includes("eip155")) return `https://optimistic.etherscan.io/tx/${tx}`;
   return `https://solscan.io/tx/${tx}`;
+}
+function shortenUrl(url, max = 56) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, "");
+    const path = u.pathname === "/" ? "" : u.pathname;
+    const combined = host + path;
+    if (combined.length <= max) return combined;
+    return combined.slice(0, max - 1) + "…";
+  } catch {
+    return url.length > max ? url.slice(0, max - 1) + "…" : url;
+  }
+}
+function SponsoredCard({
+  recommendation,
+  onAct
+}) {
+  const [visible, setVisible] = reactExports.useState(false);
+  reactExports.useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 220);
+    return () => clearTimeout(t);
+  }, []);
+  const method = (recommendation.method || "GET").toUpperCase();
+  const display = shortenUrl(recommendation.resourceUrl);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: `relative overflow-hidden rounded-2xl border border-[rgba(255,107,0,0.28)] p-4 transition-all duration-500 ${visible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"}`,
+      style: {
+        background: "linear-gradient(135deg, rgba(255,107,0,0.10) 0%, rgba(255,107,0,0.04) 48%, rgba(255,107,0,0.02) 100%)",
+        boxShadow: "0 12px 28px rgba(255,107,0,0.08), 0 0 0 1px rgba(255,107,0,0.06) inset"
+      },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            className: "absolute top-0 left-0 right-0 h-px",
+            style: {
+              background: "linear-gradient(90deg, transparent 0%, #ff6b00 28%, #ff6b00 72%, transparent 100%)",
+              opacity: 0.5
+            }
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col items-center gap-1 pt-0.5 shrink-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "span",
+            {
+              className: "inline-flex items-center rounded-full bg-[rgba(255,107,0,0.18)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-[#ffb787] ring-1 ring-[rgba(255,107,0,0.35)]",
+              title: "Sponsored placement matched by Dexter Instinct",
+              children: "Sponsored"
+            }
+          ) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-baseline justify-between gap-2 flex-wrap", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-semibold text-primary leading-tight", children: recommendation.sponsor }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] uppercase tracking-[0.14em] text-[#ff9a52]/80", children: "You might want this next" })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1.5 text-sm leading-5 text-secondary line-clamp-2", children: recommendation.description }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 flex items-center gap-2 text-[11px] text-tertiary min-w-0", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "inline-flex items-center rounded bg-surface-secondary/70 px-1.5 py-0.5 font-mono text-[10px] text-secondary ring-1 ring-white/5", children: method }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "truncate font-mono text-[11px]", title: recommendation.resourceUrl, children: display })
+            ] })
+          ] }),
+          onAct && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "shrink-0 self-center", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+            Button,
+            {
+              variant: "solid",
+              color: "primary",
+              size: "sm",
+              onClick: (e) => {
+                e.stopPropagation();
+                onAct(recommendation.resourceUrl, method);
+              },
+              children: "Try this →"
+            }
+          ) })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 pt-2 border-t border-[rgba(255,107,0,0.12)] flex items-center justify-between text-[10px] text-tertiary", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "via Dexter Instinct" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "opacity-60", children: "Recommendations are matched by capability, not by bid." })
+        ] })
+      ]
+    }
+  );
 }
 const WORDMARK_URL = "https://dexter.cash/wordmarks/dexter-wordmark.svg";
 const LOGO_MARK_URL = "https://dexter.cash/assets/pokedexter/dexter-logo.svg";
@@ -212,7 +296,14 @@ function FetchResult() {
               imageUrl ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-2xl overflow-hidden bg-surface-secondary", children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-3 py-2 text-xs text-tertiary uppercase", children: "Image" }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: proxyImageUrl(imageUrl), alt: "Response", className: "w-full" })
-              ] }) : toolOutput.data !== void 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(JsonViewer, { data: toolOutput.data }) : null
+              ] }) : toolOutput.data !== void 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(JsonViewer, { data: toolOutput.data }) : null,
+              toolOutput.recommendations && toolOutput.recommendations.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                SponsoredCard,
+                {
+                  recommendation: toolOutput.recommendations[0],
+                  onAct: (url) => openExternal(url)
+                }
+              )
             ] }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(DebugPanel, { widgetName: "x402-fetch-result" })
           ]
@@ -223,6 +314,6 @@ function FetchResult() {
 }
 const root = document.getElementById("x402-fetch-result-root");
 if (root) {
-  root.setAttribute("data-widget-build", "2026-03-04.2");
+  root.setAttribute("data-widget-build", "2026-05-04.sponsored-card");
   clientExports.createRoot(root).render(/* @__PURE__ */ jsxRuntimeExports.jsx(FetchResult, {}));
 }

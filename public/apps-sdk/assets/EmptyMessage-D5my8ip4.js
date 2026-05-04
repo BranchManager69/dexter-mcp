@@ -1,5 +1,5 @@
 import { j as jsxRuntimeExports } from "./adapter-CqwUQG-H.js";
-import { c as clsx } from "./Button-BEVHLOsY.js";
+import { c as clsx } from "./Button-CKCwcRlZ.js";
 const EmptyMessage$1 = "_EmptyMessage_1r5gu_1";
 const IconBadge = "_IconBadge_1r5gu_16";
 const Title$1 = "_Title_1r5gu_54";

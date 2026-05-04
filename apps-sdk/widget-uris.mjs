@@ -22,3 +22,9 @@ export const X402_WIDGET_URIS = Object.freeze({
   pricing: versionedWidgetUri('ui://dexter/x402-pricing', 'x402-pricing.html'),
   wallet: versionedWidgetUri('ui://dexter/x402-wallet', 'x402-wallet.html'),
 });
+
+export const CARD_WIDGET_URIS = Object.freeze({
+  status: versionedWidgetUri('ui://dexter/card-status', 'card-status.html'),
+  issue: versionedWidgetUri('ui://dexter/card-issue', 'card-issue.html'),
+  linkWallet: versionedWidgetUri('ui://dexter/card-link-wallet', 'card-link-wallet.html'),
+});

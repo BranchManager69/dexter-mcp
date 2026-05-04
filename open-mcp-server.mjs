@@ -33,7 +33,21 @@ import dotenv from 'dotenv';
 dotenv.config();
 dotenv.config({ path: '.env.local' });
 import { createOpenSessionResolver } from './lib/open-session-resolution.mjs';
-import { X402_WIDGET_URIS } from './apps-sdk/widget-uris.mjs';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { X402_WIDGET_URIS, CARD_WIDGET_URIS } from './apps-sdk/widget-uris.mjs';
+import {
+  composeCardTools,
+  buildCardToolMetas,
+  createRemoteCardOperations,
+  DextercardPairingRequiredError,
+} from '@dexterai/x402-mcp-tools';
+import { mintPairingRequest, pollPairingResult } from './lib/pairing-mint.mjs';
+
+// Per-request context carrying the MCP `extra` object into deep
+// callbacks (the shared registrars' adapter.getOperations() doesn't
+// receive `extra` directly — we expose it via AsyncLocalStorage so
+// the adapter can read the bound user from the current MCP session).
+const cardRequestContext = new AsyncLocalStorage();
 import {
   capabilitySearch as coreCapabilitySearch,
   buildSearchResponse,
@@ -91,7 +105,7 @@ const ACCESS_META = widgetMeta(X402_WIDGET_URIS.fetch, 'Signing access proof…'
 const CHECK_META = widgetMeta(X402_WIDGET_URIS.pricing, 'Checking pricing…', 'Pricing loaded', 'Shows endpoint pricing per blockchain with payment amounts and a pay button.');
 const WALLET_META = widgetMeta(X402_WIDGET_URIS.wallet, 'Loading wallet…', 'Wallet loaded', 'Shows wallet addresses with copy button, USDC balances across chains, and deposit QR code.');
 
-const ALL_TOOLS = ['x402_search', 'x402_pay', 'x402_fetch', 'x402_check', 'x402_access', 'x402_wallet'];
+const ALL_TOOLS = ['x402_search', 'x402_pay', 'x402_fetch', 'x402_check', 'x402_access', 'x402_wallet', 'card_status', 'card_issue', 'card_link_wallet', 'card_freeze'];
 const OPEN_SESSION_HINT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 // Set env vars required by registerAppsSdkResources before importing it
@@ -563,10 +577,21 @@ async function x402Fetch({ url, method, body, multipart, sessionToken, sessionKe
         merchantSettlement: buildMerchantSettlement(requirements),
         sessionResolution: paymentSession.sessionResolution,
       };
+      // Promote sponsored recommendations into top-level toolOutput so widgets
+      // and LLMs both see them. Body-injection (_x402_sponsored) is the
+      // preferred source because it's set by the seller-side @dexterai/x402
+      // middleware AFTER the facilitator extension is injected. But the
+      // /v2/open/x402/fetch delegate path doesn't always propagate that
+      // field, so we fall back to the facilitator's settlement-extension
+      // recommendations which are always present when a campaign matched.
       const bodySponsored = openBody.data?._x402_sponsored;
-      if (Array.isArray(bodySponsored) && bodySponsored.length > 0) {
-        sessionResult.recommendations = bodySponsored;
-        sessionResult._recommendations_hint = `Sponsored: ${bodySponsored.map(r => `${r.sponsor} — ${r.description} (${r.resourceUrl})`).join('; ')}. Call with x402_fetch if relevant.`;
+      const extSponsored = openBody.payment?.settlement?.extensions?.['sponsored-access']?.info?.recommendations;
+      const sponsoredRecs = Array.isArray(bodySponsored) && bodySponsored.length > 0
+        ? bodySponsored
+        : (Array.isArray(extSponsored) && extSponsored.length > 0 ? extSponsored : null);
+      if (sponsoredRecs) {
+        sessionResult.recommendations = sponsoredRecs;
+        sessionResult._recommendations_hint = `Sponsored: ${sponsoredRecs.map(r => `${r.sponsor} — ${r.description} (${r.resourceUrl})`).join('; ')}. Call with x402_fetch if relevant.`;
       }
       return sessionResult;
     } catch (err) {
@@ -973,6 +998,188 @@ function createOpenMcpServer() {
     }
   });
 
+  // ─── Dextercard Tools (via shared @dexterai/x402-mcp-tools registrars) ────
+  //
+  // The open MCP doesn't hold any user's carrier session. It binds a
+  // supabase user id to its MCP session id whenever a Bearer JWT is
+  // presented (Phase 1), and proxies card operations through dexter-api's
+  // HMAC-gated /internal/dextercard/* surface via createRemoteCardOperations
+  // from the shared package.
+  //
+  // The shared registrars don't receive the per-request MCP `extra` object
+  // when they call `cards.getOperations()`. We thread it via
+  // AsyncLocalStorage: a thin wrapper around server.registerTool wraps each
+  // tool callback with `cardRequestContext.run({ extra }, ...)` so that
+  // anything called inside (including getOperations) can read the current
+  // request's binding state.
+
+  const internalApiBase = (process.env.DEXTER_API_URL || 'http://127.0.0.1:3030').replace(/\/+$/, '');
+  const internalHmacSecret = (process.env.INTERNAL_DEXTERCARD_HMAC_SECRET || '').trim();
+
+  // Adapter resolution flow for an unpaired MCP session:
+  //   1. Read the per-request MCP `extra` from ALS to get the session id.
+  //   2. If a Dexter user is already bound to this session (Phase 1, or
+  //      a previously-completed pairing), construct a RemoteCardOperations
+  //      pointed at dexter-api and return it. Done.
+  //   3. If a pairing was previously minted for this session, poll
+  //      dexter-api for completion. If completed, seed the binding and
+  //      return ops. If still pending, throw DextercardPairingRequiredError
+  //      with the existing login URL.
+  //   4. If no pairing has been minted yet, mint a fresh one (server-to-
+  //      server), stash it in pendingPairings keyed by sessionId, and
+  //      throw DextercardPairingRequiredError with the login URL.
+  //
+  // Throwing DextercardPairingRequiredError lets the shared registrars'
+  // catch path (via maybeLoginRequiredResult in 0.3.2+) surface a clean
+  // structured tool result so the agent can present the URL to the user.
+  const cardsAdapter = {
+    async getOperations() {
+      const ctx = cardRequestContext.getStore();
+      const sessionId = ctx?.extra ? extractMcpSessionId(ctx.extra) : null;
+      if (!sessionId) return null; // outside an MCP request — no work
+      if (!internalHmacSecret) return null; // service auth unconfigured
+
+      // 2. Already bound?
+      const binding = getUserBinding(sessionId);
+      if (binding) {
+        return createRemoteCardOperations({
+          baseUrl: internalApiBase,
+          userId: binding.userId,
+          hmacSecret: internalHmacSecret,
+        });
+      }
+
+      // 3. Previously minted pairing for this session?
+      const pending = pendingPairings.get(sessionId);
+      if (pending) {
+        const expired = Date.now() - pending.mintedAt > PAIRING_MAX_AGE_MS;
+        if (!expired) {
+          // Poll for completion.
+          let result = null;
+          try {
+            result = await pollPairingResult(pending.requestId);
+          } catch (err) {
+            console.warn(`[open-mcp] pairing poll failed: ${err?.message || err}`);
+          }
+          if (result?.status === 'completed' && result.supabaseUserId) {
+            // Seed the canonical binding so future tool calls in this
+            // session bypass pairing entirely. Mirrors the shape Phase 1
+            // uses when it parses a Bearer JWT.
+            const expSeconds = Math.floor(Date.now() / 1000) + (result.expiresIn || 900);
+            userBindings.set(sessionId, {
+              userId: result.supabaseUserId,
+              email: result.supabaseEmail || null,
+              scope: 'dextercard',
+              exp: expSeconds,
+            });
+            pendingPairings.delete(sessionId);
+            console.log(`[open-mcp] pairing completed: ${sessionId} → user ${result.supabaseUserId}${result.supabaseEmail ? ` (${result.supabaseEmail})` : ''}`);
+            return createRemoteCardOperations({
+              baseUrl: internalApiBase,
+              userId: result.supabaseUserId,
+              hmacSecret: internalHmacSecret,
+            });
+          }
+          // Still pending — surface the same URL again.
+          throw new DextercardPairingRequiredError(pending.loginUrl, pending.requestId);
+        }
+        // Pairing expired — fall through to mint a fresh one.
+        pendingPairings.delete(sessionId);
+      }
+
+      // 4. Mint a fresh pairing.
+      let minted;
+      try {
+        minted = await mintPairingRequest('dextercard');
+      } catch (err) {
+        console.warn(`[open-mcp] pairing mint failed: ${err?.message || err}`);
+        return null; // fall back to noSessionTip behavior
+      }
+      pendingPairings.set(sessionId, {
+        requestId: minted.requestId,
+        loginUrl: minted.loginUrl,
+        mintedAt: Date.now(),
+      });
+      console.log(`[open-mcp] minted pairing: ${sessionId} → request ${minted.requestId}`);
+      throw new DextercardPairingRequiredError(minted.loginUrl, minted.requestId);
+    },
+    describe() {
+      const ctx = cardRequestContext.getStore();
+      const sessionId = ctx?.extra ? extractMcpSessionId(ctx.extra) : null;
+      const binding = sessionId ? getUserBinding(sessionId) : null;
+      return binding?.email || null;
+    },
+  };
+
+  // Wrap server.registerTool just for the composeCardTools call so each
+  // card-tool callback runs inside a per-request ALS frame carrying the
+  // live `extra`. After composeCardTools returns we restore the original
+  // method so other tool registrations are unaffected.
+  const cardWidgetUris = {
+    status: CARD_WIDGET_URIS.status,
+    issue: CARD_WIDGET_URIS.issue,
+    linkWallet: CARD_WIDGET_URIS.linkWallet,
+  };
+  const cardMetas = buildCardToolMetas(cardWidgetUris, { widgetDomain: WIDGET_DOMAIN });
+
+  // Wrap server.tool() for the duration of composeCardTools so each
+  // card-tool callback runs inside a per-request ALS frame carrying the
+  // live MCP `extra`. We also catch DextercardPairingRequiredError /
+  // DextercardLoginRequiredError that may bubble out of the registrar
+  // body — three of the four registrars call cards.getOperations()
+  // BEFORE entering their own try/catch, so a throw from our adapter
+  // would otherwise escape as an uncaught error. The catch here turns
+  // those structured states into clean tool results regardless of where
+  // they were raised.
+  const buildPairingResult = (err, meta) => {
+    const data = {
+      stage: 'auth_required',
+      tip: 'Sign in to your Dexter account to use Dextercard tools.',
+      pairingUrl: err.pairingUrl,
+      requestId: err.requestId,
+      nextAction: 'tell_user_to_visit_pairing_url',
+    };
+    return {
+      content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+      structuredContent: data,
+      ...(meta ? { _meta: meta } : {}),
+    };
+  };
+
+  const originalTool = server.tool.bind(server);
+  server.tool = (...args) => {
+    if (typeof args[args.length - 1] !== 'function') {
+      return originalTool(...args);
+    }
+    const callback = args[args.length - 1];
+    // Pull the meta block out of args (some arities pass it as part of
+    // the descriptor; we look for any object carrying _meta to pass back
+    // to the user-facing tool result on auth_required).
+    const meta = args.find((a) => a && typeof a === 'object' && '_meta' in a)?._meta || null;
+    const wrapped = async (toolArgs, extra) =>
+      cardRequestContext.run({ extra }, async () => {
+        try {
+          return await callback(toolArgs, extra);
+        } catch (err) {
+          if (err?.name === 'DextercardPairingRequiredError') {
+            return buildPairingResult(err, meta);
+          }
+          throw err;
+        }
+      });
+    args[args.length - 1] = wrapped;
+    return originalTool(...args);
+  };
+
+  composeCardTools(server, {
+    cards: cardsAdapter,
+    metas: cardMetas,
+    noSessionTip:
+      'Sign in to your Dexter account at https://dexter.cash/link to enable Dextercard tools.',
+  });
+
+  server.tool = originalTool;
+
   // ─── Widget Resource Registration (uses same system as authenticated MCP) ──
 
   try {
@@ -982,6 +1189,9 @@ function createOpenMcpServer() {
         X402_WIDGET_URIS.fetch,
         X402_WIDGET_URIS.pricing,
         X402_WIDGET_URIS.wallet,
+        CARD_WIDGET_URIS.status,
+        CARD_WIDGET_URIS.issue,
+        CARD_WIDGET_URIS.linkWallet,
       ],
     });
   } catch (err) {
@@ -1000,6 +1210,14 @@ const transports = new Map();
 // a real user (Dextercard issuance, etc.) read from this map via the
 // session id stamped on the MCP request context. Anonymous tools ignore it.
 const userBindings = new Map(); // sessionId -> { userId, email, scope, exp }
+
+// Per-session pairing state. When a card tool fires for an unbound MCP
+// session, we mint a connector OAuth request_id via dexter-api and stash
+// it here so subsequent calls within the same session reuse the same
+// pairing URL (and check for completion) instead of minting a fresh one
+// every call. Cleared on session close / reaper / successful binding.
+const pendingPairings = new Map(); // sessionId -> { requestId, loginUrl, mintedAt }
+const PAIRING_MAX_AGE_MS = 10 * 60 * 1000; // 10 min — same as connector_oauth_requests TTL
 
 const MCP_JWT_SECRET = (process.env.MCP_JWT_SECRET || '').trim();
 
@@ -1206,6 +1424,7 @@ const httpServer = http.createServer(async (req, res) => {
       if (sid) {
         transports.delete(sid);
         userBindings.delete(sid);
+        pendingPairings.delete(sid);
         console.log(`[open-mcp] session closed: ${sid} (active: ${transports.size})`);
       }
     };
@@ -1224,6 +1443,7 @@ const httpServer = http.createServer(async (req, res) => {
       await transport.handleRequest(req, res);
       transports.delete(sessionId);
       userBindings.delete(sessionId);
+      pendingPairings.delete(sessionId);
     } else {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Session not found' }));
@@ -1243,6 +1463,7 @@ setInterval(() => {
     if (transport._lastActivity && now - transport._lastActivity > SESSION_MAX_AGE_MS) {
       transports.delete(sid);
       userBindings.delete(sid);
+      pendingPairings.delete(sid);
       console.log(`[open-mcp] reaped stale session: ${sid}`);
     }
   }
