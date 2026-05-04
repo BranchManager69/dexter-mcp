@@ -932,7 +932,7 @@ function createOpenMcpServer() {
 
   server.registerTool('x402_check', {
     title: 'x402 Check',
-    description: 'Probe an endpoint for x402 payment requirements without paying. Returns pricing options per chain (Solana, Base, and others if supported), input/output schema, and the payTo address for each chain. Use this to preview costs before calling x402_fetch.',
+    description: 'Probe an endpoint for x402 payment requirements without paying. Returns pricing options per chain (Solana, Base, and others if supported), input/output schema, and the payTo address for each chain. When the endpoint is in the Dexter catalog, also returns enrichment data: quality score, AI verifier verdict + notes, recent verification history (3 most recent runs), display name, description, hit count, and response shape — so the caller can present a "should I pay $0.05 to call this?" decision rather than a bare price list. Use this to preview costs before calling x402_fetch.',
     inputSchema: {
       url: z.string().url().describe('The URL to check'),
       method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).default('GET').describe('HTTP method to probe with'),
@@ -941,8 +941,42 @@ function createOpenMcpServer() {
     _meta: CHECK_META,
   }, async (args) => {
     try {
+      // Live probe (authoritative for pricing).
       const result = await checkEndpointPricing(args);
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], structuredContent: result, _meta: CHECK_META };
+
+      // Best-effort DB enrichment. We never fail the tool call if this misses;
+      // we tag enrichment_source so the caller knows which path produced what.
+      // No silent fallbacks — tag is always set.
+      const apiBase = (process.env.DEXTER_API_URL || 'http://127.0.0.1:3030').replace(/\/+$/, '');
+      let enrichment = null;
+      let enrichmentSource = 'unavailable';
+      try {
+        const enrichUrl = `${apiBase}/api/x402/resource?url=${encodeURIComponent(args.url)}&history=3`;
+        const enrichRes = await fetch(enrichUrl, {
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(2000),
+        });
+        if (enrichRes.ok) {
+          const body = await enrichRes.json();
+          if (body?.ok && body?.found) {
+            enrichment = { resource: body.resource, history: body.history };
+            enrichmentSource = 'live_db';
+          } else {
+            enrichmentSource = 'not_found';
+          }
+        } else {
+          enrichmentSource = `http_${enrichRes.status}`;
+        }
+      } catch (enrichErr) {
+        enrichmentSource = `error:${enrichErr?.name || 'unknown'}`;
+      }
+
+      const merged = {
+        ...result,
+        enrichment,
+        enrichment_source: enrichmentSource,
+      };
+      return { content: [{ type: 'text', text: JSON.stringify(merged, null, 2) }], structuredContent: merged, _meta: CHECK_META };
     } catch (err) {
       const data = { error: true, statusCode: 500, message: err?.message || String(err) };
       return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }], structuredContent: data, isError: true, _meta: CHECK_META };
