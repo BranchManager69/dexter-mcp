@@ -5,6 +5,13 @@ interface Props {
   tone: Tone;
   /** Entrance animation (scale + rotate-in). */
   animate: boolean;
+  /**
+   * 'full' (default) is the 60px hero stamp used inside Professor's card.
+   * 'mini' is a ~32px variant for dense lists (search results) — same
+   * visual identity, smaller footprint. Both share CSS via a modifier so a
+   * later visual upgrade cascades to both surfaces.
+   */
+  size?: 'full' | 'mini';
 }
 
 /**
@@ -14,17 +21,18 @@ interface Props {
  * Same letter system used by x402gle and the OG share image so all three
  * visual surfaces agree.
  */
-export function Stamp({ letter, tone, animate }: Props) {
+export function Stamp({ letter, tone, animate, size = 'full' }: Props) {
   const ticks = 32;
   const toneClass =
     tone === 'high' ? 'dx-pricing__stamp--high'
     : tone === 'mid' ? 'dx-pricing__stamp--mid'
     : tone === 'low' ? 'dx-pricing__stamp--low'
     : 'dx-pricing__stamp--unknown';
+  const sizeClass = size === 'mini' ? 'dx-pricing__stamp--mini' : '';
 
   return (
     <div
-      className={`dx-pricing__stamp ${toneClass} ${animate ? 'dx-pricing__stamp--animate' : ''}`}
+      className={`dx-pricing__stamp ${toneClass} ${sizeClass} ${animate ? 'dx-pricing__stamp--animate' : ''}`}
       aria-label={`Grade ${letter}`}
     >
       <svg viewBox="0 0 100 100" className="dx-pricing__stamp-svg" aria-hidden>

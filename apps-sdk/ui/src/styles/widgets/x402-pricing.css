@@ -347,6 +347,16 @@
   transform: translateY(1px);
 }
 
+/* Mini variant — used in dense lists (search results). Same identity, ~half
+ * the footprint. Reuses every other style via the cascade. */
+.dx-pricing__stamp--mini {
+  width: 36px;
+  height: 36px;
+}
+.dx-pricing__stamp--mini .dx-pricing__stamp-letter {
+  font-size: 16px;
+}
+
 /* ───── Thermometer ─────────────────────────────────────────────────── */
 
 .dx-pricing__therm {

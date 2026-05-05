@@ -3,7 +3,6 @@ import { Button, CopyButton } from '@openai/apps-sdk-ui/components/Button';
 import { ChainIcon, UsdcIcon } from '..';
 import type { SearchResource } from './types';
 import { SearchIdentityIcon } from './SearchIdentityIcon';
-import { SearchScoreBadge } from './SearchScoreBadge';
 import { formatCompactNumber, providerDisplayName, shortenUrl } from './utils';
 
 export function SearchResultCard({

@@ -1,4 +1,8 @@
 import '../styles/sdk.css';
+// Primitive Professor/Doctor visuals (stamps, thermometers, avatars). The
+// rule scope is `dx-pricing__*` and doesn't collide with search styles.
+// Refactor to a shared primitives stylesheet in a follow-up.
+import '../styles/widgets/x402-pricing.css';
 
 import { createRoot } from 'react-dom/client';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
@@ -10,7 +14,7 @@ import {
 } from '../sdk';
 import { DebugPanel } from '../components/x402';
 import { MarketplaceSummaryHeader } from '../components/x402/search/MarketplaceSummaryHeader';
-import { SearchResultCard } from '../components/x402/search/SearchResultCard';
+import { SearchVerdictRow } from '../components/x402/search/SearchVerdictRow';
 import { SearchResourceDetail } from '../components/x402/search/SearchResourceDetail';
 import type {
   SearchResource,
@@ -397,7 +401,7 @@ function MarketplaceSearch() {
                   </div>
                   <div className={`grid gap-3 ${isFullscreen ? 'xl:grid-cols-2' : 'grid-cols-1'}`}>
                     {strongResults.map((resource, index) => (
-                      <SearchResultCard
+                      <SearchVerdictRow
                         key={`strong-${resource.url}-${index}`}
                         resource={resource}
                         index={index}
@@ -422,7 +426,7 @@ function MarketplaceSearch() {
                   </div>
                   <div className={`grid gap-3 ${isFullscreen ? 'xl:grid-cols-2' : 'grid-cols-1'}`}>
                     {relatedResults.map((resource, index) => (
-                      <SearchResultCard
+                      <SearchVerdictRow
                         key={`related-${resource.url}-${index}`}
                         resource={resource}
                         index={index}
@@ -440,7 +444,7 @@ function MarketplaceSearch() {
           ) : (
             <div className={`grid gap-3 ${isFullscreen ? 'xl:grid-cols-2' : 'grid-cols-1'}`}>
               {resources.map((resource, index) => (
-                <SearchResultCard
+                <SearchVerdictRow
                   key={`${resource.url}-${index}`}
                   resource={resource}
                   index={index}
