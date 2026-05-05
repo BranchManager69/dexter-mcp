@@ -9,6 +9,7 @@ import { useCallback, useState } from 'react';
 // host actually grows the iframe to fit the rendered React tree. Without
 // this the widget mounts at height 0 and never becomes visible.
 import '../sdk';
+import { openLinkProbe } from '../sdk/mcp-apps-bridge';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Probe outcome model
@@ -358,10 +359,17 @@ function classifyError(phase: ProbePhase, err: Error): ProbeOutcome {
 // View
 // ─────────────────────────────────────────────────────────────────────────────
 
+type OpenLinkOutcome =
+  | { kind: 'idle' }
+  | { kind: 'running' }
+  | { kind: 'ok'; response: unknown }
+  | { kind: 'rejected'; error: string };
+
 function PasskeyProbe() {
   const [outcome, setOutcome] = useState<ProbeOutcome>({ kind: 'idle' });
   const [popup, setPopup] = useState<PopupOutcome>({ kind: 'idle' });
   const [anchor, setAnchor] = useState<'idle' | 'tapped'>('idle');
+  const [openlink, setOpenLink] = useState<OpenLinkOutcome>({ kind: 'idle' });
 
   const onTap = useCallback(() => {
     runProbe(setOutcome);
@@ -384,6 +392,24 @@ function PasskeyProbe() {
       env,
       target: 'https://dexter.cash/connector/auth/done?probe=anchor',
     });
+  }, []);
+  // openLink probe: the spec-blessed escape hatch. Widget asks the host
+  // (Claude.ai) to open a URL in a top-level browsing context via JSON-RPC
+  // 'ui/open-link'. Host MAY honor or reject. We surface the response
+  // explicitly instead of the SDK's safety-fallback variant which would
+  // silently fall through to window.open() on rejection.
+  const onTapOpenLink = useCallback(async () => {
+    const e = nowEnv();
+    const target = 'https://dexter.cash/connector/auth/done?probe=openlink';
+    setOpenLink({ kind: 'running' });
+    const result = await openLinkProbe(target);
+    if (result.ok) {
+      setOpenLink({ kind: 'ok', response: result.response });
+      await reportToServer({ probe: 'openlink', outcome: { kind: 'ok' }, env: e, target });
+    } else {
+      setOpenLink({ kind: 'rejected', error: result.error });
+      await reportToServer({ probe: 'openlink', outcome: { kind: 'rejected', error: result.error }, env: e, target });
+    }
   }, []);
 
   const env = nowEnv();
@@ -503,6 +529,46 @@ function PasskeyProbe() {
                 deep-link path works. If nothing happened, the iframe sandbox
                 ate the anchor tap too.
               </span>
+            </div>
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          className="passkey-probe-button"
+          onClick={onTapOpenLink}
+          disabled={openlink.kind === 'running'}
+          style={{ marginTop: 4 }}
+        >
+          {openlink.kind === 'idle' && 'Test ui/open-link (host-mediated)'}
+          {openlink.kind === 'running' && 'Asking host to open tab…'}
+          {openlink.kind === 'ok' && 'Run ui/open-link again'}
+          {openlink.kind === 'rejected' && 'Run ui/open-link again'}
+        </button>
+
+        {openlink.kind === 'ok' ? (
+          <div className="passkey-probe-result passkey-probe-result--success">
+            <div className="passkey-probe-result__heading">
+              <span className="passkey-probe-result__label">Host honored ui/open-link</span>
+            </div>
+            <div className="passkey-probe-result__error">
+              <span>
+                Host accepted the request without error. A new tab to
+                dexter.cash should be opening (or has opened). This is the
+                spec-blessed escape hatch — popout architecture viable.
+              </span>
+            </div>
+          </div>
+        ) : null}
+        {openlink.kind === 'rejected' ? (
+          <div className="passkey-probe-result passkey-probe-result--blocked">
+            <div className="passkey-probe-result__heading">
+              <span className="passkey-probe-result__label">Host rejected ui/open-link</span>
+            </div>
+            <div className="passkey-probe-result__error">
+              <span className="passkey-probe-result__error-name">error</span>
+              {' — '}
+              <span>{openlink.error}</span>
             </div>
           </div>
         ) : null}

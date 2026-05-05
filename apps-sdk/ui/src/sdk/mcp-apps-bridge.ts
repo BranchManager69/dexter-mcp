@@ -224,6 +224,21 @@ export function openLink(href: string): void {
   });
 }
 
+// Probe variant: surfaces success/failure without falling back, so a
+// capability test can distinguish "host honored ui/open-link" from
+// "host rejected, no escape hatch available." Returns the host's response
+// (or the rejection error). Do NOT use this in production widgets — use
+// openLink() above which has the safety fallback.
+export async function openLinkProbe(href: string): Promise<{ok: true; response: unknown} | {ok: false; error: string}> {
+  try {
+    const response = await sendRequest('ui/open-link', { url: href });
+    return { ok: true, response };
+  } catch (err) {
+    const e = err as Error;
+    return { ok: false, error: e?.message ?? String(err) };
+  }
+}
+
 export function updateModelContext(context: { text: string }): void {
   sendNotification('ui/update-model-context', context);
 }
