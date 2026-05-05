@@ -24,7 +24,7 @@ import { DebugPanel } from '../components/x402';
 import { MarketplaceSummaryHeader } from '../components/x402/search/MarketplaceSummaryHeader';
 import { SearchVerdictRow } from '../components/x402/search/SearchVerdictRow';
 import { MarketBoardLoading } from '../components/x402/search/MarketBoardLoading';
-import { SearchResourceDetail } from '../components/x402/search/SearchResourceDetail';
+import { SearchVerdictDrawer } from '../components/x402/search/SearchVerdictDrawer';
 import type {
   SearchResource,
   SearchRerankInfo,
@@ -307,9 +307,8 @@ function MarketplaceSearch() {
 
       {!isMobile && !isFullscreen && detailOpen && selectedResource && (
         <div className="px-4 pt-4">
-          <SearchResourceDetail
+          <SearchVerdictDrawer
             resource={selectedResource}
-            inline
             onClose={handleCloseDetail}
             onCheckPrice={runCheckPrice}
             onFetch={runFetch}
@@ -393,7 +392,7 @@ function MarketplaceSearch() {
         {isFullscreen && !isMobile && (
           <div className="min-w-0">
             {detailOpen && selectedResource ? (
-              <SearchResourceDetail
+              <SearchVerdictDrawer
                 resource={selectedResource}
                 onClose={handleCloseDetail}
                 onCheckPrice={runCheckPrice}
@@ -420,9 +419,8 @@ function MarketplaceSearch() {
       {isMobile && detailOpen && selectedResource && (
         <div className="fixed inset-0 z-20 flex items-end bg-black/50 px-3 py-3 backdrop-blur-sm" onClick={() => { void handleCloseDetail(); }}>
           <div className="max-h-[92vh] w-full overflow-y-auto animate-[fadein_.18s_ease-out]" onClick={(event) => event.stopPropagation()}>
-            <SearchResourceDetail
+            <SearchVerdictDrawer
               resource={selectedResource}
-              inline
               onClose={handleCloseDetail}
               onCheckPrice={runCheckPrice}
               onFetch={runFetch}

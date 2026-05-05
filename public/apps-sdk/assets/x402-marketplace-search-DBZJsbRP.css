@@ -538,3 +538,341 @@
     flex: 1;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   4. Verdict drawer — opens on tap of any cell. Hosts the real verifier
+   history fetched from /api/x402/resource (the canonical endpoint that
+   pricing widget uses). Three runs swipeable on mobile, scrollable on
+   desktop.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.dx-search-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dx-space-4);
+  padding: var(--dx-space-4);
+  border-radius: 22px;
+  background: var(--dx-bg);
+  border: 1px solid var(--dx-border-quiet);
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+/* Header */
+
+.dx-search-drawer__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--dx-space-3);
+}
+
+.dx-search-drawer__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--dx-space-3);
+  min-width: 0;
+}
+
+.dx-search-drawer__identity-text {
+  min-width: 0;
+}
+
+.dx-search-drawer__name {
+  font-size: var(--dx-text-lg);
+  font-weight: 600;
+  color: var(--dx-fg);
+  margin: 0;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.dx-search-drawer__host {
+  font-family: var(--dx-font-mono);
+  font-size: 11px;
+  color: var(--dx-fg-quiet);
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.dx-search-drawer__close {
+  background: var(--dx-bg-quiet);
+  border: 1px solid var(--dx-border-quiet);
+  color: var(--dx-fg-quiet);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  flex-shrink: 0;
+  transition: color 160ms var(--dx-ease-out), border-color 160ms var(--dx-ease-out);
+}
+
+.dx-search-drawer__close:hover {
+  color: var(--dx-fg);
+  border-color: var(--dx-border);
+}
+
+.dx-search-drawer__description {
+  margin: 0;
+  font-size: var(--dx-text-sm);
+  color: var(--dx-fg-quiet);
+  line-height: var(--dx-leading-relaxed);
+}
+
+/* Loading + error */
+
+.dx-search-drawer__loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--dx-space-4);
+  color: var(--dx-fg-quiet);
+  font-size: var(--dx-text-sm);
+}
+
+.dx-search-drawer__loading-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--dx-accent) 30%, transparent);
+  border-top-color: var(--dx-accent);
+  animation: dxSearchDrawerSpin 0.7s linear infinite;
+}
+
+@keyframes dxSearchDrawerSpin {
+  to { transform: rotate(360deg); }
+}
+
+.dx-search-drawer__error {
+  padding: var(--dx-space-3) var(--dx-space-4);
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--dx-danger) 25%, transparent);
+  background: color-mix(in srgb, var(--dx-danger) 6%, transparent);
+  color: var(--dx-danger);
+  font-size: var(--dx-text-sm);
+}
+
+/* Summary line */
+
+.dx-search-drawer__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 11px;
+  color: var(--dx-fg-quiet);
+  font-family: var(--dx-font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.dx-search-drawer__summary-label {
+  font-weight: 700;
+  color: var(--dx-fg-muted, var(--dx-fg-quiet));
+  letter-spacing: 0.16em;
+}
+
+.dx-search-drawer__summary-stat strong {
+  color: var(--dx-fg);
+  font-weight: 700;
+}
+
+.dx-search-drawer__summary-sep {
+  opacity: 0.5;
+}
+
+/* Carousel */
+
+.dx-search-drawer__carousel-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dx-space-2);
+}
+
+.dx-search-drawer__carousel {
+  display: flex;
+  gap: var(--dx-space-3);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  /* Negative margin + matching padding so the cards sit edge-to-edge with
+   * the drawer interior but the snap points still land cleanly. */
+  margin: 0 calc(var(--dx-space-4) * -1);
+  padding: var(--dx-space-1) var(--dx-space-4);
+}
+
+.dx-search-drawer__carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.dx-search-drawer__slide {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  /* On wider viewports, narrow the slide so neighbors peek in — gives the
+   * "more to scroll" affordance without needing prev/next chrome. */
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .dx-search-drawer__slide {
+    flex: 0 0 90%;
+  }
+}
+
+.dx-search-drawer__dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dx-search-drawer__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--dx-border-quiet);
+  padding: 0;
+  cursor: pointer;
+  transition: background 160ms var(--dx-ease-out), transform 160ms var(--dx-ease-out);
+}
+
+.dx-search-drawer__dot--active {
+  background: var(--dx-accent);
+  transform: scale(1.4);
+}
+
+/* Run card */
+
+.dx-search-drawer__run {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dx-space-3);
+  padding: var(--dx-space-3);
+  border-radius: 16px;
+  border: 1px solid var(--dx-border-quiet);
+  background: var(--dx-bg-quiet);
+}
+
+.dx-search-drawer__run-header {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--dx-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--dx-fg-quiet);
+}
+
+.dx-search-drawer__run-status {
+  font-weight: 700;
+}
+
+/* Response shape strip */
+
+.dx-search-drawer__shape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dx-fg-quiet) 6%, transparent);
+  font-family: var(--dx-font-mono);
+  font-size: 10px;
+}
+
+.dx-search-drawer__shape-key {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--dx-fg-quiet);
+}
+
+.dx-search-drawer__shape-val {
+  color: var(--dx-fg);
+}
+
+.dx-search-drawer__image-preview {
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px dashed var(--dx-border);
+  text-align: center;
+  font-size: 11px;
+  color: var(--dx-fg-quiet);
+}
+
+.dx-search-drawer__image-format {
+  font-family: var(--dx-font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+/* Per-chain payment routes */
+
+.dx-search-drawer__chains {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dx-search-drawer__chains-label {
+  font-family: var(--dx-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dx-fg-quiet);
+}
+
+.dx-search-drawer__chains-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dx-search-drawer__chain-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--dx-bg-quiet);
+  border: 1px solid var(--dx-border-quiet);
+  font-size: var(--dx-text-sm);
+}
+
+.dx-search-drawer__chain-network {
+  color: var(--dx-fg);
+  font-weight: 500;
+}
+
+.dx-search-drawer__chain-price {
+  color: var(--dx-fg);
+  font-family: var(--dx-font-mono);
+  font-weight: 600;
+}
+
+/* Footer */
+
+.dx-search-drawer__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--dx-space-3);
+  padding-top: var(--dx-space-3);
+  border-top: 1px solid var(--dx-border-quiet);
+}
+
+.dx-search-drawer__footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

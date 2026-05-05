@@ -10,7 +10,6 @@ import { u as useMaxHeight } from "./use-max-height-DZFC2PSv.js";
 import { a as useCallToolFn } from "./use-call-tool-4E44P6AR.js";
 import { u as useOpenAIGlobal } from "./use-openai-global-Cs-Bqg_p.js";
 import { C as ChainIcon, U as UsdcIcon, a as CopyButton, D as DebugPanel } from "./DebugPanel-BtjGQOge.js";
-import { J as JsonViewer } from "./JsonViewer-CwUQLfxA.js";
 import "./Check-Bp07B38p.js";
 import "./Copy-1PaP5PSB.js";
 function useToolInput() {
@@ -101,12 +100,6 @@ function resourceIconUrl(resource) {
   } catch {
     return resource.sellerMeta.logoUrl || "";
   }
-}
-function scoreTone(score) {
-  if (score == null || score <= 0) return "none";
-  if (score >= 80) return "good";
-  if (score >= 65) return "warn";
-  return "low";
 }
 function SearchIdentityIcon({ resource, size = 44 }) {
   const sources = reactExports.useMemo(() => {
@@ -394,331 +387,247 @@ function MarketBoardLoading({ query }) {
     ] })
   ] });
 }
-function toneClasses(tone) {
-  if (tone === "good") {
-    return "border-emerald-500/28 bg-emerald-500/10 text-emerald-300 shadow-[0_6px_18px_rgba(16,185,129,0.14)]";
-  }
-  if (tone === "warn") {
-    return "border-amber-500/28 bg-amber-500/10 text-amber-300 shadow-[0_6px_18px_rgba(245,158,11,0.12)]";
-  }
-  if (tone === "low") {
-    return "border-rose-500/28 bg-rose-500/10 text-rose-300 shadow-[0_6px_18px_rgba(244,63,94,0.12)]";
-  }
-  return "border-subtle bg-surface-secondary text-tertiary";
-}
-function SearchScoreBadge({
-  score,
-  variant = "card"
-}) {
-  const tone = scoreTone(score);
-  const sizeClasses = variant === "detail" ? "min-h-[52px] min-w-[52px] text-xl rounded-[18px]" : "min-h-[40px] min-w-[40px] text-base rounded-[14px]";
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    "div",
-    {
-      className: `inline-flex items-center justify-center border px-2.5 py-2 font-semibold tracking-tight shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${sizeClasses} ${toneClasses(tone)}`,
-      title: score != null ? `AI verification score ${score}` : "No AI verification score yet",
-      children: score != null && score > 0 ? score : "—"
-    }
-  );
-}
 const API_ORIGIN = "https://api.dexter.cash";
+function SearchVerdictDrawer({ resource, onClose, onCheckPrice, onFetch }) {
+  const [payload, setPayload] = reactExports.useState(null);
+  const [loading, setLoading] = reactExports.useState(true);
+  const [error, setError] = reactExports.useState(null);
+  const [activeRunIndex, setActiveRunIndex] = reactExports.useState(0);
+  const carouselRef = reactExports.useRef(null);
+  reactExports.useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setActiveRunIndex(0);
+    async function load() {
+      try {
+        addWidgetBreadcrumb("drawer_fetch_start", { url: resource.url });
+        const url = `${API_ORIGIN}/api/x402/resource?url=${encodeURIComponent(resource.url)}&history=3&full_previews=1`;
+        const res = await fetch(url, { cache: "no-store" });
+        const json = await res.json();
+        if (cancelled) return;
+        setPayload(json);
+        addWidgetBreadcrumb("drawer_fetch_success", {
+          url: resource.url,
+          historyCount: json.history?.recent?.length ?? 0
+        });
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load resource detail");
+        captureWidgetException(err, { phase: "drawer_fetch", url: resource.url });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [resource.url]);
+  const runs = payload?.history?.recent ?? [];
+  const summary = payload?.history?.summary ?? null;
+  const accepts = payload?.resource?.accepts ?? [];
+  reactExports.useEffect(() => {
+    const carousel = carouselRef.current;
+    if (!carousel || runs.length <= 1) return;
+    const slides = Array.from(carousel.querySelectorAll("[data-slide-idx]"));
+    if (!slides.length) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (visible[0]) {
+          const idx = parseInt(visible[0].target.getAttribute("data-slide-idx") ?? "0", 10);
+          setActiveRunIndex(idx);
+        }
+      },
+      { root: carousel, threshold: [0.5, 0.75, 1] }
+    );
+    slides.forEach((s) => obs.observe(s));
+    return () => obs.disconnect();
+  }, [runs.length]);
+  const scrollToSlide = (index) => {
+    const carousel = carouselRef.current;
+    if (!carousel) return;
+    const slides = carousel.querySelectorAll("[data-slide-idx]");
+    const target = slides[index];
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-drawer", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-drawer__header", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-drawer__identity", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(SearchIdentityIcon, { resource, size: 48 }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-drawer__identity-text", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "dx-search-drawer__name", children: resource.name }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-drawer__host", children: resource.url })
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          className: "dx-search-drawer__close",
+          onClick: () => void onClose(),
+          "aria-label": "Close detail",
+          children: "✕"
+        }
+      )
+    ] }),
+    resource.description && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "dx-search-drawer__description", children: resource.description }),
+    loading && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-drawer__loading", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-drawer__loading-spinner" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Loading verifier history…" })
+    ] }),
+    error && !loading && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-drawer__error", children: [
+      "Couldn't load the deeper detail — ",
+      error
+    ] }),
+    summary && summary.total > 0 && !loading && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-drawer__summary", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-drawer__summary-label", children: "Recent runs" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "dx-search-drawer__summary-stat", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { children: summary.passes }),
+        " passed"
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-drawer__summary-sep", children: "·" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "dx-search-drawer__summary-stat", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { children: summary.fails }),
+        " failed"
+      ] }),
+      typeof summary.median_duration_ms === "number" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-drawer__summary-sep", children: "·" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "dx-search-drawer__summary-stat", children: [
+          "median ",
+          /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { children: formatDuration(summary.median_duration_ms) })
+        ] })
+      ] })
+    ] }),
+    runs.length > 0 && !loading && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-drawer__carousel-section", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: carouselRef, className: "dx-search-drawer__carousel", children: runs.map((run, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "div",
+        {
+          "data-slide-idx": i,
+          className: "dx-search-drawer__slide",
+          children: /* @__PURE__ */ jsxRuntimeExports.jsx(RunCard, { run, runNumber: i + 1, totalRuns: runs.length })
+        },
+        run.attempted_at + i
+      )) }),
+      runs.length > 1 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-drawer__dots", children: runs.map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          className: `dx-search-drawer__dot ${i === activeRunIndex ? "dx-search-drawer__dot--active" : ""}`,
+          onClick: () => scrollToSlide(i),
+          "aria-label": `Go to run ${i + 1}`
+        },
+        i
+      )) })
+    ] }),
+    accepts.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-drawer__chains", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-drawer__chains-label", children: "Payment routes" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("ul", { className: "dx-search-drawer__chains-list", children: accepts.map((accept, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { className: "dx-search-drawer__chain-row", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-drawer__chain-network", children: shortenNetwork(accept.network) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-drawer__chain-price", children: formatChainPrice(accept.amount, accept.extra?.decimals) })
+      ] }, i)) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-drawer__footer", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(CopyButton, { copyValue: resource.url, variant: "ghost", color: "secondary", size: "sm", children: "Copy URL" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-drawer__footer-actions", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          Button,
+          {
+            variant: "soft",
+            color: "secondary",
+            size: "sm",
+            onClick: (e) => {
+              e.stopPropagation();
+              void onCheckPrice(resource);
+            },
+            children: "Check price"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          Button,
+          {
+            color: "primary",
+            size: "sm",
+            onClick: (e) => {
+              e.stopPropagation();
+              void onFetch(resource);
+            },
+            children: [
+              "Fetch · ",
+              resource.price === "free" ? "Free" : resource.price
+            ]
+          }
+        )
+      ] })
+    ] })
+  ] });
+}
+function RunCard({ run, runNumber, totalRuns }) {
+  const hasFix = run.ai_fix_instructions && run.ai_status !== "pass" && (run.ai_score == null || run.ai_score < 75);
+  const responseStatus = run.response_status;
+  const responseSize = run.response_size_bytes;
+  const responseKind = run.response_kind;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-drawer__run", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-drawer__run-header", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "dx-search-drawer__run-marker", children: [
+        "run ",
+        runNumber,
+        " of ",
+        totalRuns
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-drawer__run-status", children: run.final_status })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(ProfessorDexterCard, { run, passesOfRecent: null, animate: false }),
+    hasFix && run.ai_fix_instructions && /* @__PURE__ */ jsxRuntimeExports.jsx(DoctorDexterCard, { fixText: run.ai_fix_instructions, animate: false }),
+    (responseStatus !== null || responseSize) && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-drawer__shape", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-drawer__shape-key", children: "Response" }),
+      responseStatus !== null && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-drawer__shape-val", children: responseStatus }),
+      responseKind !== "unknown" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-drawer__shape-val", children: responseKind }),
+      typeof responseSize === "number" && responseSize > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-drawer__shape-val", children: formatBytes(responseSize) })
+    ] }),
+    responseKind === "image" && run.response_image_bytes_persisted && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-drawer__image-preview", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-drawer__image-format", children: run.response_image_format ?? "image" }) })
+  ] });
+}
 function formatDuration(ms) {
   if (ms == null) return "—";
   if (ms < 1e3) return `${ms}ms`;
   return `${(ms / 1e3).toFixed(1)}s`;
 }
 function formatBytes(bytes) {
-  if (bytes == null) return "—";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
-function formatWhen(iso) {
-  if (!iso) return "No verification timestamp";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Unknown verification time";
-  return date.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-function buildWhyBlock(resource) {
-  if (resource.why && resource.why.trim().length > 0) return resource.why.trim();
-  if (resource.verificationNotes) return resource.verificationNotes;
-  if (resource.verified && (resource.qualityScore ?? 0) >= 85) {
-    return "High-confidence candidate with strong verification and quality signals.";
+function shortenNetwork(network) {
+  if (!network) return "—";
+  const [family, ref] = network.split(":");
+  if (!family) return network;
+  if (family === "solana") return "Solana";
+  if (family === "algorand") return "Algorand";
+  if (family === "stellar") return "Stellar";
+  if (family === "eip155") {
+    if (ref === "8453") return "Base";
+    if (ref === "137") return "Polygon";
+    if (ref === "42161") return "Arbitrum";
+    if (ref === "10") return "Optimism";
+    if (ref === "43114") return "Avalanche";
+    if (ref === "56") return "BNB";
+    if (ref === "1") return "Ethereum";
+    return `EVM ${ref}`;
   }
-  if (resource.verified) {
-    return "Positive trust signals, but inspect before paying.";
-  }
-  if (resource.authRequired) {
-    return "Surfaced as a candidate, but this provider requires an auth step before it will behave cleanly.";
-  }
-  return "Candidate surfaced from the capability index — trust picture is still lightweight until more verification data lands.";
+  return family;
 }
-function buildDexterAssessment(resource, statusPayload) {
-  if (statusPayload?.notes) return statusPayload.notes;
-  if (resource.verificationNotes) return resource.verificationNotes;
-  return buildWhyBlock(resource);
-}
-function SearchResourceDetail({
-  resource,
-  inline = false,
-  onClose,
-  onCheckPrice,
-  onFetch
-}) {
-  const providerName = providerDisplayName(resource);
-  const [historyLoading, setHistoryLoading] = reactExports.useState(true);
-  const [schemaLoading, setSchemaLoading] = reactExports.useState(true);
-  const [history, setHistory] = reactExports.useState([]);
-  const [statusPayload, setStatusPayload] = reactExports.useState(null);
-  const [schemaPayload, setSchemaPayload] = reactExports.useState(null);
-  const [detailError, setDetailError] = reactExports.useState(null);
-  const [selectedHistoryId, setSelectedHistoryId] = reactExports.useState(null);
-  reactExports.useEffect(() => {
-    let cancelled = false;
-    setHistoryLoading(true);
-    setSchemaLoading(true);
-    setDetailError(null);
-    setSelectedHistoryId(null);
-    async function loadDetail() {
-      try {
-        addWidgetBreadcrumb("detail_fetch_start", {
-          resourceId: resource.resourceId,
-          url: resource.url
-        });
-        const [historyRes, statusRes, schemaRes] = await Promise.all([
-          fetch(`${API_ORIGIN}/api/x402gle/capability/resources/${encodeURIComponent(resource.resourceId)}/history?limit=10`, { cache: "no-store" }),
-          fetch(`${API_ORIGIN}/api/x402gle/capability/resources/${encodeURIComponent(resource.resourceId)}/verification-status`, { cache: "no-store" }),
-          fetch(`${API_ORIGIN}/api/facilitator/resource/schema?url=${encodeURIComponent(resource.url)}`, { cache: "no-store" })
-        ]);
-        const historyJson = await historyRes.json().catch(() => null);
-        const statusJson = await statusRes.json().catch(() => null);
-        const schemaJson = await schemaRes.json().catch(() => null);
-        if (cancelled) return;
-        setHistory(Array.isArray(historyJson?.history) ? historyJson.history : []);
-        setStatusPayload(statusJson);
-        setSchemaPayload(schemaJson);
-        addWidgetBreadcrumb("detail_fetch_success", {
-          resourceId: resource.resourceId,
-          historyCount: Array.isArray(historyJson?.history) ? historyJson.history.length : 0,
-          hasSchema: Boolean(schemaJson?.schema)
-        });
-      } catch (error) {
-        if (cancelled) return;
-        setDetailError(error instanceof Error ? error.message : "Failed to load endpoint detail");
-        captureWidgetException(error, {
-          phase: "detail_fetch",
-          resourceId: resource.resourceId,
-          url: resource.url
-        });
-      } finally {
-        if (!cancelled) {
-          setHistoryLoading(false);
-          setSchemaLoading(false);
-        }
-      }
-    }
-    void loadDetail();
-    return () => {
-      cancelled = true;
-    };
-  }, [resource.resourceId, resource.url]);
-  reactExports.useEffect(() => {
-    if (!history.length) return;
-    const preferred = history.find((entry) => entry.ai_status === "pass") ?? history[0];
-    setSelectedHistoryId(preferred.id);
-  }, [history]);
-  const selectedHistory = reactExports.useMemo(
-    () => history.find((entry) => entry.id === selectedHistoryId) ?? history[0] ?? null,
-    [history, selectedHistoryId]
-  );
-  const assessment = buildDexterAssessment(resource, statusPayload);
-  const whyText = resource.why?.trim() || "";
-  const similarityPct = typeof resource.similarity === "number" && resource.similarity > 0 ? Math.round(resource.similarity * 100) : null;
-  const tier = resource.tier;
-  const gamingSuspicious = resource.gamingSuspicious === true;
-  const gamingFlags = Array.isArray(resource.gamingFlags) ? resource.gamingFlags : [];
-  const chainOptions = resource.chains?.length ? resource.chains : [{ network: resource.network ?? null }];
-  const fetchLabel = resource.price === "free" ? "free" : resource.price.replace(/^\$/, "");
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    "aside",
-    {
-      className: `rounded-[24px] border border-[rgba(255,107,0,0.18)] bg-surface p-4 shadow-[0_22px_48px_rgba(255,107,0,0.08)] ${inline ? "" : "sticky top-4"}`,
-      children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-4", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "rounded-[22px] border border-white/6 bg-[linear-gradient(180deg,rgba(255,107,0,0.10),rgba(255,107,0,0.03)_42%,rgba(255,255,255,0.02)_100%)] p-4", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-3", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(SearchIdentityIcon, { resource, size: 52 }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0 flex-1", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[10px] uppercase tracking-[0.22em] text-tertiary", children: "Inspection Deck" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "mt-1 text-lg font-semibold leading-tight text-primary [overflow-wrap:anywhere]", children: resource.name }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1 text-xs text-tertiary", children: shortenUrl(resource.url) }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-secondary", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-medium", children: providerName }),
-              resource.verified && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1 text-emerald-400", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-hidden": "true", children: "✓" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Verified" })
-              ] }),
-              statusPayload?.lastVerifiedAt && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-tertiary", children: [
-                "Last checked ",
-                formatWhen(statusPayload.lastVerifiedAt)
-              ] })
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-end gap-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SearchScoreBadge, { score: statusPayload?.score ?? resource.qualityScore, variant: "detail" }),
-            onClose && /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { variant: "soft", color: "secondary", size: "sm", onClick: onClose, children: "Close" })
-          ] })
-        ] }) }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-subtle bg-surface-secondary/80 px-3.5 py-3", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center gap-2", children: chainOptions.map((chain, index) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "inline-flex items-center justify-center rounded-full bg-surface px-1.5 py-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(ChainIcon, { network: chain.network, size: 16 }) }, `${chain.network ?? "unknown"}-${index}`)) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-1 gap-2 sm:grid-cols-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { variant: "soft", color: "secondary", size: "sm", onClick: () => onCheckPrice(resource), children: "Check Price" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { color: "primary", size: "sm", onClick: () => onFetch(resource), children: /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1.5", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Fetch" }),
-              resource.price !== "free" && /* @__PURE__ */ jsxRuntimeExports.jsx(UsdcIcon, { size: 14 }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: fetchLabel })
-            ] }) })
-          ] })
-        ] }),
-        (whyText || similarityPct !== null || tier || gamingSuspicious) && /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "rounded-[22px] border border-[rgba(255,107,0,0.22)] bg-[rgba(255,107,0,0.04)] px-4 py-4", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center justify-between gap-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[10px] uppercase tracking-[0.18em] text-[#ff9a52]", children: "Why This Result" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-1.5", children: [
-              tier === "strong" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "inline-flex items-center rounded-full bg-[rgba(255,107,0,0.14)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ff9a52] ring-1 ring-[rgba(255,107,0,0.32)]", children: "Strong" }),
-              tier === "related" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-tertiary ring-1 ring-white/10", children: "Related" }),
-              similarityPct !== null && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "span",
-                {
-                  className: "inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-mono text-secondary ring-1 ring-white/8",
-                  title: "Cosine similarity between your query and this resource",
-                  children: [
-                    similarityPct,
-                    "% match"
-                  ]
-                }
-              ),
-              gamingSuspicious && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "span",
-                {
-                  className: "inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 ring-1 ring-amber-500/30",
-                  title: gamingFlags.length ? `Gaming signals: ${gamingFlags.join(", ")}` : "Usage signals look suspicious",
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-hidden": "true", children: "⚠" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Suspicious usage" })
-                  ]
-                }
-              )
-            ] })
-          ] }),
-          whyText && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-3 text-sm leading-6 text-[#ffcfa8]", children: whyText })
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "rounded-[22px] border border-subtle bg-surface-secondary/80 px-4 py-4", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[10px] uppercase tracking-[0.18em] text-tertiary", children: "Dexter Take" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-3 text-sm leading-6 text-secondary", children: assessment }),
-            (statusPayload?.fixInstructions || resource.verificationFixInstructions) && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-3 text-xs leading-5 text-amber-300", children: statusPayload?.fixInstructions || resource.verificationFixInstructions })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "rounded-[22px] border border-subtle bg-surface-secondary/80 px-4 py-4", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-1 gap-3 sm:grid-cols-2", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[10px] uppercase tracking-[0.18em] text-tertiary", children: "Provider" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 text-sm font-medium text-primary", children: providerName })
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[10px] uppercase tracking-[0.18em] text-tertiary", children: "Usage Signal" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 text-sm font-medium text-primary", children: resource.totalCalls > 0 ? `${formatCompactNumber(resource.totalCalls)} historical calls` : "No historical call count" })
-              ] })
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-4 border-t border-white/6 pt-4", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start justify-between gap-3", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[10px] uppercase tracking-[0.18em] text-tertiary", children: "Endpoint" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 font-mono text-xs leading-5 text-secondary break-all", children: resource.url })
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(CopyButton, { copyValue: resource.url, variant: "ghost", color: "secondary", size: "sm", children: "Copy" })
-            ] }) })
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "rounded-[22px] border border-subtle bg-surface-secondary/80 px-4 py-4", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[10px] uppercase tracking-[0.18em] text-tertiary", children: "Verification History" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xs text-tertiary", children: historyLoading ? "Loading…" : `${history.length} checks` })
-          ] }),
-          detailError ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-3 text-sm text-danger", children: detailError }) : historyLoading ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 space-y-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-11 animate-pulse rounded-2xl bg-surface" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-11 animate-pulse rounded-2xl bg-surface" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-11 animate-pulse rounded-2xl bg-surface" })
-          ] }) : history.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-3 text-sm text-tertiary", children: "No verification history yet." }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-4 space-y-2 border-l border-white/8 pl-4", children: history.map((entry) => {
-            const active = selectedHistory?.id === entry.id;
-            return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              "button",
-              {
-                type: "button",
-                onClick: () => setSelectedHistoryId(entry.id),
-                className: `relative w-full rounded-2xl border px-3 py-3 text-left transition-colors ${active ? "border-[#ff6b00]/35 bg-surface shadow-[0_10px_22px_rgba(255,107,0,0.05)]" : "border-subtle bg-transparent hover:border-[#ff6b00]/20"}`,
-                children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `absolute -left-[21px] top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full ${entry.ai_status === "pass" ? "bg-emerald-400" : entry.ai_status === "fail" ? "bg-rose-400" : "bg-amber-300"}` }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center justify-between gap-2", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-2", children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-secondary", children: formatWhen(entry.attempted_at) }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-tertiary", children: entry.ai_status ?? "unknown" })
-                    ] }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-2 text-xs", children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-primary", children: entry.ai_score ?? "—" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-tertiary", children: formatDuration(entry.duration_ms) }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-tertiary", children: entry.response_status ?? "—" }),
-                      entry.paid && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-emerald-400", children: "Paid" })
-                    ] })
-                  ] })
-                ]
-              },
-              entry.id
-            );
-          }) }),
-          selectedHistory && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-4 rounded-2xl border border-subtle bg-surface px-3.5 py-3", children: [
-            selectedHistory.ai_notes && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[10px] uppercase tracking-[0.18em] text-tertiary", children: "AI Assessment" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-sm leading-6 text-secondary", children: selectedHistory.ai_notes })
-            ] }),
-            selectedHistory.ai_fix_instructions && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[10px] uppercase tracking-[0.18em] text-tertiary", children: "How To Fix" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-sm leading-6 text-amber-300", children: selectedHistory.ai_fix_instructions })
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-tertiary", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
-                "Probe ",
-                selectedHistory.probe_status ?? "—"
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
-                "HTTP ",
-                selectedHistory.response_status ?? "—"
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
-                "Duration ",
-                formatDuration(selectedHistory.duration_ms)
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
-                "Size ",
-                formatBytes(selectedHistory.response_size_bytes)
-              ] })
-            ] }),
-            (selectedHistory.test_input_generated || selectedHistory.test_input_reasoning) && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 space-y-3", children: [
-              selectedHistory.test_input_reasoning && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[10px] uppercase tracking-[0.18em] text-tertiary", children: "Why This Input" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-sm leading-6 text-secondary", children: selectedHistory.test_input_reasoning })
-              ] }),
-              selectedHistory.test_input_generated && /* @__PURE__ */ jsxRuntimeExports.jsx(JsonViewer, { data: selectedHistory.test_input_generated, title: "Generated Test Input", defaultExpanded: false })
-            ] })
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "rounded-[22px] border border-subtle bg-surface-secondary/80 px-4 py-4", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[10px] uppercase tracking-[0.18em] text-tertiary", children: "Schemas" }),
-          schemaLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 h-20 animate-pulse rounded-2xl bg-surface" }) : schemaPayload?.schema ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 space-y-3", children: [
-            schemaPayload.schema.input && /* @__PURE__ */ jsxRuntimeExports.jsx(JsonViewer, { data: schemaPayload.schema.input, title: "Input Schema", defaultExpanded: false }),
-            schemaPayload.schema.output && /* @__PURE__ */ jsxRuntimeExports.jsx(JsonViewer, { data: schemaPayload.schema.output, title: "Output Schema", defaultExpanded: false }),
-            !schemaPayload.schema.input && !schemaPayload.schema.output && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-tertiary", children: "Schema data exists, but no structured input/output contract was found." })
-          ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-3 text-sm text-tertiary", children: "No saved schema is available for this endpoint yet." })
-        ] })
-      ] })
-    }
-  );
+function formatChainPrice(amount, decimals = 6) {
+  if (!amount) return "—";
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return "—";
+  const usd = n / Math.pow(10, decimals);
+  if (usd < 0.01) return `$${usd.toFixed(4)}`;
+  if (usd < 1) return `$${usd.toFixed(3)}`;
+  return `$${usd.toFixed(2)}`;
 }
 function normalizeSearchResource(resource) {
   const sellerValue = resource.seller;
@@ -908,10 +817,9 @@ function MarketplaceSearch() {
           }
         ) }),
         !isMobile && !isFullscreen && detailOpen && selectedResource && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-4 pt-4", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-          SearchResourceDetail,
+          SearchVerdictDrawer,
           {
             resource: selectedResource,
-            inline: true,
             onClose: handleCloseDetail,
             onCheckPrice: runCheckPrice,
             onFetch: runFetch
@@ -973,7 +881,7 @@ function MarketplaceSearch() {
             `${resource.url}-${index}`
           )) }) }),
           isFullscreen && !isMobile && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "min-w-0", children: detailOpen && selectedResource ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-            SearchResourceDetail,
+            SearchVerdictDrawer,
             {
               resource: selectedResource,
               onClose: handleCloseDetail,
@@ -993,10 +901,9 @@ function MarketplaceSearch() {
         isMobile && detailOpen && selectedResource && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "fixed inset-0 z-20 flex items-end bg-black/50 px-3 py-3 backdrop-blur-sm", onClick: () => {
           void handleCloseDetail();
         }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "max-h-[92vh] w-full overflow-y-auto animate-[fadein_.18s_ease-out]", onClick: (event) => event.stopPropagation(), children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-          SearchResourceDetail,
+          SearchVerdictDrawer,
           {
             resource: selectedResource,
-            inline: true,
             onClose: handleCloseDetail,
             onCheckPrice: runCheckPrice,
             onFetch: runFetch
