@@ -5,12 +5,18 @@ import '../styles/sdk.css';
 import '../styles/widgets/x402-pricing.css';
 
 import { createRoot } from 'react-dom/client';
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Button } from '@openai/apps-sdk-ui/components/Button';
 import { EmptyMessage } from '@openai/apps-sdk-ui/components/EmptyMessage';
 import { Search, Warning } from '@openai/apps-sdk-ui/components/Icon';
 import {
   useCallToolFn,
+  useToolOutput,
+  useToolInput,
+  useAdaptiveTheme,
+  useDisplayMode,
+  useMaxHeight,
+  useUserAgent,
 } from '../sdk';
 import { DebugPanel } from '../components/x402';
 import { MarketplaceSummaryHeader } from '../components/x402/search/MarketplaceSummaryHeader';
@@ -24,7 +30,6 @@ import type {
   SearchNoMatchReason,
 } from '../components/x402/search/types';
 import { addWidgetBreadcrumb, captureWidgetException } from '../sdk/init-sentry';
-import { SET_GLOBALS_EVENT_TYPE, type OpenAIGlobals, type Theme, type DisplayMode, type SetGlobalsEvent } from '../sdk/types';
 
 type SearchPayload = {
   success?: boolean;
@@ -54,82 +59,10 @@ type SearchToolInput = {
   testnets?: boolean;
 };
 
-type SearchWidgetSnapshot = {
-  toolOutput: SearchPayload | null;
-  toolInput: SearchToolInput | null;
-  theme: Theme;
-  maxHeight: number | null;
-  displayMode: DisplayMode;
-  isMobile: boolean;
-};
-
-function cloneJsonValue<T>(value: T): T {
-  if (value === null || value === undefined) return value;
-  if (typeof value !== 'object') return value;
-  try {
-    return JSON.parse(JSON.stringify(value)) as T;
-  } catch {
-    return value;
-  }
-}
-
-function readSearchWidgetSnapshot(): SearchWidgetSnapshot {
-  const openai = typeof window !== 'undefined' ? window.openai : undefined;
-  const userAgent = openai?.userAgent;
-  return {
-    toolOutput: cloneJsonValue((openai?.toolOutput ?? null) as SearchPayload | null),
-    toolInput: cloneJsonValue((openai?.toolInput ?? null) as SearchToolInput | null),
-    theme: (openai?.theme ?? 'dark') as Theme,
-    maxHeight: typeof openai?.maxHeight === 'number' ? openai.maxHeight : null,
-    displayMode: (openai?.displayMode ?? 'inline') as DisplayMode,
-    isMobile: userAgent?.device?.type === 'mobile',
-  };
-}
-
-function serializeSearchWidgetSnapshot(snapshot: SearchWidgetSnapshot): string {
-  try {
-    return JSON.stringify(snapshot);
-  } catch {
-    return String(Date.now());
-  }
-}
-
-function useSearchWidgetSnapshot() {
-  const [snapshot, setSnapshot] = useState<SearchWidgetSnapshot>(() => readSearchWidgetSnapshot());
-  const signatureRef = useRef(serializeSearchWidgetSnapshot(snapshot));
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const handleGlobals = (event: SetGlobalsEvent) => {
-      const globals = event.detail?.globals as Partial<OpenAIGlobals> | undefined;
-      if (!globals) return;
-
-      const relevantKeys: Array<keyof OpenAIGlobals> = [
-        'toolOutput',
-        'toolInput',
-        'theme',
-        'maxHeight',
-        'displayMode',
-        'userAgent',
-      ];
-      if (!relevantKeys.some((key) => Object.prototype.hasOwnProperty.call(globals, key))) {
-        return;
-      }
-
-      const next = readSearchWidgetSnapshot();
-      const nextSignature = serializeSearchWidgetSnapshot(next);
-      if (nextSignature === signatureRef.current) return;
-      signatureRef.current = nextSignature;
-      setSnapshot(next);
-    };
-
-    window.addEventListener(SET_GLOBALS_EVENT_TYPE, handleGlobals as EventListener, { passive: true });
-    return () => window.removeEventListener(SET_GLOBALS_EVENT_TYPE, handleGlobals as EventListener);
-  }, []);
-
-  return snapshot;
-}
+// Bespoke snapshot reader removed 2026-05-05: it only read window.openai
+// (ChatGPT-only) and never picked up MCP-Apps tool-result notifications,
+// so the widget hung in the "Building the market board…" state on Claude.
+// MarketplaceSearch now uses the dual-runtime adapter hooks.
 
 function normalizeSearchResource(resource: SearchResource): SearchResource {
   const sellerValue = resource.seller;
@@ -179,7 +112,19 @@ function normalizeSearchPayload(payload: SearchPayload | null): SearchPayload | 
 }
 
 function MarketplaceSearch() {
-  const { toolOutput, toolInput, theme, maxHeight, displayMode, isMobile } = useSearchWidgetSnapshot();
+  // Use the dual-runtime adapter so the widget reads tool data on BOTH ChatGPT
+  // (window.openai globals) and Claude/MCP-Apps hosts (ui/notifications/tool-result).
+  // The previous bespoke `useSearchWidgetSnapshot` only read window.openai and
+  // therefore never received toolOutput on Claude — the widget hung on the
+  // "Building the market board…" placeholder forever even though the tool
+  // call succeeded server-side.
+  const toolOutput = useToolOutput<SearchPayload>();
+  const toolInput = useToolInput<SearchToolInput>();
+  const theme = useAdaptiveTheme();
+  const maxHeight = useMaxHeight();
+  const displayMode = useDisplayMode();
+  const userAgent = useUserAgent();
+  const isMobile = userAgent?.device?.type === 'mobile';
   const callTool = useCallToolFn();
   const isFullscreen = displayMode === 'fullscreen';
   const [liveResult, setLiveResult] = useState<SearchPayload | null>(null);
