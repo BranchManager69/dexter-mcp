@@ -1,0 +1,566 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   x402-search widget — token-driven, sleek, no debug-panel slop.
+   Sections:
+     1. Loading state (Dexter logo + pulsing rings + escalating copy)
+     2. Identity icons (favicon stack + unsigned-mark fallback)
+     3. Result row (the cell)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ───── Identity icon ─────────────────────────────────────────────── */
+
+.dx-search-identity__img,
+.dx-search-identity__unsigned {
+  border-radius: 14px;
+  background: var(--dx-bg-quiet);
+  border: 1px solid var(--dx-border-quiet);
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dx-fg-quiet);
+}
+
+.dx-search-identity__img {
+  object-fit: cover;
+  background-color: var(--dx-bg-quiet);
+}
+
+.dx-search-identity__unsigned svg {
+  display: block;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   1. Loading state
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.dx-search-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--dx-space-5);
+  padding: var(--dx-space-7) var(--dx-space-5);
+  text-align: center;
+  /* Background gradient — makes the loading state feel like a stage, not a void. */
+  background: radial-gradient(
+    ellipse 60% 50% at 50% 35%,
+    color-mix(in srgb, var(--dx-accent) 7%, transparent) 0%,
+    transparent 70%
+  );
+}
+
+/* ───── Stage (the visual core) ──────────────────────────────────────── */
+
+.dx-search-loading__stage {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 480px) {
+  .dx-search-loading__stage {
+    width: 140px;
+    height: 140px;
+  }
+}
+
+/* Logo — slow continuous rotation. The face of Dexter, front and center. */
+.dx-search-loading__logo {
+  position: relative;
+  z-index: 3;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--dx-bg-quiet);
+  border: 2px solid color-mix(in srgb, var(--dx-accent) 30%, transparent);
+  box-shadow:
+    0 0 28px color-mix(in srgb, var(--dx-accent) 20%, transparent),
+    inset 0 0 12px color-mix(in srgb, var(--dx-accent) 8%, transparent);
+  animation: dxSearchLoadingLogoSpin 12s linear infinite;
+}
+
+.dx-search-loading__logo img {
+  width: 84px;
+  height: 84px;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--dx-accent) 35%, transparent));
+}
+
+@media (max-width: 480px) {
+  .dx-search-loading__logo {
+    width: 80px;
+    height: 80px;
+  }
+  .dx-search-loading__logo img {
+    width: 64px;
+    height: 64px;
+  }
+}
+
+@keyframes dxSearchLoadingLogoSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Pulsing rings — two concentric, offset phase, fade out as they expand. */
+.dx-search-loading__ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--dx-accent) 50%, transparent);
+  opacity: 0;
+  animation-name: dxSearchLoadingPulse;
+  animation-duration: 2.4s;
+  animation-iteration-count: infinite;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dx-search-loading__ring--outer {
+  width: 100%;
+  height: 100%;
+  animation-delay: 0s;
+}
+
+.dx-search-loading__ring--mid {
+  width: 75%;
+  height: 75%;
+  animation-delay: 0.6s;
+  border-color: color-mix(in srgb, var(--dx-accent) 65%, transparent);
+}
+
+@keyframes dxSearchLoadingPulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+
+/* Orbit tick — small bright dot circling the logo. Gives a "scanning" feel. */
+.dx-search-loading__orbit {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  animation: dxSearchLoadingOrbit 2.8s linear infinite;
+}
+
+.dx-search-loading__orbit-tick {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dx-accent);
+  box-shadow:
+    0 0 8px var(--dx-accent),
+    0 0 16px color-mix(in srgb, var(--dx-accent) 60%, transparent);
+}
+
+@keyframes dxSearchLoadingOrbit {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ───── Copy ──────────────────────────────────────────────────────── */
+
+.dx-search-loading__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--dx-space-2);
+  max-width: 480px;
+}
+
+.dx-search-loading__eyebrow {
+  font-family: var(--dx-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: color-mix(in srgb, var(--dx-accent) 80%, var(--dx-fg-quiet));
+}
+
+.dx-search-loading__heading {
+  font-size: var(--dx-text-lg);
+  font-weight: 600;
+  color: var(--dx-fg);
+  margin: 0;
+  line-height: var(--dx-leading-snug);
+}
+
+.dx-search-loading__supporting {
+  font-size: var(--dx-text-sm);
+  color: var(--dx-fg-quiet);
+  line-height: var(--dx-leading-relaxed);
+  margin: 0;
+}
+
+.dx-search-loading__query {
+  margin-top: var(--dx-space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dx-space-2);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--dx-bg-quiet);
+  border: 1px solid var(--dx-border-quiet);
+  font-family: var(--dx-font-mono);
+  font-size: 11px;
+}
+
+.dx-search-loading__query-label {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--dx-fg-quiet);
+  font-size: 9px;
+}
+
+.dx-search-loading__query-value {
+  color: var(--dx-fg);
+}
+
+/* Reduced motion — keep the logo, kill the rotation + pulses */
+@media (prefers-reduced-motion: reduce) {
+  .dx-search-loading__logo,
+  .dx-search-loading__ring,
+  .dx-search-loading__orbit {
+    animation: none;
+  }
+  .dx-search-loading__ring {
+    opacity: 0.3;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   2.5. Header — wordmark + eyebrow + flush input. No nested container.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.dx-search-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--dx-space-2);
+  padding: var(--dx-space-4) var(--dx-space-2) var(--dx-space-3);
+}
+
+.dx-search-header__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.dx-search-header__wordmark {
+  height: 22px;
+  width: auto;
+  opacity: 0.95;
+}
+
+.dx-search-header__eyebrow {
+  font-family: var(--dx-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--dx-fg-quiet);
+}
+
+.dx-search-header__input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--dx-border-quiet);
+  background: var(--dx-bg-quiet);
+  transition: border-color 160ms var(--dx-ease-out);
+}
+
+.dx-search-header__input:focus-within {
+  border-color: color-mix(in srgb, var(--dx-accent) 50%, transparent);
+}
+
+.dx-search-header__input svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.dx-search-header__input-field {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--dx-fg);
+  font-size: var(--dx-text-sm);
+  padding: 6px 0;
+}
+
+.dx-search-header__input-field::placeholder {
+  color: var(--dx-fg-quiet);
+}
+
+.dx-search-header__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--dx-fg-quiet);
+}
+
+.dx-search-header__count {
+  font-family: var(--dx-font-mono);
+}
+
+.dx-search-header__reranked {
+  font-family: var(--dx-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dx-accent);
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dx-accent) 10%, transparent);
+}
+
+.dx-search-header__expand {
+  font-family: var(--dx-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dx-fg-quiet);
+  background: none;
+  border: 0;
+  padding: 4px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 160ms var(--dx-ease-out), background 160ms var(--dx-ease-out);
+}
+
+.dx-search-header__expand:hover {
+  color: var(--dx-fg);
+  background: var(--dx-bg-quiet);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3. Result cell
+   Sleek vertical rhythm. No nested debug panels. Two buttons, not three.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.dx-search-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dx-space-3);
+  padding: var(--dx-space-4);
+  border-radius: 22px;
+  border: 1px solid var(--dx-border-quiet);
+  background: var(--dx-bg);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 200ms var(--dx-ease-out),
+    transform 240ms var(--dx-ease-emphasized),
+    border-color 160ms var(--dx-ease-out);
+}
+
+.dx-search-cell:hover {
+  border-color: color-mix(in srgb, var(--dx-accent) 35%, transparent);
+}
+
+.dx-search-cell--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.dx-search-cell--featured {
+  border-color: color-mix(in srgb, var(--dx-accent) 22%, transparent);
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--dx-accent) 6%, transparent);
+}
+
+.dx-search-cell--selected {
+  border-color: color-mix(in srgb, var(--dx-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--dx-accent) 4%, var(--dx-bg));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--dx-accent) 12%, transparent),
+    0 18px 40px color-mix(in srgb, var(--dx-accent) 10%, transparent);
+}
+
+/* ───── Identity row ──────────────────────────────────────────────── */
+
+.dx-search-cell__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--dx-space-3);
+}
+
+.dx-search-cell__identity-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dx-search-cell__name {
+  font-size: var(--dx-text-md);
+  font-weight: 600;
+  color: var(--dx-fg);
+  line-height: 1.3;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.dx-search-cell__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 11px;
+  color: var(--dx-fg-quiet);
+}
+
+.dx-search-cell__host {
+  color: var(--dx-fg-muted, var(--dx-fg-quiet));
+  font-family: var(--dx-font-mono);
+  font-size: 11px;
+}
+
+.dx-search-cell__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.dx-search-cell__badge--verified {
+  color: var(--dx-success);
+  background: color-mix(in srgb, var(--dx-success) 10%, transparent);
+}
+
+.dx-search-cell__badge--warn {
+  color: var(--dx-warn);
+  background: color-mix(in srgb, var(--dx-warn) 12%, transparent);
+}
+
+.dx-search-cell__tier {
+  font-family: var(--dx-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dx-accent);
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dx-accent) 10%, transparent);
+}
+
+.dx-search-cell__usage {
+  color: var(--dx-fg-quiet);
+  font-size: 10px;
+}
+
+/* ───── Description ───────────────────────────────────────────────── */
+
+.dx-search-cell__description {
+  margin: 0;
+  font-size: var(--dx-text-sm);
+  line-height: var(--dx-leading-relaxed);
+  color: var(--dx-fg-quiet);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ───── Footer (chains + actions) ─────────────────────────────────── */
+
+.dx-search-cell__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dx-space-3);
+  flex-wrap: wrap;
+}
+
+.dx-search-cell__chains {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.dx-search-cell__chain {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border-radius: 999px;
+  background: var(--dx-bg-quiet);
+  border: 1px solid var(--dx-border-quiet);
+}
+
+.dx-search-cell__auth {
+  font-size: 10px;
+  color: var(--dx-warn);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+}
+
+.dx-search-cell__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.dx-search-cell__fetch-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dx-search-cell__fetch-price {
+  font-family: var(--dx-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ───── Mobile — actions row stacks under chains, but actions stay
+       side-by-side (not three vertical buttons!) ──────────────────── */
+@media (max-width: 480px) {
+  .dx-search-cell__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .dx-search-cell__chains {
+    align-self: flex-start;
+  }
+  .dx-search-cell__actions {
+    margin-left: 0;
+    width: 100%;
+  }
+  .dx-search-cell__fetch {
+    flex: 1;
+  }
+}

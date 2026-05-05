@@ -3,8 +3,8 @@ import '../styles/sdk.css';
 // rule scope is `dx-pricing__*` and doesn't collide with search styles.
 // Refactor to a shared primitives stylesheet in a follow-up.
 import '../styles/widgets/x402-pricing.css';
-// Search-specific loading state (Dexter logo + pulsing rings + escalating copy)
-import '../styles/widgets/x402-search-loading.css';
+// Search widget styles (loading state + identity icons + cell)
+import '../styles/widgets/x402-search.css';
 
 import { createRoot } from 'react-dom/client';
 import { useState, useCallback, useEffect, useMemo } from 'react';

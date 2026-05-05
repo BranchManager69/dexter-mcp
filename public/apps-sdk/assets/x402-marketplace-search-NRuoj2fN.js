@@ -9,7 +9,7 @@ import { u as useDisplayMode } from "./use-display-mode-DZ0UyQis.js";
 import { u as useMaxHeight } from "./use-max-height-DZFC2PSv.js";
 import { a as useCallToolFn } from "./use-call-tool-4E44P6AR.js";
 import { u as useOpenAIGlobal } from "./use-openai-global-Cs-Bqg_p.js";
-import { C as CopyButton, a as ChainIcon, U as UsdcIcon, D as DebugPanel } from "./DebugPanel-CzVhKgvV.js";
+import { C as ChainIcon, U as UsdcIcon, a as CopyButton, D as DebugPanel } from "./DebugPanel-BvpGQsfH.js";
 import { J as JsonViewer } from "./JsonViewer-CwUQLfxA.js";
 import "./Check-Bp07B38p.js";
 import "./Copy-1PaP5PSB.js";
@@ -34,65 +34,51 @@ function MarketplaceSummaryHeader({
 }) {
   const hasTieredCounts = typeof strongCount === "number" && typeof relatedCount === "number";
   const tierLabel = hasTieredCounts ? `${strongCount} strong · ${relatedCount} related` : `${resultCount.toLocaleString()} result${resultCount !== 1 ? "s" : ""}`;
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    "div",
-    {
-      className: "relative overflow-hidden rounded-[24px] border border-[rgba(255,107,0,0.16)] px-4 py-4 sm:px-5",
-      style: {
-        background: "linear-gradient(180deg, rgba(255,107,0,0.09) 0%, rgba(255,107,0,0.03) 22%, rgba(255,255,255,0.01) 58%, rgba(0,0,0,0) 100%)"
-      },
-      children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "div",
-          {
-            className: "pointer-events-none absolute inset-x-10 top-0 h-px",
-            style: { background: "linear-gradient(90deg, transparent 0%, rgba(255,107,0,0.28) 36%, rgba(255,107,0,0.06) 64%, transparent 100%)" }
-          }
-        ),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-3", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-2 text-center", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: WORDMARK_URL, alt: "Dexter", height: 20, style: { height: 20, width: "auto", opacity: 0.95 } }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[10px] uppercase tracking-[0.28em] text-tertiary", children: "X402 Search" })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-3 sm:flex-row sm:items-center", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "min-w-0 flex-1", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-stretch gap-2 rounded-[18px] border border-white/8 bg-[rgba(255,255,255,0.02)] px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex min-w-0 flex-1 items-center gap-2 rounded-2xl bg-transparent px-2.5", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx(Search, {}),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "input",
-                  {
-                    value: queryValue,
-                    onChange: (event) => onQueryChange(event.target.value),
-                    onKeyDown: (event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        onSearchSubmit();
-                      }
-                    },
-                    placeholder: "Search paid APIs...",
-                    className: "w-full border-0 bg-transparent py-2 text-sm text-primary outline-none placeholder:text-tertiary"
-                  }
-                )
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { color: "primary", size: "sm", onClick: onSearchSubmit, disabled: isSearching, children: isSearching ? "Searching…" : "Search" })
-            ] }) }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 self-start sm:self-auto", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] text-tertiary", children: tierLabel }),
-              rerankApplied && /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "span",
-                {
-                  className: "inline-flex items-center rounded-full bg-[rgba(255,107,0,0.1)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ff9a52] ring-1 ring-[rgba(255,107,0,0.28)]",
-                  title: "Top results reordered by an LLM cross-encoder pass",
-                  children: "Reranked"
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { variant: "soft", color: "secondary", size: "sm", onClick: onToggleFullscreen, children: isFullscreen ? "Minimize" : "Expand" })
-            ] })
-          ] })
-        ] })
-      ]
-    }
-  );
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-header", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-header__brand", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: WORDMARK_URL, alt: "Dexter", className: "dx-search-header__wordmark" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-header__eyebrow", children: "x402 search" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-header__input", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Search, {}),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "input",
+        {
+          value: queryValue,
+          onChange: (event) => onQueryChange(event.target.value),
+          onKeyDown: (event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              onSearchSubmit();
+            }
+          },
+          placeholder: "Search paid APIs",
+          className: "dx-search-header__input-field"
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { color: "primary", size: "sm", onClick: onSearchSubmit, disabled: isSearching, children: isSearching ? "Searching…" : "Search" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-header__meta", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-header__count", children: tierLabel }),
+      rerankApplied && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "span",
+        {
+          className: "dx-search-header__reranked",
+          title: "Top results reordered by an LLM cross-encoder pass",
+          children: "reranked"
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          className: "dx-search-header__expand",
+          onClick: onToggleFullscreen,
+          children: isFullscreen ? "minimize" : "expand"
+        }
+      )
+    ] })
+  ] });
 }
 function formatCompactNumber(value) {
   if (value == null || Number.isNaN(value)) return "0";
@@ -146,31 +132,74 @@ function scoreTone(score) {
   return "low";
 }
 function SearchIdentityIcon({ resource, size = 44 }) {
-  const src = reactExports.useMemo(() => resourceIconUrl(resource), [resource]);
-  const [failed, setFailed] = reactExports.useState(false);
-  const label = hostLabel(resource.url).slice(0, 1).toUpperCase() || "?";
-  if (!src || failed) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "div",
-      {
-        className: "flex items-center justify-center rounded-[18px] border border-subtle bg-[linear-gradient(160deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] text-sm font-semibold text-secondary shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
-        style: { width: size, height: size },
-        "aria-hidden": "true",
-        children: label
-      }
-    );
+  const sources = reactExports.useMemo(() => {
+    const list = [];
+    if (resource.iconUrl) list.push(resource.iconUrl);
+    if (resource.sellerMeta?.logoUrl) list.push(resource.sellerMeta.logoUrl);
+    const proxied = resourceIconUrl(resource);
+    if (proxied && !list.includes(proxied)) list.push(proxied);
+    return list;
+  }, [resource]);
+  const [attempt, setAttempt] = reactExports.useState(0);
+  const currentSrc = sources[attempt];
+  const allFailed = attempt >= sources.length;
+  if (!currentSrc || allFailed) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(UnsignedMark, { size });
   }
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
     "img",
     {
-      src,
+      src: currentSrc,
       alt: "",
       width: size,
       height: size,
-      className: "rounded-[18px] border border-subtle bg-surface-secondary object-cover shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+      className: "dx-search-identity__img",
       style: { width: size, height: size },
-      onError: () => setFailed(true),
+      onError: () => setAttempt((a) => a + 1),
       "aria-hidden": "true"
+    }
+  );
+}
+function UnsignedMark({ size }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      className: "dx-search-identity__unsigned",
+      style: { width: size, height: size },
+      "aria-hidden": "true",
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { viewBox: "0 0 44 44", width: size, height: size, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("defs", { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("linearGradient", { id: "dx-id-grad", x1: "0", y1: "0", x2: "1", y2: "1", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("stop", { offset: "0%", stopColor: "rgba(255,255,255,0.06)" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("stop", { offset: "100%", stopColor: "rgba(255,255,255,0.02)" })
+        ] }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "0", y: "0", width: "44", height: "44", rx: "14", fill: "url(#dx-id-grad)" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "rect",
+          {
+            x: "6",
+            y: "6",
+            width: "32",
+            height: "32",
+            rx: "10",
+            fill: "none",
+            stroke: "currentColor",
+            strokeWidth: "1",
+            opacity: "0.18"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "path",
+          {
+            d: "M22 12 L32 22 L22 32 L12 22 Z",
+            fill: "none",
+            stroke: "currentColor",
+            strokeWidth: "1.2",
+            strokeLinejoin: "round",
+            opacity: "0.32"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "22", cy: "22", r: "2.6", fill: "currentColor", opacity: "0.42" })
+      ] })
     }
   );
 }
@@ -179,7 +208,9 @@ function synthesizeRunFromResource(resource) {
   const notes = resource.verificationNotes ?? null;
   const status = resource.verificationStatus ?? null;
   const verifiedAt = resource.lastVerifiedAt ?? null;
-  if (typeof score !== "number" && !notes && !verifiedAt) return null;
+  const hasScore = typeof score === "number" && score > 0;
+  const hasNotes = typeof notes === "string" && notes.trim().length > 0;
+  if (!hasScore && !hasNotes) return null;
   return {
     attempted_at: verifiedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
     completed_at: verifiedAt,
@@ -240,190 +271,121 @@ function SearchVerdictRow({
       setFetching(false);
     }
   }
-  const providerName = providerDisplayName(resource);
-  const compactUrl = shortenUrl(resource.url);
+  providerDisplayName(resource);
+  const host = hostLabel(resource.url);
   const chainOptions = resource.chains?.length ? resource.chains : [{ network: resource.network ?? null }];
   const visibleChainOptions = chainOptions.filter((chain, chainIndex, list) => {
     const key = chain.network ?? "unknown";
     return list.findIndex((item) => (item.network ?? "unknown") === key) === chainIndex;
   });
-  const fetchLabel = resource.price === "free" ? "Fetch free" : resource.price.replace(/^\$/, "");
+  const fetchPriceLabel = resource.price === "free" ? "Free" : resource.price.replace(/^\$/, "");
   const tier = resource.tier;
-  const similarityPct = typeof resource.similarity === "number" && resource.similarity > 0 ? Math.round(resource.similarity * 100) : null;
-  const whyText = resource.why?.trim() || "";
   const gamingSuspicious = resource.gamingSuspicious === true;
-  const gamingFlags = Array.isArray(resource.gamingFlags) ? resource.gamingFlags : [];
-  const sellerLogo = resource.sellerMeta?.logoUrl ?? null;
-  const sellerName = resource.sellerMeta?.displayName ?? null;
-  const sellerHandle = resource.sellerMeta?.twitterHandle ?? null;
-  const reputation = resource.sellerReputation ?? null;
   const synthRun = synthesizeRunFromResource(resource);
   const hasFix = synthRun?.ai_fix_instructions && synthRun.ai_status !== "pass" && (synthRun.ai_score == null || synthRun.ai_score < 75);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
     {
-      className: `group relative rounded-[24px] border p-4 transition-all duration-300 ${visible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"} ${selected ? "border-[#ff6b00]/45 bg-[rgba(255,107,0,0.06)] shadow-[0_0_0_1px_rgba(255,107,0,0.12),0_18px_40px_rgba(255,107,0,0.10)]" : featured ? "border-[#ff6b00]/20 bg-surface shadow-[0_14px_32px_rgba(255,107,0,0.06)]" : "border-default bg-surface"} hover:border-[#ff6b00]/38`,
+      className: `dx-search-cell ${visible ? "dx-search-cell--visible" : ""} ${selected ? "dx-search-cell--selected" : ""} ${featured ? "dx-search-cell--featured" : ""}`,
       onClick: () => onInspect(resource),
       role: "button",
       tabIndex: 0,
       children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute right-4 top-4 z-10 flex items-center gap-1.5", children: [
-          tier === "strong" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "inline-flex items-center rounded-full bg-[rgba(255,107,0,0.14)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ff9a52] ring-1 ring-[rgba(255,107,0,0.32)]", children: "Strong" }),
-          tier === "related" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-tertiary ring-1 ring-white/10", children: "Related" }),
-          similarityPct !== null && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            "span",
-            {
-              className: "inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-mono text-secondary ring-1 ring-white/8",
-              title: "Cosine similarity between your query and this resource",
-              children: [
-                similarityPct,
-                "%"
-              ]
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-4", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-3 pr-14 sm:pr-20", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SearchIdentityIcon, { resource }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0 flex-1", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "pr-1 text-lg font-semibold leading-snug text-primary [overflow-wrap:anywhere]", children: resource.name }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-secondary", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-medium text-primary/90", children: providerName }),
-                resource.verified && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-hidden": "true", children: "✓" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Verified" })
-                ] }),
-                gamingSuspicious && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                  "span",
-                  {
-                    className: "inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-300",
-                    title: gamingFlags.length ? `Gaming signals: ${gamingFlags.join(", ")}` : "Usage signals look suspicious",
-                    children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-hidden": "true", children: "⚠" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Suspicious usage" })
-                    ]
-                  }
-                ),
-                resource.totalCalls > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-xs text-tertiary", children: [
-                  formatCompactNumber(resource.totalCalls),
-                  " calls"
-                ] })
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-cell__identity", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(SearchIdentityIcon, { resource, size: 44 }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-cell__identity-text", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "dx-search-cell__name", children: resource.name }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-cell__meta", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-cell__host", children: host }),
+              resource.verified && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "dx-search-cell__badge dx-search-cell__badge--verified", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(CheckIcon, {}),
+                " verified"
               ] }),
-              (sellerLogo || sellerName || sellerHandle) && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 flex items-center gap-2 text-xs", children: [
-                sellerLogo && /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "img",
-                  {
-                    src: sellerLogo,
-                    alt: "",
-                    className: "h-4 w-4 rounded-sm object-cover ring-1 ring-white/10"
-                  }
-                ),
-                sellerName && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-secondary", children: sellerName }),
-                sellerHandle && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                  "a",
-                  {
-                    href: `https://x.com/${sellerHandle.replace(/^@/, "")}`,
-                    target: "_blank",
-                    rel: "noreferrer",
-                    onClick: (e) => e.stopPropagation(),
-                    className: "text-tertiary hover:text-primary",
-                    children: [
-                      "@",
-                      sellerHandle.replace(/^@/, "")
-                    ]
-                  }
-                ),
-                typeof reputation === "number" && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-tertiary", title: "Seller reputation", children: [
-                  "rep ",
-                  reputation
-                ] })
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-1.5 flex items-center gap-2 text-[11px] text-tertiary", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "truncate max-w-full", children: compactUrl }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  CopyButton,
-                  {
-                    copyValue: resource.url,
-                    variant: "ghost",
-                    color: "secondary",
-                    size: "sm",
-                    onClick: (e) => e.stopPropagation(),
-                    children: "Copy"
-                  }
-                )
+              gamingSuspicious && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-cell__badge dx-search-cell__badge--warn", children: "⚠ flagged" }),
+              tier === "strong" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-cell__tier", children: "strong" }),
+              resource.totalCalls > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "dx-search-cell__usage", children: [
+                formatCompactNumber(resource.totalCalls),
+                " calls"
               ] })
             ] })
+          ] })
+        ] }),
+        resource.description && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "dx-search-cell__description", children: resource.description }),
+        synthRun && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          ProfessorDexterCard,
+          {
+            run: synthRun,
+            passesOfRecent: null,
+            animate: false
+          }
+        ),
+        hasFix && synthRun?.ai_fix_instructions && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          DoctorDexterCard,
+          {
+            fixText: synthRun.ai_fix_instructions,
+            animate: false
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-cell__footer", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-cell__chains", children: [
+            visibleChainOptions.map((chain, i) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-cell__chain", children: /* @__PURE__ */ jsxRuntimeExports.jsx(ChainIcon, { network: chain.network, size: 16 }) }, `${chain.network ?? "x"}-${i}`)),
+            resource.authRequired && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "span",
+              {
+                className: "dx-search-cell__auth",
+                title: resource.authHint || "Provider authentication required.",
+                children: "auth"
+              }
+            )
           ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm leading-6 text-secondary line-clamp-2", children: resource.description || "No description yet. Inspect the endpoint before paying." }),
-          whyText && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-xl border border-[rgba(255,107,0,0.18)] bg-[rgba(255,107,0,0.04)] px-3 py-2 text-xs leading-5 text-[#ffb787]", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[9px] uppercase tracking-[0.2em] text-[#ff9a52]/80", children: "Why this matches" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1", children: whyText })
-          ] }),
-          synthRun && /* @__PURE__ */ jsxRuntimeExports.jsx(
-            ProfessorDexterCard,
-            {
-              run: synthRun,
-              passesOfRecent: null,
-              animate: false
-            }
-          ),
-          hasFix && synthRun?.ai_fix_instructions && /* @__PURE__ */ jsxRuntimeExports.jsx(
-            DoctorDexterCard,
-            {
-              fixText: synthRun.ai_fix_instructions,
-              animate: false
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center justify-between gap-4", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2.5", children: [
-              visibleChainOptions.map((chain, chainIndex) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "span",
-                {
-                  className: "inline-flex items-center justify-center rounded-full bg-surface-secondary/90 p-1.5 ring-1 ring-white/5",
-                  children: /* @__PURE__ */ jsxRuntimeExports.jsx(ChainIcon, { network: chain.network, size: 16 })
-                },
-                `${chain.network ?? "unknown"}-${chainIndex}`
-              )),
-              resource.authRequired && /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "span",
-                {
-                  className: "text-xs text-amber-300",
-                  title: resource.authHint || "Provider authentication required.",
-                  children: "Auth required"
-                }
-              )
-            ] }),
-            featured && tier === "strong" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] uppercase tracking-[0.16em] text-[#ff9a52]", children: "Top strong match" }),
-            featured && tier !== "strong" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] uppercase tracking-[0.16em] text-tertiary", children: "Lead result" })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-2 sm:flex-row sm:items-center", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-cell__actions", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               Button,
               {
                 variant: "soft",
                 color: "secondary",
                 size: "sm",
-                onClick: (e) => {
-                  e.stopPropagation();
-                  onInspect(resource);
-                },
-                children: "Inspect"
+                onClick: handleCheckPrice,
+                disabled: checking,
+                children: checking ? "Checking…" : "Check price"
               }
             ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { variant: "soft", color: "secondary", size: "sm", onClick: handleCheckPrice, disabled: checking, children: checking ? "Checking…" : "Check Price" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { className: "sm:ml-auto", color: "primary", size: "sm", onClick: handleFetch, disabled: fetching, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1.5", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: fetching ? "Fetching…" : "Fetch" }),
-              !fetching && resource.price !== "free" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx(UsdcIcon, { size: 14 }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: fetchLabel })
-              ] }),
-              !fetching && resource.price === "free" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: fetchLabel.replace(/^Fetch /, "") })
-            ] }) })
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              Button,
+              {
+                color: "primary",
+                size: "sm",
+                onClick: handleFetch,
+                disabled: fetching,
+                className: "dx-search-cell__fetch",
+                children: /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "dx-search-cell__fetch-content", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: fetching ? "Fetching…" : "Fetch" }),
+                  !fetching && resource.price !== "free" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(UsdcIcon, { size: 14 }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-cell__fetch-price", children: fetchPriceLabel })
+                  ] }),
+                  !fetching && resource.price === "free" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-cell__fetch-price", children: fetchPriceLabel })
+                ] })
+              }
+            )
           ] })
         ] })
       ]
     }
   );
+}
+function CheckIcon() {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 12 12", width: 10, height: 10, "aria-hidden": "true", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "path",
+    {
+      d: "M2 6.5 L5 9 L10 3.5",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: "1.6",
+      strokeLinecap: "round",
+      strokeLinejoin: "round"
+    }
+  ) });
 }
 const LOGO_URL = "https://dexter.cash/assets/pokedexter/dexter-logo.svg";
 function MarketBoardLoading({ query }) {

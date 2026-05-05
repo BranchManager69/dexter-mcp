@@ -2,7 +2,7 @@ import { r as reactExports, j as jsxRuntimeExports, u as useToolOutput, f as use
 import { B as Button } from "./Button-DJAppx0Y.js";
 import { c as clientExports } from "./client-B5JgHWHP.js";
 import { B as Badge } from "./index-fHXBdmSg.js";
-import { g as getChain, C as CopyButton, D as DebugPanel } from "./DebugPanel-CzVhKgvV.js";
+import { g as getChain, a as CopyButton, D as DebugPanel } from "./DebugPanel-BvpGQsfH.js";
 import { A as Alert } from "./Alert-uGogV4qv.js";
 import { u as useDisplayMode } from "./use-display-mode-DZ0UyQis.js";
 import { u as useMaxHeight } from "./use-max-height-DZFC2PSv.js";

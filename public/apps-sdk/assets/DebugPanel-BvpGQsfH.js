@@ -271,9 +271,9 @@ function DebugPanel({ widgetName, extraInfo }) {
   ] });
 }
 export {
-  CopyButton as C,
+  ChainIcon as C,
   DebugPanel as D,
   UsdcIcon as U,
-  ChainIcon as a,
+  CopyButton as a,
   getChain as g
 };

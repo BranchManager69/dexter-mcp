@@ -7,7 +7,7 @@ import { A as Alert } from "./Alert-uGogV4qv.js";
 import { u as useMaxHeight } from "./use-max-height-DZFC2PSv.js";
 import { u as useSendFollowUp } from "./use-send-followup-w5t_cMsn.js";
 import { u as useIntrinsicHeight } from "./useIntrinsicHeight-DXrFxGic.js";
-import { g as getChain, a as ChainIcon, C as CopyButton, D as DebugPanel } from "./DebugPanel-CzVhKgvV.js";
+import { g as getChain, C as ChainIcon, a as CopyButton, D as DebugPanel } from "./DebugPanel-BvpGQsfH.js";
 import "./Warning-0PV1c4JM.js";
 import "./use-openai-global-Cs-Bqg_p.js";
 import "./Check-Bp07B38p.js";
