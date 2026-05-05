@@ -20,11 +20,13 @@ function synthesizeRunFromResource(resource: SearchResource): HistoryRow | null 
   const notes = resource.verificationNotes ?? null;
   const status = resource.verificationStatus ?? null;
   const verifiedAt = resource.lastVerifiedAt ?? null;
-  // Only render Professor when there's actual content to show. A score with
-  // no notes is fine; notes with no score is fine; nothing of either is not.
-  const hasScore = typeof score === 'number' && score > 0;
+  // The notes ARE the verdict. A score with no prose is just a number on a
+  // pole — we'd render an empty speech bubble next to a thermometer, which
+  // is the "No notes returned" empty-state Branch flagged. Hard-gate on
+  // notes existing. Score-without-notes is silent until the verifier writes
+  // prose during its next run.
   const hasNotes = typeof notes === 'string' && notes.trim().length > 0;
-  if (!hasScore && !hasNotes) return null;
+  if (!hasNotes) return null;
   return {
     attempted_at: verifiedAt ?? new Date().toISOString(),
     completed_at: verifiedAt,

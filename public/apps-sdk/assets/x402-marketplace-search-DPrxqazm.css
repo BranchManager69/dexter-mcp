@@ -262,9 +262,17 @@
 }
 
 .dx-search-header__wordmark {
-  height: 22px;
+  /* Wordmark proportioned to actually read. The 22px version was so
+   * small on mobile it looked like a placeholder asset. */
+  height: 36px;
   width: auto;
-  opacity: 0.95;
+  opacity: 0.96;
+}
+
+@media (max-width: 480px) {
+  .dx-search-header__wordmark {
+    height: 32px;
+  }
 }
 
 .dx-search-header__eyebrow {
@@ -276,42 +284,8 @@
   color: var(--dx-fg-quiet);
 }
 
-.dx-search-header__input {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  max-width: 520px;
-  padding: 8px 8px 8px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--dx-border-quiet);
-  background: var(--dx-bg-quiet);
-  transition: border-color 160ms var(--dx-ease-out);
-}
-
-.dx-search-header__input:focus-within {
-  border-color: color-mix(in srgb, var(--dx-accent) 50%, transparent);
-}
-
-.dx-search-header__input svg {
-  flex-shrink: 0;
-  opacity: 0.6;
-}
-
-.dx-search-header__input-field {
-  flex: 1;
-  min-width: 0;
-  background: transparent;
-  border: 0;
-  outline: 0;
-  color: var(--dx-fg);
-  font-size: var(--dx-text-sm);
-  padding: 6px 0;
-}
-
-.dx-search-header__input-field::placeholder {
-  color: var(--dx-fg-quiet);
-}
+/* Search-input styles removed — agents talk via chat, the on-widget
+ * input was eating ~140px of vertical space on mobile for no purpose. */
 
 .dx-search-header__meta {
   display: flex;

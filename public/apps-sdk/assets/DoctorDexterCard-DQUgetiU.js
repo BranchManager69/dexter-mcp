@@ -283,10 +283,7 @@ function Stamp({ letter, tone, animate, size = "full" }) {
 function SpeechBubble({ tone, className, children }) {
   const variantClass = tone === "high" ? "dx-pricing__bubble--high" : tone === "mid" ? "dx-pricing__bubble--mid" : tone === "low" ? "dx-pricing__bubble--low" : tone === "prescription" ? "dx-pricing__bubble--prescription" : "dx-pricing__bubble--unknown";
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `dx-pricing__bubble ${variantClass} ${className ?? ""}`, children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { "aria-hidden": true, viewBox: "0 0 16 24", className: "dx-pricing__bubble-tail", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M 16 0 L 0 12 L 16 24 Z", fill: "none", strokeWidth: 1.5, stroke: "currentColor", className: "dx-pricing__bubble-tail-stroke" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M 17.5 1.5 L 1.5 12 L 17.5 22.5 Z", fill: "currentColor", className: "dx-pricing__bubble-tail-fill" })
-    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-hidden": true, className: "dx-pricing__bubble-tail" }),
     children
   ] });
 }

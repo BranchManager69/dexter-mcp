@@ -109,7 +109,10 @@
 .dx-pricing__verdict,
 .dx-pricing__doctor {
   display: flex;
-  align-items: stretch;
+  /* Rail anchors to the top of the bubble — the avatar/thermometer don't
+   * stretch to fill empty bubble space below them. The bubble is the
+   * height-driver; the rail rides alongside with its natural height. */
+  align-items: flex-start;
   gap: var(--dx-space-3);
 }
 
@@ -119,6 +122,9 @@
   align-items: center;
   gap: var(--dx-space-2);
   flex: 0 0 auto;
+  /* Pull the rail down a hair so the avatar lines up with the bubble's
+   * tail anchor (the tail sits ~24px from the top of the bubble). */
+  padding-top: 4px;
 }
 
 .dx-pricing__doctor-rail-cap {
@@ -212,44 +218,114 @@
 }
 
 /* ───── Speech bubble ───────────────────────────────────────────────── */
+/*
+ * Ruled-paper treatment. Two layered linear gradients give it a notepad
+ * feel without adding raster assets:
+ *   1. Horizontal rules every 24px (matches body line-height).
+ *   2. A vertical margin rule 14px in from the right edge.
+ * Tone tint colors the rules so the bubble still telegraphs verdict
+ * temperature. Tail is a CSS triangle pair (border-trick) aligned to
+ * the bubble baseline — sharper than the previous SVG approach.
+ */
 
 .dx-pricing__bubble {
   position: relative;
   border-radius: var(--dx-radius-md);
   border: 1.5px solid;
   padding: var(--dx-space-3) var(--dx-space-4);
+  background-color: var(--dx-bg-quiet);
+  background-image:
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 23px,
+      var(--dx-bubble-rule) 23px,
+      var(--dx-bubble-rule) 24px
+    ),
+    linear-gradient(
+      to right,
+      transparent calc(100% - 15px),
+      var(--dx-bubble-margin) calc(100% - 15px),
+      var(--dx-bubble-margin) calc(100% - 14px),
+      transparent calc(100% - 14px)
+    );
+  background-size: 100% 24px, 100% 100%;
+  background-position: left 18px, 0 0;
+  background-repeat: repeat-y, no-repeat;
 }
 
-.dx-pricing__bubble--high        { border-color: color-mix(in srgb, var(--dx-success) 35%, transparent); background: color-mix(in srgb, var(--dx-success) 5%, transparent); }
-.dx-pricing__bubble--mid         { border-color: color-mix(in srgb, var(--dx-warn) 35%, transparent);    background: color-mix(in srgb, var(--dx-warn) 5%, transparent); }
-.dx-pricing__bubble--low         { border-color: color-mix(in srgb, var(--dx-danger) 35%, transparent);  background: color-mix(in srgb, var(--dx-danger) 5%, transparent); }
-.dx-pricing__bubble--prescription{ border-color: color-mix(in srgb, var(--dx-accent) 40%, transparent);  background: color-mix(in srgb, var(--dx-accent) 6%, transparent); }
-.dx-pricing__bubble--unknown     { border-color: var(--dx-border); background: var(--dx-bg-quiet); }
+.dx-pricing__bubble--high {
+  border-color: color-mix(in srgb, var(--dx-success) 38%, transparent);
+  background-color: color-mix(in srgb, var(--dx-success) 4%, var(--dx-bg-quiet));
+  --dx-bubble-rule:   color-mix(in srgb, var(--dx-success) 18%, transparent);
+  --dx-bubble-margin: color-mix(in srgb, var(--dx-success) 38%, transparent);
+}
+.dx-pricing__bubble--mid {
+  border-color: color-mix(in srgb, var(--dx-warn) 38%, transparent);
+  background-color: color-mix(in srgb, var(--dx-warn) 4%, var(--dx-bg-quiet));
+  --dx-bubble-rule:   color-mix(in srgb, var(--dx-warn) 18%, transparent);
+  --dx-bubble-margin: color-mix(in srgb, var(--dx-warn) 38%, transparent);
+}
+.dx-pricing__bubble--low {
+  border-color: color-mix(in srgb, var(--dx-danger) 38%, transparent);
+  background-color: color-mix(in srgb, var(--dx-danger) 4%, var(--dx-bg-quiet));
+  --dx-bubble-rule:   color-mix(in srgb, var(--dx-danger) 18%, transparent);
+  --dx-bubble-margin: color-mix(in srgb, var(--dx-danger) 38%, transparent);
+}
+.dx-pricing__bubble--prescription {
+  border-color: color-mix(in srgb, var(--dx-accent) 42%, transparent);
+  background-color: color-mix(in srgb, var(--dx-accent) 5%, var(--dx-bg-quiet));
+  --dx-bubble-rule:   color-mix(in srgb, var(--dx-accent) 20%, transparent);
+  --dx-bubble-margin: color-mix(in srgb, var(--dx-accent) 42%, transparent);
+}
+.dx-pricing__bubble--unknown {
+  border-color: var(--dx-border);
+  background-color: var(--dx-bg-quiet);
+  --dx-bubble-rule:   color-mix(in srgb, var(--dx-fg-quiet) 16%, transparent);
+  --dx-bubble-margin: var(--dx-border);
+}
 
+/*
+ * CSS-only tail — pair of triangles (one for the border, one for the fill).
+ * Sits at top-left, points back toward the avatar. Sharper than the
+ * previous SVG version and lines up cleanly with the bubble border.
+ */
 .dx-pricing__bubble-tail {
   position: absolute;
-  left: -15px;
-  top: 28px;
-  width: 16px;
-  height: 24px;
+  left: -10px;
+  top: 24px;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.dx-pricing__bubble-tail::before,
+.dx-pricing__bubble-tail::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+/* Outer triangle = border color */
+.dx-pricing__bubble-tail::before {
+  border-width: 9px 11px 9px 0;
+  border-color: transparent currentColor transparent transparent;
+}
+/* Inner triangle = fill color, inset 1.5px to align with the bubble border */
+.dx-pricing__bubble-tail::after {
+  left: 1.5px;
+  top: 1px;
+  border-width: 8px 10px 8px 0;
+  border-color: transparent var(--dx-bubble-tail-fill, var(--dx-bg-quiet)) transparent transparent;
 }
 
-.dx-pricing__bubble-tail-stroke,
-.dx-pricing__bubble-tail-fill {
-  color: inherit;
-}
-
-.dx-pricing__bubble--high .dx-pricing__bubble-tail-stroke         { color: color-mix(in srgb, var(--dx-success) 35%, transparent); }
-.dx-pricing__bubble--mid .dx-pricing__bubble-tail-stroke          { color: color-mix(in srgb, var(--dx-warn) 35%, transparent); }
-.dx-pricing__bubble--low .dx-pricing__bubble-tail-stroke          { color: color-mix(in srgb, var(--dx-danger) 35%, transparent); }
-.dx-pricing__bubble--prescription .dx-pricing__bubble-tail-stroke { color: color-mix(in srgb, var(--dx-accent) 40%, transparent); }
-.dx-pricing__bubble--unknown .dx-pricing__bubble-tail-stroke      { color: var(--dx-border); }
-
-.dx-pricing__bubble--high .dx-pricing__bubble-tail-fill           { color: color-mix(in srgb, var(--dx-success) 5%, transparent); }
-.dx-pricing__bubble--mid .dx-pricing__bubble-tail-fill            { color: color-mix(in srgb, var(--dx-warn) 5%, transparent); }
-.dx-pricing__bubble--low .dx-pricing__bubble-tail-fill            { color: color-mix(in srgb, var(--dx-danger) 5%, transparent); }
-.dx-pricing__bubble--prescription .dx-pricing__bubble-tail-fill   { color: color-mix(in srgb, var(--dx-accent) 6%, transparent); }
-.dx-pricing__bubble--unknown .dx-pricing__bubble-tail-fill        { color: var(--dx-bg-quiet); }
+.dx-pricing__bubble--high         { color: color-mix(in srgb, var(--dx-success) 38%, transparent); --dx-bubble-tail-fill: color-mix(in srgb, var(--dx-success) 4%, var(--dx-bg-quiet)); }
+.dx-pricing__bubble--mid          { color: color-mix(in srgb, var(--dx-warn) 38%, transparent);    --dx-bubble-tail-fill: color-mix(in srgb, var(--dx-warn) 4%, var(--dx-bg-quiet)); }
+.dx-pricing__bubble--low          { color: color-mix(in srgb, var(--dx-danger) 38%, transparent);  --dx-bubble-tail-fill: color-mix(in srgb, var(--dx-danger) 4%, var(--dx-bg-quiet)); }
+.dx-pricing__bubble--prescription { color: color-mix(in srgb, var(--dx-accent) 42%, transparent);  --dx-bubble-tail-fill: color-mix(in srgb, var(--dx-accent) 5%, var(--dx-bg-quiet)); }
+.dx-pricing__bubble--unknown      { color: var(--dx-border); --dx-bubble-tail-fill: var(--dx-bg-quiet); }
 
 /* ───── Avatar ──────────────────────────────────────────────────────── */
 

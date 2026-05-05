@@ -296,14 +296,10 @@ function MarketplaceSearch() {
     >
       <div className="px-4 pt-4">
         <MarketplaceSummaryHeader
-          queryValue={queryDraft}
-          onQueryChange={setQueryDraft}
-          onSearchSubmit={handleSearchSubmit}
           resultCount={activeOutput.count}
           strongCount={hasTieredShape ? strongCount : undefined}
           relatedCount={hasTieredShape ? relatedCount : undefined}
           rerankApplied={rerankApplied}
-          isSearching={isSearching}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
         />

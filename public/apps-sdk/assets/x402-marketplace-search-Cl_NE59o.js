@@ -1,15 +1,15 @@
 import { j as jsxRuntimeExports, r as reactExports, d as addWidgetBreadcrumb, b as captureWidgetException, u as useToolOutput, e as useAdaptiveTheme } from "./adapter-DBrmdIGu.js";
-import { B as Button } from "./Button-DJAppx0Y.js";
-import { P as ProfessorDexterCard, D as DoctorDexterCard } from "./DoctorDexterCard-7Abke-kC.js";
+import { B as Button } from "./Button-CSr1q5ix.js";
+import { P as ProfessorDexterCard, D as DoctorDexterCard } from "./DoctorDexterCard-DQUgetiU.js";
 import { c as clientExports } from "./client-B5JgHWHP.js";
 import { S as Search } from "./Search-B0ss4X9Z.js";
 import { W as Warning } from "./Warning-0PV1c4JM.js";
-import { E as EmptyMessage } from "./EmptyMessage-D7i0XsfM.js";
+import { E as EmptyMessage } from "./EmptyMessage-CJbgbOWA.js";
 import { u as useDisplayMode } from "./use-display-mode-DZ0UyQis.js";
 import { u as useMaxHeight } from "./use-max-height-DZFC2PSv.js";
 import { a as useCallToolFn } from "./use-call-tool-4E44P6AR.js";
 import { u as useOpenAIGlobal } from "./use-openai-global-Cs-Bqg_p.js";
-import { C as ChainIcon, U as UsdcIcon, a as CopyButton, D as DebugPanel } from "./DebugPanel-BvpGQsfH.js";
+import { C as ChainIcon, U as UsdcIcon, a as CopyButton, D as DebugPanel } from "./DebugPanel-BtjGQOge.js";
 import { J as JsonViewer } from "./JsonViewer-CwUQLfxA.js";
 import "./Check-Bp07B38p.js";
 import "./Copy-1PaP5PSB.js";
@@ -21,14 +21,10 @@ function useUserAgent() {
 }
 const WORDMARK_URL = "https://dexter.cash/wordmarks/dexter-wordmark.svg";
 function MarketplaceSummaryHeader({
-  queryValue,
-  onQueryChange,
-  onSearchSubmit,
   resultCount,
   strongCount,
   relatedCount,
   rerankApplied = false,
-  isSearching,
   isFullscreen,
   onToggleFullscreen
 }) {
@@ -38,25 +34,6 @@ function MarketplaceSummaryHeader({
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-header__brand", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: WORDMARK_URL, alt: "Dexter", className: "dx-search-header__wordmark" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-header__eyebrow", children: "x402 search" })
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-header__input", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(Search, {}),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "input",
-        {
-          value: queryValue,
-          onChange: (event) => onQueryChange(event.target.value),
-          onKeyDown: (event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              onSearchSubmit();
-            }
-          },
-          placeholder: "Search paid APIs",
-          className: "dx-search-header__input-field"
-        }
-      ),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { color: "primary", size: "sm", onClick: onSearchSubmit, disabled: isSearching, children: isSearching ? "Searching…" : "Search" })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-header__meta", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-header__count", children: tierLabel }),
@@ -208,9 +185,8 @@ function synthesizeRunFromResource(resource) {
   const notes = resource.verificationNotes ?? null;
   const status = resource.verificationStatus ?? null;
   const verifiedAt = resource.lastVerifiedAt ?? null;
-  const hasScore = typeof score === "number" && score > 0;
   const hasNotes = typeof notes === "string" && notes.trim().length > 0;
-  if (!hasScore && !hasNotes) return null;
+  if (!hasNotes) return null;
   return {
     attempted_at: verifiedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
     completed_at: verifiedAt,
@@ -854,7 +830,7 @@ function MarketplaceSearch() {
     addWidgetBreadcrumb("inspect_closed");
     setDetailOpen(false);
   }, []);
-  const handleSearchSubmit = reactExports.useCallback(async () => {
+  reactExports.useCallback(async () => {
     const nextQuery = queryDraft.trim();
     addWidgetBreadcrumb("search_submit", { query: nextQuery });
     setIsSearching(true);
@@ -923,14 +899,10 @@ function MarketplaceSearch() {
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-4 pt-4", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
           MarketplaceSummaryHeader,
           {
-            queryValue: queryDraft,
-            onQueryChange: setQueryDraft,
-            onSearchSubmit: handleSearchSubmit,
             resultCount: activeOutput.count,
             strongCount: hasTieredShape ? strongCount : void 0,
             relatedCount: hasTieredShape ? relatedCount : void 0,
             rerankApplied,
-            isSearching,
             isFullscreen,
             onToggleFullscreen: toggleFullscreen
           }

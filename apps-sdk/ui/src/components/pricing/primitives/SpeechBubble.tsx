@@ -8,8 +8,14 @@ interface Props {
 }
 
 /**
- * Tone-aware bubble with a triangular tail on the left edge, sized to attach
- * visually to a 56px avatar. Pure CSS/SVG — no framer.
+ * Tone-aware bubble. Background is ruled-paper (notepad-style) via two
+ * layered linear gradients in CSS — a horizontal rule every 24px and a
+ * tone-tinted vertical margin rule near the right edge.
+ *
+ * Tail is a CSS-only triangle pair (border-trick) styled via `::before`
+ * and `::after` on the `.dx-pricing__bubble-tail` element. Sharper and
+ * less janky than the previous SVG approach, and aligns to the bubble
+ * border without cross-browser pixel drift.
  */
 export function SpeechBubble({ tone, className, children }: PropsWithChildren<Props>) {
   const variantClass =
@@ -21,10 +27,7 @@ export function SpeechBubble({ tone, className, children }: PropsWithChildren<Pr
 
   return (
     <div className={`dx-pricing__bubble ${variantClass} ${className ?? ''}`}>
-      <svg aria-hidden viewBox="0 0 16 24" className="dx-pricing__bubble-tail">
-        <path d="M 16 0 L 0 12 L 16 24 Z" fill="none" strokeWidth={1.5} stroke="currentColor" className="dx-pricing__bubble-tail-stroke" />
-        <path d="M 17.5 1.5 L 1.5 12 L 17.5 22.5 Z" fill="currentColor" className="dx-pricing__bubble-tail-fill" />
-      </svg>
+      <span aria-hidden className="dx-pricing__bubble-tail" />
       {children}
     </div>
   );
