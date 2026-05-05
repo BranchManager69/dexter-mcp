@@ -67,6 +67,7 @@ export default defineConfig({
         'card-issue': path.resolve(rootDir, 'card-issue.html'),
         'card-link-wallet': path.resolve(rootDir, 'card-link-wallet.html'),
         'passkey-probe': path.resolve(rootDir, 'passkey-probe.html'),
+        'passkey-onboard': path.resolve(rootDir, 'passkey-onboard.html'),
       },
     },
   },

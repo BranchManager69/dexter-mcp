@@ -2,7 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
 import { buildWidgetBootstrapScript } from './bootstrap.js';
-import { X402_WIDGET_URIS, CARD_WIDGET_URIS, DIAGNOSTIC_WIDGET_URIS } from './widget-uris.mjs';
+import { X402_WIDGET_URIS, CARD_WIDGET_URIS, DIAGNOSTIC_WIDGET_URIS, PASSKEY_WIDGET_URIS } from './widget-uris.mjs';
 import { resolveAppsSdkRelease } from '../scripts/apps-sdk-release.mjs';
 import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 
@@ -629,6 +629,16 @@ export function registerAppsSdkResources(server, options = {}) {
       widgetDescription: 'One-button capability test — calls navigator.credentials.create()/get() against rp.id=dexter.cash and reports the outcome.',
       invoking: 'Loading probe…',
       invoked: 'Probe ready',
+    },
+    {
+      name: 'dexter_passkey',
+      templateUri: PASSKEY_WIDGET_URIS.onboard,
+      file: 'passkey-onboard.html',
+      title: 'Dexter passkey wallet',
+      description: 'Set up or check the user\'s Dexter passkey-secured Solana wallet. Renders a CTA that opens dexter.cash for the ceremony, polls for completion, and shows the vault address when ready.',
+      widgetDescription: 'Three-state passkey wallet onboarding — not enrolled, provisioning, or ready. CTA opens dexter.cash/wallet/setup-passkey via ui/open-link; widget polls dexter_passkey while the user is away.',
+      invoking: 'Checking wallet…',
+      invoked: 'Wallet status loaded',
     },
   ];
 

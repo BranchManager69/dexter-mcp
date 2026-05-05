@@ -1,207 +1,148 @@
-# Phase C Contract — MCP Widget Surface for Passkey Enrollment
+# Phase C Contract — MCP Widget for Passkey Wallet Onboarding
 
-This document defines what Phase C (the ChatGPT/Claude MCP widget for passkey enrollment) needs from Phase A so the two phases compose without ad-hoc coupling. Phase A is the source of truth for actual implementation; Phase C consumes the interfaces below.
+This is the live contract between Phase C (the OpenDexter MCP widget) and Phase A (the dexter-fe + dexter-api passkey vault flow). Phase A shipped first; this doc reflects what actually exists, not what we sketched up front.
 
 **Companion docs:**
-- Architecture: `~/websites/dexter-api/docs/superpowers/specs/2026-05-04-passkey-swig-architecture.md`
-- Implementation plan: `~/websites/dexter-api/docs/superpowers/plans/2026-05-04-passkey-swig-implementation.md`
+- Architecture spec: `~/websites/dexter-api/docs/superpowers/specs/2026-05-04-passkey-swig-architecture.md`
+- Phase A implementation plan: `~/websites/dexter-api/docs/superpowers/plans/2026-05-04-passkey-swig-implementation.md`
 
-This contract reflects the empirical reality that **MCP widget iframes cannot run WebAuthn directly** (probed 2026-05-04 on Claude.ai mobile Safari + Claude iOS app: `navigator.credentials.create` blocked by ancestor-origin isolation, `window.open` returns null, `<a target="_blank">` taps are silently swallowed). The only spec-blessed escape hatch is JSON-RPC `ui/open-link`, confirmed honored by Claude. Phase C therefore takes the popout fallback branch from Phase C / Task C1.
-
----
-
-## Sequencing
-
-Phase C is **gated on Phase A landing**. Specifically Phase C cannot start until:
-
-1. `/wallet/setup` on dexter.cash runs the native passkey enrollment flow (Phase A, Task A17).
-2. `/api/vault/initialize` accepts a passkey-authenticated user and returns a provisioned vault address (Task A14).
-3. The `user_vaults` table is the source of truth for "this user has a vault" (Task A9).
-4. `.well-known/webauthn` lists `https://open.dexter.cash` so the MCP widget origin is authorized for the dexter.cash passkey (Phase B, Task B1).
-
-Until those land, Phase C is a paper interface.
+**Empirical reality:** MCP widget iframes cannot run WebAuthn directly (probed 2026-05-04 on Claude.ai mobile + iOS app — `navigator.credentials.create` blocked, `window.open` blocked, `<a target="_blank">` blocked). The only host-honored escape hatch is JSON-RPC `ui/open-link`. Phase C therefore opens dexter.cash in a new tab and the user runs the ceremony at top-level there. Custody story unchanged — passkey never leaves the user's device.
 
 ---
 
-## Inputs Phase C provides
+## What Phase A actually shipped
 
-When the MCP `dexter_passkey` tool is invoked by an agent, it calls into dexter-api to mint an enrollment intent and returns to the widget the URL the user should open.
+- **Page:** `https://dexter.cash/wallet/setup-passkey` — Next.js page, ~250 lines, idempotent + resumable. Five-step ceremony: passkey enrollment → vault PDA init → Swig wallet creation → Dexter session-role grant → vault → Swig binding. Biometric prompts fire exactly twice per onboarding (enrollment + final binding). Source: `~/websites/dexter-fe/app/wallet/setup-passkey/page.tsx`. Hook: `app/hooks/usePasskeyWallet.ts`. Helpers: `app/lib/passkey.ts`.
+- **dexter-api routes:**
+  - `GET /api/passkey-vault/status` — read current user's vault state (Bearer-only, Supabase access token)
+  - `POST /api/passkey/enroll/challenge|complete`
+  - `POST /api/passkey/sign/challenge|verify`
+  - `POST /api/passkey-vault/build/initialize|create-swig|grant-session-role|set-swig|request-withdrawal|finalize-withdrawal` — transaction builders (Bearer-only)
+- **`user_vaults` table** — keyed on `supabase_user_id`, one vault per user.
+- **No intent indirection.** Status is keyed on the authenticated user, not on a per-request token. The widget polls vault status; when `hasVault` flips true, the user is done.
+- **`.well-known/webauthn` related-origins manifest** — Phase B / not yet live as of this doc. Independent of Phase C; Phase C only needs to open dexter.cash, which has its own RP.
 
-### Required server-side endpoint Phase A must provide
+---
 
+## Auth bridge (the OpenDexter side)
+
+**This is the load-bearing piece for C.** The MCP server needs to call `/api/passkey-vault/status` on behalf of a paired user. Bearer-only means we need the user's Supabase access token — not just a user ID.
+
+The bridge ships with these commits:
+- `Dexter-DAO/dexter-api@3962ba9` — `pollPairingResult` returns `supabaseAccessToken` + `supabaseRefreshToken`
+- `Dexter-DAO/dexter-mcp@3e6ac0b` — `userBindings` stores both tokens; new helper `lib/user-scoped-fetch.mjs`
+
+### How a Phase C tool handler authenticates
+
+```js
+import { userScopedDexterFetch } from './lib/user-scoped-fetch.mjs';
+import { getUserBinding } from './open-mcp-server.mjs';
+
+// In a tool handler that has sessionId from the AsyncLocalStorage context:
+const binding = getUserBinding(sessionId);
+if (!binding) {
+  // user not paired — throw the existing pairing-required error path
+  // so the agent surfaces a connector OAuth URL to the user
+}
+
+const res = await userScopedDexterFetch({
+  binding,
+  path: '/api/passkey-vault/status',
+  onRefreshed: (newAccess, newRefresh) => {
+    binding.supabaseAccessToken = newAccess;
+    if (newRefresh) binding.supabaseRefreshToken = newRefresh;
+  },
+});
+
+if (!res.ok) {
+  // Treat 401 as "user must re-pair." Other errors bubble up as tool errors.
+}
+
+const status = await res.json();
+// → { enrolled, hasVault, vault: {...} | null, credentialId }
 ```
-POST /api/passkey/intent
-```
 
-**Authentication:** authenticated user (Supabase JWT or MCP-bound bearer; same auth surface as the rest of dexter-api's `/api/*` routes).
+**Token refresh is handled transparently inside `userScopedDexterFetch`.** Phase C tools do not write refresh logic.
 
-**Request body:**
+---
+
+## What `/api/passkey-vault/status` returns
 
 ```jsonc
 {
-  "purpose": "mcp_enroll",       // see "Intent purposes" below
-  "client_origin": "open.dexter.cash",
-  "agent_label": "Claude",        // free-form, used in the popout copy
-  "metadata": { ... }             // optional, passed through to the popout
+  "enrolled": true,                   // user has a passkey credential on file
+  "hasVault": true,                   // user_vaults row exists
+  "vault": {
+    "vaultPda": "VaULT...",
+    "swigAddress": "Sw1G...",
+    // Additional fields per Phase A schema. Widget should treat the
+    // object as opaque except for vaultPda + swigAddress, which are
+    // load-bearing for the success-state UI.
+  } | null,
+  "credentialId": "<base64url>" | null
 }
 ```
 
-**Response body:**
+State table for the widget:
 
-```jsonc
-{
-  "intent_id": "1f6e0d38-...",    // opaque, server-issued UUID
-  "enroll_url": "https://dexter.cash/wallet/setup?intent=1f6e0d38-...&purpose=mcp_enroll&return=mcp",
-  "expires_at": "2026-05-05T01:30:00Z",
-  "vault_status": "none"          // "none" | "provisioning" | "ready"; if "ready", widget can short-circuit
-}
-```
+| `enrolled` | `hasVault` | Widget state | What it shows |
+|---|---|---|---|
+| `false` | `false` | `not_enrolled` | "Set up your Dexter wallet" CTA → `app.openLink('https://dexter.cash/wallet/setup-passkey')` |
+| `true` | `false` | `provisioning` | "Resume setup" CTA → same URL (page is resumable). Polling on. |
+| `true` | `true` | `ready` | Vault address + Solscan link |
+| `false` | `true` | (impossible) | Defensive: render `ready` and log a warning |
 
-`enroll_url` is opaque to the widget — Phase A constructs it. The widget MUST NOT parse, edit, or reconstruct it; it just hands the string to `app.openLink()`.
-
-### Required server-side endpoint Phase A must provide
-
-```
-GET /api/passkey/intent/:intent_id/status
-```
-
-**Authentication:** same authenticated user that created the intent. The intent is bound to a user_id; status reads MUST verify the requester matches.
-
-**Response body:**
-
-```jsonc
-{
-  "intent_id": "1f6e0d38-...",
-  "status": "pending",            // see "Intent status values" below
-  "vault": null,                  // populated when status === "completed"
-  "expires_at": "2026-05-05T01:30:00Z",
-  "completed_at": null,           // ISO timestamp when status flips to "completed"
-  "failure_reason": null          // populated when status === "failed"
-}
-```
-
-When `status === "completed"`, `vault` is populated:
-
-```jsonc
-{
-  "vault_pda": "VaULTxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-  "swig_address": "Sw1Gxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-  "passkey_credential_id": "<base64url>",
-  "chains": [
-    { "chain": "solana", "address": "..." }
-  ]
-}
-```
-
-Widget is responsible for polling this endpoint. **Polling cadence is deferred — widget UI decisions hold until Phase A's surface is concrete and we can measure typical end-to-end latency.**
+Plus a session-bound state: if `getUserBinding(sessionId)` returns null, the user has not completed OpenDexter pairing. Surface as `user_bound: false` in `structuredContent` so the widget renders "Link your Dexter account first" pointing at the existing connector OAuth flow.
 
 ---
 
-## Inputs Phase A provides back
+## Phase C deliverables
 
-When the user lands on `/wallet/setup?intent=<id>&purpose=<purpose>&return=mcp` and completes the ceremony, Phase A's frontend MUST mark the intent completed server-side before showing the success state. Concretely:
+### C2 — `passkey-onboard` widget
 
-1. User completes the WebAuthn ceremony at `/wallet/setup`.
-2. dexter-api provisions the vault (existing Phase A path).
-3. dexter-api MUST then mark the intent as completed:
-   - Set `status = "completed"`, `completed_at = NOW()`, `vault = { vault_pda, swig_address, ... }`.
-   - Persist the binding so subsequent polls return the data.
-4. dexter-fe shows the success state; copy MUST acknowledge the agent context when `return === "mcp"` (e.g., "All set — return to Claude" instead of the generic completion message).
+- Three states: `not_enrolled` / `provisioning` / `ready`
+- On mount: read `structuredContent` for the initial snapshot the tool returned
+- If not `ready`: render the CTA, call `app.openLink({ url: enroll_url })` on tap
+- After tap: poll the tool every 3s by calling `dexter_passkey` again (re-render on each result)
+- When status flips `ready`: render vault address + Solscan link
 
-The widget polling endpoint reads from this persisted state. There is no postMessage path back to the widget — popouts that span chat-client iframes can't rely on it. Server-side state is the only universal path.
+### C3 — `dexter_passkey` MCP tool
 
----
+- Same registration pattern as `x402_wallet`
+- Returns `structuredContent`:
+  ```jsonc
+  {
+    "vault_status": "not_enrolled" | "provisioning" | "ready" | "user_not_paired" | "error",
+    "vault_address": "VaULT..." | null,
+    "swig_address": "Sw1G..." | null,
+    "enroll_url": "https://dexter.cash/wallet/setup-passkey",
+    "user_bound": true | false,
+    "error": null | "<message>"
+  }
+  ```
+- `enroll_url` is hardcoded — no query params, no intent token
+- Auth path: `userScopedDexterFetch` with the contract above
 
-## Intent purposes
+### C4 — End-to-end mainnet test
 
-Phase C only uses one purpose initially. Listed for clarity so other surfaces can extend without renegotiating shape.
-
-| Purpose | Triggers | Widget behavior on completion |
-|---|---|---|
-| `mcp_enroll` | First-time passkey enrollment + vault provisioning from inside an MCP widget. | Widget transitions to "ready" state showing the vault address. |
-| `mcp_authorize` *(future)* | Agent wants user approval for a specific bounded action (e.g., session-role refresh, single-tx authorization). | Widget transitions to "approved" state with the action receipt. Out of scope for Wednesday. |
-
-Phase A's `/wallet/setup` only needs to handle `mcp_enroll` for the Wednesday slice. `mcp_authorize` reserves the shape for later.
-
----
-
-## Intent status values
-
-| Value | Meaning |
-|---|---|
-| `pending` | Created. User has not opened the URL yet, OR has opened it but not yet completed the ceremony. |
-| `provisioning` | User completed the WebAuthn ceremony; on-chain transactions are landing. Distinguishes "user is engaged" from "no user activity yet". Optional — Phase A may skip this state if the provisioning window is short enough that a `pending → completed` flip is acceptable. |
-| `completed` | Vault provisioned, `vault` field is populated. Terminal. |
-| `failed` | User canceled, signature rejected, on-chain failure with no retry. `failure_reason` populated. Terminal. |
-| `expired` | TTL elapsed. Terminal. Widget should offer to mint a fresh intent. |
-
-Terminal states are immutable — once completed, status does not flip back to pending even on re-entry.
-
----
-
-## TTL and reuse
-
-Phase A decides the TTL. Suggested floor: 10 minutes. Suggested ceiling: 30 minutes. The widget assumes the intent is reusable within the TTL — i.e., if the user closes the popout and re-opens within TTL, the same intent_id + URL still works.
-
-If a user already has a vault (`vault_status === "ready"` on intent creation), Phase A SHOULD return a still-valid intent that the widget can use to surface the existing vault rather than minting a new ceremony. Concretely: `enroll_url` may point at `/wallet` (read-only display) instead of `/wallet/setup`. The widget should not need to special-case this — it just opens whatever URL Phase A returns.
-
----
-
-## Cross-surface identity
-
-Phase B publishes `https://dexter.cash/.well-known/webauthn` with origins:
-
-```json
-{
-  "origins": [
-    "https://dexter.cash",
-    "https://www.dexter.cash",
-    "https://x402gle.com",
-    "https://www.x402gle.com",
-    "https://open.dexter.cash"
-  ]
-}
-```
-
-Phase C does not touch this file. The widget only invokes `app.openLink` to dexter.cash; the WebAuthn ceremony itself runs at top-level on dexter.cash where the manifest is already authoritative. The `open.dexter.cash` entry exists for any future case where the widget runs the ceremony itself (e.g., if Anthropic relaxes the iframe sandbox). For Wednesday, `open.dexter.cash` does not run a ceremony — but listing it now means we don't republish later.
-
----
-
-## Failure modes Phase C must handle
-
-The widget's job is to surface, not to fix. For each failure mode below, the widget renders a clear message and offers a single concrete action.
-
-| Failure | Widget surface |
-|---|---|
-| `app.openLink` rejected by host | "This MCP host doesn't support opening external tabs. Visit dexter.cash/wallet/setup directly to set up your passkey." Copyable URL. |
-| Status poll returns `failed` | Show `failure_reason` verbatim plus a "Try again" button that mints a fresh intent. |
-| Status poll returns `expired` | "Took too long — let's try again." Single button mints a fresh intent. |
-| Status poll 5xx for >30s | "Couldn't reach Dexter. Try again in a moment." No silent retry storm. |
-| `intent_id` 404s on poll | The intent was deleted server-side (manual cleanup, DB reset). Widget mints a fresh intent and starts over. |
+- Fresh Supabase user → install OpenDexter MCP in ChatGPT/Claude → invoke `dexter_passkey`
+- Widget renders not-enrolled → tap CTA → dexter.cash tab opens → 5-step ceremony → vault provisioned
+- Return to chat → widget polled status during user's absence → now renders `ready` with vault address
 
 ---
 
 ## What Phase C explicitly does NOT do
 
-- **Run any WebAuthn ceremony.** The probe (`dexter_passkey_probe`) confirmed it's blocked. The ceremony runs at top-level on dexter.cash via `/wallet/setup`.
-- **Hold any signing material.** No challenges, no signatures, no public keys. The widget is a thin shell over `intent_id` and `enroll_url`.
-- **Render or build the dexter.cash popout target.** Phase A owns `/wallet/setup`. Phase C owns the widget that points to it.
-- **Handle related-origins manifest changes.** Phase B owns it.
-- **Decide UI cadence (polling interval, jitter, exponential backoff).** Held until Phase A's API is observable in production so we measure first.
+- Run any WebAuthn ceremony. Iframe sandbox blocks it.
+- Hold any signing material — challenges, signatures, public keys all stay top-level on dexter.cash.
+- Build the popout target page (`/wallet/setup-passkey`). Phase A owns it.
+- Write token refresh logic. The auth bridge handles it transparently.
+- Mint or persist intent IDs. There is no intent table — vault status is keyed on `supabase_user_id`.
+- Mutate vault state. The user mutates state at dexter.cash with their own Bearer; the MCP only reads.
+- Touch related-origins manifest. Phase B owns it.
 
 ---
 
-## Open questions deferred until Phase A lands
+## Probe widget
 
-These are not blockers for the contract — they're things that are easier to settle once Phase A's endpoints are live and we can measure.
-
-1. **Polling cadence + backoff curve.** Depends on typical end-to-end latency from popout open → vault provisioned. Measure first.
-2. **Whether `provisioning` is a meaningful distinct state** or whether `pending → completed` is enough. Depends on how long the on-chain transactions take in practice.
-3. **Whether the widget should preflight `vault_status === "ready"`** (skip the ceremony, just show the existing vault) or always show the "set up your wallet" CTA and let Phase A's URL choice route correctly. Both are workable.
-4. **Whether `intent_id` should be exposed in the URL or cookie-bound.** Exposed-in-URL is simpler; cookie-bound is harder to share-link. Default to exposed-in-URL unless a security review pushes otherwise.
-
----
-
-## Probe artifact
-
-The diagnostic widget `dexter_passkey_probe` (live at `ui://dexter/passkey-probe`) is **kept**, not retired by Phase C. It carries empirical evidence about the iframe sandbox state across Claude / ChatGPT / future hosts and is the canonical re-test if any host changes its sandbox policy. Phase C's `dexter_passkey` tool ships separately from the probe; both coexist.
+The `dexter_passkey_probe` widget (live at `ui://dexter/passkey-probe`) is **kept**, not retired by Phase C. It carries empirical evidence about the iframe sandbox state and is the canonical re-test if any host changes its policy. Phase C's `dexter_passkey` ships separately; both coexist.

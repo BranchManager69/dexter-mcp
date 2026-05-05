@@ -32,3 +32,7 @@ export const CARD_WIDGET_URIS = Object.freeze({
 export const DIAGNOSTIC_WIDGET_URIS = Object.freeze({
   passkeyProbe: versionedWidgetUri('ui://dexter/passkey-probe', 'passkey-probe.html'),
 });
+
+export const PASSKEY_WIDGET_URIS = Object.freeze({
+  onboard: versionedWidgetUri('ui://dexter/passkey-onboard', 'passkey-onboard.html'),
+});
