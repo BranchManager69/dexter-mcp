@@ -361,12 +361,29 @@ function classifyError(phase: ProbePhase, err: Error): ProbeOutcome {
 function PasskeyProbe() {
   const [outcome, setOutcome] = useState<ProbeOutcome>({ kind: 'idle' });
   const [popup, setPopup] = useState<PopupOutcome>({ kind: 'idle' });
+  const [anchor, setAnchor] = useState<'idle' | 'tapped'>('idle');
 
   const onTap = useCallback(() => {
     runProbe(setOutcome);
   }, []);
   const onTapPopup = useCallback(() => {
     runPopupProbe(setPopup);
+  }, []);
+  // Anchor probe: distinct from window.open() because user-gesture anchor
+  // taps route through the OS tab handler, not the iframe sandbox's popup
+  // creation path. iOS Safari historically permits these even when scripted
+  // popups are blocked. We just record that the user tapped — whether the
+  // tab actually opens is observable to the user, not to us (the new tab is
+  // cross-origin and we have no handle).
+  const onTapAnchor = useCallback(() => {
+    const env = nowEnv();
+    setAnchor('tapped');
+    void reportToServer({
+      probe: 'anchor',
+      outcome: { kind: 'tapped' },
+      env,
+      target: 'https://dexter.cash/connector/auth/done?probe=anchor',
+    });
   }, []);
 
   const env = nowEnv();
@@ -460,6 +477,32 @@ function PasskeyProbe() {
               <span className="passkey-probe-result__error-name">{popup.errorName}</span>
               {' — '}
               <span>{popup.message}</span>
+            </div>
+          </div>
+        ) : null}
+
+        <a
+          href="https://dexter.cash/connector/auth/done?probe=anchor"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="passkey-probe-button passkey-probe-button--anchor"
+          onClick={onTapAnchor}
+          style={{ marginTop: 4, textDecoration: 'none', textAlign: 'center' }}
+        >
+          {anchor === 'idle' ? 'Test anchor tap (target=_blank)' : 'Tap again — did a new tab open?'}
+        </a>
+
+        {anchor === 'tapped' ? (
+          <div className="passkey-probe-result passkey-probe-result--success">
+            <div className="passkey-probe-result__heading">
+              <span className="passkey-probe-result__label">Anchor tap fired</span>
+            </div>
+            <div className="passkey-probe-result__error">
+              <span>
+                Did a new tab open to dexter.cash? If yes, the user-gesture
+                deep-link path works. If nothing happened, the iframe sandbox
+                ate the anchor tap too.
+              </span>
             </div>
           </div>
         ) : null}

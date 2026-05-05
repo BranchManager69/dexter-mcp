@@ -223,11 +223,22 @@ function classifyError(phase, err) {
 function PasskeyProbe() {
   const [outcome, setOutcome] = reactExports.useState({ kind: "idle" });
   const [popup, setPopup] = reactExports.useState({ kind: "idle" });
+  const [anchor, setAnchor] = reactExports.useState("idle");
   const onTap = reactExports.useCallback(() => {
     runProbe(setOutcome);
   }, []);
   const onTapPopup = reactExports.useCallback(() => {
     runPopupProbe(setPopup);
+  }, []);
+  const onTapAnchor = reactExports.useCallback(() => {
+    const env2 = nowEnv();
+    setAnchor("tapped");
+    void reportToServer({
+      probe: "anchor",
+      outcome: { kind: "tapped" },
+      env: env2,
+      target: "https://dexter.cash/connector/auth/done?probe=anchor"
+    });
   }, []);
   const env = nowEnv();
   const running = outcome.kind === "running";
@@ -305,6 +316,22 @@ function PasskeyProbe() {
         " — ",
         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: popup.message })
       ] })
+    ] }) : null,
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "a",
+      {
+        href: "https://dexter.cash/connector/auth/done?probe=anchor",
+        target: "_blank",
+        rel: "noopener noreferrer",
+        className: "passkey-probe-button passkey-probe-button--anchor",
+        onClick: onTapAnchor,
+        style: { marginTop: 4, textDecoration: "none", textAlign: "center" },
+        children: anchor === "idle" ? "Test anchor tap (target=_blank)" : "Tap again — did a new tab open?"
+      }
+    ),
+    anchor === "tapped" ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "passkey-probe-result passkey-probe-result--success", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "passkey-probe-result__heading", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "passkey-probe-result__label", children: "Anchor tap fired" }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "passkey-probe-result__error", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Did a new tab open to dexter.cash? If yes, the user-gesture deep-link path works. If nothing happened, the iframe sandbox ate the anchor tap too." }) })
     ] }) : null,
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "passkey-probe-env", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "passkey-probe-env__row", children: [
