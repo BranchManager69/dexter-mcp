@@ -425,6 +425,37 @@ function SearchVerdictRow({
     }
   );
 }
+const LOGO_URL = "https://dexter.cash/assets/pokedexter/dexter-logo.svg";
+function MarketBoardLoading({ query }) {
+  const [elapsed, setElapsed] = reactExports.useState(0);
+  reactExports.useEffect(() => {
+    const t = setInterval(() => setElapsed((e) => e + 1), 1e3);
+    return () => clearInterval(t);
+  }, []);
+  const stage = elapsed < 4 ? "Surveying the market…" : elapsed < 9 ? "Cross-referencing verifier history…" : elapsed < 16 ? "Re-ranking strong matches…" : "Still in flight — long-tail catalog is slow tonight.";
+  const supporting = elapsed < 4 ? "Ranking paid APIs, trust signals, and recent verifier passes." : elapsed < 9 ? "Pulling AI grades, payment routes, and seller reputation per match." : elapsed < 16 ? "Cross-encoder is reordering the top candidates." : "The capability index is still working through this query. Holding.";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-loading", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-loading__stage", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-loading__ring dx-search-loading__ring--outer", "aria-hidden": true }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-loading__ring dx-search-loading__ring--mid", "aria-hidden": true }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-loading__logo", children: /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: LOGO_URL, alt: "", width: 120, height: 120, "aria-hidden": true }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-loading__orbit", "aria-hidden": true, children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-loading__orbit-tick" }) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-loading__copy", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-loading__eyebrow", children: "DEXTER · MARKET BOARD" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "dx-search-loading__heading", children: stage }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "dx-search-loading__supporting", children: supporting }),
+      query && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "dx-search-loading__query", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-loading__query-label", children: "query" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "dx-search-loading__query-value", children: [
+          '"',
+          query,
+          '"'
+        ] })
+      ] })
+    ] })
+  ] });
+}
 function toneClasses(tone) {
   if (tone === "good") {
     return "border-emerald-500/28 bg-emerald-500/10 text-emerald-300 shadow-[0_6px_18px_rgba(16,185,129,0.14)]";
@@ -900,18 +931,8 @@ function MarketplaceSearch() {
       captureWidgetException(error, { phase: "request_display_mode" });
     }
   }, [isFullscreen]);
-  const [loadingElapsed, setLoadingElapsed] = reactExports.useState(0);
-  reactExports.useEffect(() => {
-    if (activeOutput) return;
-    const t = setInterval(() => setLoadingElapsed((e) => e + 1), 1e3);
-    return () => clearInterval(t);
-  }, [activeOutput]);
   if (!activeOutput) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { "data-theme": theme, className: "p-4", style: { maxHeight: maxHeight ?? void 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(EmptyMessage, { className: "rounded-2xl border border-subtle bg-surface px-4 py-8", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(EmptyMessage.Icon, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(Search, {}) }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(EmptyMessage.Title, { children: loadingElapsed < 5 ? "Building the market board…" : "Dexter is still surveying the market." }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(EmptyMessage.Description, { children: loadingElapsed < 5 ? "Ranking paid APIs and trust signals." : "This is taking longer than usual, but the search is still in flight." })
-    ] }) });
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { "data-theme": theme, className: "p-2", style: { maxHeight: maxHeight ?? void 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(MarketBoardLoading, { query: externalQuery || queryDraft }) });
   }
   if (activeOutput.error) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { "data-theme": theme, className: "p-4", style: { maxHeight: maxHeight ?? void 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(EmptyMessage, { className: "rounded-2xl border border-subtle bg-surface px-4 py-8", children: [

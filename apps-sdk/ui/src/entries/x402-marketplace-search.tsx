@@ -3,6 +3,8 @@ import '../styles/sdk.css';
 // rule scope is `dx-pricing__*` and doesn't collide with search styles.
 // Refactor to a shared primitives stylesheet in a follow-up.
 import '../styles/widgets/x402-pricing.css';
+// Search-specific loading state (Dexter logo + pulsing rings + escalating copy)
+import '../styles/widgets/x402-search-loading.css';
 
 import { createRoot } from 'react-dom/client';
 import { useState, useCallback, useEffect, useMemo } from 'react';
@@ -21,6 +23,7 @@ import {
 import { DebugPanel } from '../components/x402';
 import { MarketplaceSummaryHeader } from '../components/x402/search/MarketplaceSummaryHeader';
 import { SearchVerdictRow } from '../components/x402/search/SearchVerdictRow';
+import { MarketBoardLoading } from '../components/x402/search/MarketBoardLoading';
 import { SearchResourceDetail } from '../components/x402/search/SearchResourceDetail';
 import type {
   SearchResource,
@@ -242,23 +245,10 @@ function MarketplaceSearch() {
     }
   }, [isFullscreen]);
 
-  const [loadingElapsed, setLoadingElapsed] = useState(0);
-  useEffect(() => {
-    if (activeOutput) return;
-    const t = setInterval(() => setLoadingElapsed((e) => e + 1), 1000);
-    return () => clearInterval(t);
-  }, [activeOutput]);
-
   if (!activeOutput) {
     return (
-      <div data-theme={theme} className="p-4" style={{ maxHeight: maxHeight ?? undefined }}>
-        <EmptyMessage className="rounded-2xl border border-subtle bg-surface px-4 py-8">
-          <EmptyMessage.Icon><Search /></EmptyMessage.Icon>
-          <EmptyMessage.Title>{loadingElapsed < 5 ? 'Building the market board…' : 'Dexter is still surveying the market.'}</EmptyMessage.Title>
-          <EmptyMessage.Description>
-            {loadingElapsed < 5 ? 'Ranking paid APIs and trust signals.' : 'This is taking longer than usual, but the search is still in flight.'}
-          </EmptyMessage.Description>
-        </EmptyMessage>
+      <div data-theme={theme} className="p-2" style={{ maxHeight: maxHeight ?? undefined }}>
+        <MarketBoardLoading query={externalQuery || queryDraft} />
       </div>
     );
   }
