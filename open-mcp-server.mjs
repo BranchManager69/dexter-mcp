@@ -1155,6 +1155,11 @@ function createOpenMcpServer() {
               email: result.supabaseEmail || null,
               scope: 'dextercard',
               exp: expSeconds,
+              // Supabase tokens used by tools that call user-scoped
+              // dexter-api routes (e.g. /api/passkey-vault/* for the
+              // dexter_passkey tool). Refresh handled lazily on 401.
+              supabaseAccessToken: result.supabaseAccessToken || null,
+              supabaseRefreshToken: result.supabaseRefreshToken || null,
             });
             pendingPairings.delete(sessionId);
             console.log(`[open-mcp] pairing completed: ${sessionId} → user ${result.supabaseUserId}${result.supabaseEmail ? ` (${result.supabaseEmail})` : ''}`);
