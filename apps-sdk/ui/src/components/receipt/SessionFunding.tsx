@@ -22,6 +22,7 @@
 import { useEffect, useState } from 'react';
 import { CopyButton } from '@openai/apps-sdk-ui/components/Button';
 import { useCallToolFn } from '../../sdk/use-call-tool';
+import { logWidgetEvent } from './widgetLog';
 
 interface SessionFundingShape {
   amountAtomic?: string;
@@ -82,6 +83,24 @@ export function SessionFunding({
   const qrUrl = funding?.solanaPayUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(funding.solanaPayUrl)}`
     : null;
+
+  // Snapshot what the panel was handed on first render. Lets us see in
+  // the debug panel whether the widget got a real funding object, the
+  // Solana Pay URL is well-formed, etc.
+  useEffect(() => {
+    logWidgetEvent('info', 'funding.mount', {
+      hasFunding: Boolean(funding),
+      walletAddress: walletAddress || null,
+      hasSolanaPayUrl: Boolean(funding?.solanaPayUrl),
+      solanaPayScheme: funding?.solanaPayUrl?.split(':')[0] || null,
+      hasTxUrl: Boolean(funding?.txUrl),
+      txUrlScheme: funding?.txUrl?.split(':')[0] || null,
+      retryUrl: retryCall?.url || null,
+      retryMethod: retryCall?.method || null,
+    });
+    // Intentional: only log on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const targetUsdc = funding?.amountUsdc;
   const amountStr = typeof targetUsdc === 'number' ? `$${targetUsdc.toFixed(2)} USDC` : '';
 
@@ -93,18 +112,46 @@ export function SessionFunding({
     if (!retryCall?.url || retrying) return;
     setRetrying(true);
     setRetryError(null);
+    logWidgetEvent('info', 'retry.tap', { url: retryCall.url, method: retryCall.method || 'GET' });
     try {
-      await callTool('x402_fetch', {
+      const result = await callTool('x402_fetch', {
         url: retryCall.url,
         method: retryCall.method || 'GET',
+      });
+      logWidgetEvent('info', 'retry.callTool.resolved', {
+        hasResult: result != null,
       });
       // Result will replace this widget's tool output via the host's
       // refresh — no further work needed here. If it stays as
       // session_required, this same widget re-renders with fresh data.
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Retry failed.';
+      logWidgetEvent('error', 'retry.callTool.threw', err);
       setRetryError(msg);
       setRetrying(false);
+    }
+  };
+
+  const handleOpenExternal = (url: string, source: string) => {
+    let isValid = false;
+    let scheme = '';
+    try {
+      const parsed = new URL(url);
+      scheme = parsed.protocol.replace(':', '');
+      isValid = true;
+    } catch {
+      isValid = false;
+    }
+    logWidgetEvent('info', `${source}.tap`, { url, scheme, valid: isValid });
+    if (!isValid) {
+      logWidgetEvent('error', `${source}.url_invalid`, url);
+      return;
+    }
+    try {
+      onOpenExternal(url);
+      logWidgetEvent('info', `${source}.openExternal.called`, { scheme });
+    } catch (err) {
+      logWidgetEvent('error', `${source}.openExternal.threw`, err);
     }
   };
 
@@ -141,7 +188,7 @@ export function SessionFunding({
           <button
             type="button"
             className="dx-receipt-funding__btn dx-receipt-funding__btn--primary"
-            onClick={() => onOpenExternal(funding.solanaPayUrl!)}
+            onClick={() => handleOpenExternal(funding.solanaPayUrl!, 'solanaPay')}
           >
             Open in Solana Pay <span aria-hidden>↗</span>
           </button>
@@ -150,7 +197,7 @@ export function SessionFunding({
           <button
             type="button"
             className="dx-receipt-funding__btn"
-            onClick={() => onOpenExternal(funding.txUrl!)}
+            onClick={() => handleOpenExternal(funding.txUrl!, 'fundingPage')}
           >
             Funding page <span aria-hidden>↗</span>
           </button>

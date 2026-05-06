@@ -370,6 +370,37 @@ function ReceiptLoading({ resourceLabel }) {
     }
   );
 }
+const buffer = [];
+const MAX_ENTRIES = 24;
+function logWidgetEvent(level, tag, detail) {
+  let detailStr;
+  if (detail !== void 0) {
+    if (typeof detail === "string") {
+      detailStr = detail.length > 200 ? detail.slice(0, 197) + "…" : detail;
+    } else if (detail instanceof Error) {
+      detailStr = `${detail.name}: ${detail.message}`;
+    } else {
+      try {
+        detailStr = JSON.stringify(detail).slice(0, 200);
+      } catch {
+        detailStr = String(detail);
+      }
+    }
+  }
+  buffer.push({ ts: Date.now(), level, tag, detail: detailStr });
+  if (buffer.length > MAX_ENTRIES) buffer.splice(0, buffer.length - MAX_ENTRIES);
+  const fn = level === "error" ? console.error : level === "warn" ? console.warn : console.log;
+  fn(`[receipt:${tag}]`, detail ?? "");
+}
+function getWidgetLogForDebug() {
+  const out = {};
+  buffer.forEach((entry, i) => {
+    const t = new Date(entry.ts).toISOString().slice(11, 23);
+    const detail = entry.detail ? ` ${entry.detail}` : "";
+    out[`evt[${i.toString().padStart(2, "0")}]`] = `${t} ${entry.level} ${entry.tag}${detail}`;
+  });
+  return out;
+}
 function FundingCountdown({ expiresAt }) {
   const [label, setLabel] = reactExports.useState("");
   reactExports.useEffect(() => {
@@ -406,6 +437,18 @@ function SessionFunding({
   const callTool = useCallToolFn();
   const walletAddress = funding?.walletAddress || funding?.payTo;
   const qrUrl = funding?.solanaPayUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(funding.solanaPayUrl)}` : null;
+  reactExports.useEffect(() => {
+    logWidgetEvent("info", "funding.mount", {
+      hasFunding: Boolean(funding),
+      walletAddress: walletAddress || null,
+      hasSolanaPayUrl: Boolean(funding?.solanaPayUrl),
+      solanaPayScheme: funding?.solanaPayUrl?.split(":")[0] || null,
+      hasTxUrl: Boolean(funding?.txUrl),
+      txUrlScheme: funding?.txUrl?.split(":")[0] || null,
+      retryUrl: retryCall?.url || null,
+      retryMethod: retryCall?.method || null
+    });
+  }, []);
   const targetUsdc = funding?.amountUsdc;
   const amountStr = typeof targetUsdc === "number" ? `$${targetUsdc.toFixed(2)} USDC` : "";
   const canRetry = Boolean(retryCall?.url);
@@ -415,15 +458,42 @@ function SessionFunding({
     if (!retryCall?.url || retrying) return;
     setRetrying(true);
     setRetryError(null);
+    logWidgetEvent("info", "retry.tap", { url: retryCall.url, method: retryCall.method || "GET" });
     try {
-      await callTool("x402_fetch", {
+      const result = await callTool("x402_fetch", {
         url: retryCall.url,
         method: retryCall.method || "GET"
       });
+      logWidgetEvent("info", "retry.callTool.resolved", {
+        hasResult: result != null
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Retry failed.";
+      logWidgetEvent("error", "retry.callTool.threw", err);
       setRetryError(msg);
       setRetrying(false);
+    }
+  };
+  const handleOpenExternal = (url, source) => {
+    let isValid = false;
+    let scheme = "";
+    try {
+      const parsed = new URL(url);
+      scheme = parsed.protocol.replace(":", "");
+      isValid = true;
+    } catch {
+      isValid = false;
+    }
+    logWidgetEvent("info", `${source}.tap`, { url, scheme, valid: isValid });
+    if (!isValid) {
+      logWidgetEvent("error", `${source}.url_invalid`, url);
+      return;
+    }
+    try {
+      onOpenExternal(url);
+      logWidgetEvent("info", `${source}.openExternal.called`, { scheme });
+    } catch (err) {
+      logWidgetEvent("error", `${source}.openExternal.threw`, err);
     }
   };
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "dx-receipt-funding", "aria-label": "Session needs funding", children: [
@@ -448,7 +518,7 @@ function SessionFunding({
         {
           type: "button",
           className: "dx-receipt-funding__btn dx-receipt-funding__btn--primary",
-          onClick: () => onOpenExternal(funding.solanaPayUrl),
+          onClick: () => handleOpenExternal(funding.solanaPayUrl, "solanaPay"),
           children: [
             "Open in Solana Pay ",
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-hidden": true, children: "↗" })
@@ -460,7 +530,7 @@ function SessionFunding({
         {
           type: "button",
           className: "dx-receipt-funding__btn",
-          onClick: () => onOpenExternal(funding.txUrl),
+          onClick: () => handleOpenExternal(funding.txUrl, "fundingPage"),
           children: [
             "Funding page ",
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-hidden": true, children: "↗" })
@@ -608,7 +678,7 @@ function FetchResult() {
             )
           ] })
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(DebugPanel, { widgetName: "x402-fetch-result" })
+        /* @__PURE__ */ jsxRuntimeExports.jsx(DebugPanel, { widgetName: "x402-fetch-result", extraInfo: getWidgetLogForDebug() })
       ]
     }
   );

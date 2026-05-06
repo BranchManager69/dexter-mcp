@@ -29,6 +29,7 @@ import {
   ReceiptLoading,
   SessionFunding as SessionFundingPanel,
 } from '../components/receipt';
+import { getWidgetLogForDebug } from '../components/receipt/widgetLog';
 import type {
   AccessProofData,
   ReceiptRecommendation,
@@ -253,7 +254,7 @@ function FetchResult() {
         </article>
       )}
 
-      <DebugPanel widgetName="x402-fetch-result" />
+      <DebugPanel widgetName="x402-fetch-result" extraInfo={getWidgetLogForDebug()} />
     </div>
   );
 }
