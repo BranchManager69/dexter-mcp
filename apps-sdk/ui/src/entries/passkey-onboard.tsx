@@ -162,7 +162,11 @@ function PasskeyOnboard() {
   const status = toolOutput.vault_status;
 
   // ─── State: user_not_paired ────────────────────────────────────────────
-  if (status === 'user_not_paired' || toolOutput.user_bound === false) {
+  // Legacy Supabase-paired path. The anon flow (audience demo) returns
+  // vault_status === 'not_enrolled' with user_bound === false; that case
+  // must fall through to the not_enrolled branch below, NOT here. Only
+  // route here when the tool explicitly returns user_not_paired.
+  if (status === 'user_not_paired') {
     const pairingUrl = toolOutput.pairing_url;
     return (
       <div className="dx-passkey">

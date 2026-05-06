@@ -86,7 +86,7 @@ function PasskeyOnboard() {
     ) });
   }
   const status = toolOutput.vault_status;
-  if (status === "user_not_paired" || toolOutput.user_bound === false) {
+  if (status === "user_not_paired") {
     const pairingUrl = toolOutput.pairing_url;
     return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-passkey", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(Header, {}),
