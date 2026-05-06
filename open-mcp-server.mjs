@@ -1173,7 +1173,7 @@ function createOpenMcpServer() {
   // userScopedDexterFetch (lib/user-scoped-fetch.mjs).
   server.registerTool('dexter_passkey', {
     title: 'Dexter passkey wallet',
-    description: 'Set up or check the user\'s Dexter passkey-secured Solana wallet. Renders a widget with three states (not enrolled / provisioning / ready). When the user has no wallet, the widget opens dexter.cash/wallet/setup-passkey in a new tab so the user can run the WebAuthn ceremony at top-level (the chat-client iframe sandbox blocks WebAuthn). Polls vault status every 3 seconds while the popout is open and renders the vault address + Solscan link when provisioning completes. Read-only — never mutates vault state from the MCP side.',
+    description: 'Set up or check the user\'s Dexter passkey-secured Solana wallet. Renders a widget with three states (not enrolled / provisioning / ready). When the user has no wallet, the widget opens dexter.cash/wallet/setup-passkey?mcp=<sessionId> in a new tab so the user can run the WebAuthn ceremony at top-level (the chat-client iframe sandbox blocks WebAuthn). The popout binds the MCP session to an anonymous vault on completion; this tool then surfaces the vault address + Solscan link. Polls vault status while the popout is open. Read-only — never mutates vault state from the MCP side.',
     inputSchema: {},
     annotations: { readOnlyHint: true },
     _meta: PASSKEY_ONBOARD_META,
@@ -1181,104 +1181,118 @@ function createOpenMcpServer() {
     const sessionId = extra ? extractMcpSessionId(extra) : null;
     const binding = sessionId ? getUserBinding(sessionId) : null;
 
-    // ─ Unpaired session ── Mint a connector OAuth pairing URL on demand
-    // (mirrors the dextercard adapter pattern). The widget surfaces the
-    // pairing URL through structuredContent.pairing_url so its
-    // user_not_paired state can route the user to sign in.
-    if (!binding) {
-      let pairingUrl = null;
-      let pairingMintedAt = null;
-      // Reuse an in-flight pairing if one exists for this session.
-      const existing = sessionId ? pendingPairings.get(sessionId) : null;
-      if (existing && Date.now() - existing.mintedAt < PAIRING_MAX_AGE_MS) {
-        pairingUrl = existing.loginUrl;
-        pairingMintedAt = existing.mintedAt;
-      } else if (sessionId) {
-        try {
-          const minted = await mintPairingRequest('passkey');
-          const mintedAt = Date.now();
-          pendingPairings.set(sessionId, {
-            requestId: minted.requestId,
-            loginUrl: minted.loginUrl,
-            mintedAt,
-          });
-          pairingUrl = minted.loginUrl;
-          pairingMintedAt = mintedAt;
-        } catch (err) {
-          console.warn(`[dexter_passkey] pairing mint failed: ${err?.message || err}`);
+    // ── BRANCH 1 — Legacy Supabase-paired session ─────────
+    // Existing OAuth-paired users continue to hit /api/passkey-vault/status.
+    // userScopedDexterFetch handles transparent 401 refresh.
+    if (binding) {
+      try {
+        const res = await userScopedDexterFetch({
+          binding,
+          path: '/api/passkey-vault/status',
+          onRefreshed: (newAccess, newRefresh) => {
+            binding.supabaseAccessToken = newAccess;
+            if (newRefresh) binding.supabaseRefreshToken = newRefresh;
+          },
+        });
+
+        if (res.status === 401) {
+          // Refresh failed — drop the binding so the session can re-enroll
+          // through the anonymous flow on next poll.
+          if (sessionId) userBindings.delete(sessionId);
+          const enrollUrl = sessionId
+            ? `https://dexter.cash/wallet/setup-passkey?mcp=${encodeURIComponent(sessionId)}`
+            : 'https://dexter.cash/wallet/setup-passkey';
+          const data = {
+            vault_status: 'not_enrolled',
+            vault_address: null,
+            swig_address: null,
+            enroll_url: enrollUrl,
+            user_bound: false,
+            pairing_url: null,
+            pairing_minted_at: null,
+            pairing_ttl_seconds: null,
+            welcome_name: null,
+            error: 'session expired — please re-enroll',
+          };
+          return {
+            content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+            structuredContent: data,
+            _meta: PASSKEY_ONBOARD_META,
+          };
         }
-      }
-      const data = {
-        vault_status: 'user_not_paired',
-        vault_address: null,
-        swig_address: null,
-        enroll_url: 'https://dexter.cash/wallet/setup-passkey',
-        user_bound: false,
-        pairing_url: pairingUrl,
-        // Epoch ms when the pairing URL was minted. The widget uses this
-        // to render a real "expires in N:NN" countdown instead of a
-        // best-guess clock-side timer.
-        pairing_minted_at: pairingMintedAt,
-        pairing_ttl_seconds: Math.floor(PAIRING_MAX_AGE_MS / 1000),
-        welcome_name: null,
-        error: null,
-      };
-      return {
-        content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
-        structuredContent: data,
-        _meta: PASSKEY_ONBOARD_META,
-      };
-    }
 
-    // ─ Paired session ── Read vault status from dexter-api. Bridge handles
-    // 401 refresh transparently; we just persist any refreshed tokens
-    // back into the binding via onRefreshed.
-    try {
-      const res = await userScopedDexterFetch({
-        binding,
-        path: '/api/passkey-vault/status',
-        onRefreshed: (newAccess, newRefresh) => {
-          binding.supabaseAccessToken = newAccess;
-          if (newRefresh) binding.supabaseRefreshToken = newRefresh;
-        },
-      });
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          const enrollUrl = sessionId
+            ? `https://dexter.cash/wallet/setup-passkey?mcp=${encodeURIComponent(sessionId)}`
+            : 'https://dexter.cash/wallet/setup-passkey';
+          const data = {
+            vault_status: 'error',
+            vault_address: null,
+            swig_address: null,
+            enroll_url: enrollUrl,
+            user_bound: true,
+            pairing_url: null,
+            pairing_minted_at: null,
+            pairing_ttl_seconds: null,
+            welcome_name: deriveWelcomeName(binding.email),
+            error: `dexter-api ${res.status}: ${text.slice(0, 160) || 'no body'}`,
+          };
+          return {
+            content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+            structuredContent: data,
+            isError: true,
+            _meta: PASSKEY_ONBOARD_META,
+          };
+        }
 
-      if (res.status === 401) {
-        // Refresh failed — user needs to re-pair. Drop the binding so the
-        // next call mints a fresh pairing URL.
-        if (sessionId) userBindings.delete(sessionId);
+        const status = await res.json().catch(() => ({}));
+        const enrolled = Boolean(status?.enrolled);
+        const hasVault = Boolean(status?.hasVault);
+        const vault = status?.vault || null;
+        const vaultAddress = vault?.vaultPda || vault?.vault_pda || null;
+        const swigAddress = vault?.swigAddress || vault?.swig_address || null;
+
+        // Three-state map per the contract doc.
+        let vault_status = 'not_enrolled';
+        if (hasVault) vault_status = 'ready';
+        else if (enrolled) vault_status = 'provisioning';
+
+        const enrollUrl = sessionId
+          ? `https://dexter.cash/wallet/setup-passkey?mcp=${encodeURIComponent(sessionId)}`
+          : 'https://dexter.cash/wallet/setup-passkey';
         const data = {
-          vault_status: 'user_not_paired',
-          vault_address: null,
-          swig_address: null,
-          enroll_url: 'https://dexter.cash/wallet/setup-passkey',
-          user_bound: false,
+          vault_status,
+          vault_address: vaultAddress,
+          swig_address: swigAddress,
+          enroll_url: enrollUrl,
+          user_bound: true,
           pairing_url: null,
           pairing_minted_at: null,
           pairing_ttl_seconds: null,
-          welcome_name: null,
-          error: 'session expired — re-pair to continue',
+          welcome_name: deriveWelcomeName(binding.email),
+          error: null,
         };
         return {
           content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
           structuredContent: data,
           _meta: PASSKEY_ONBOARD_META,
         };
-      }
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
+      } catch (err) {
+        const enrollUrl = sessionId
+          ? `https://dexter.cash/wallet/setup-passkey?mcp=${encodeURIComponent(sessionId)}`
+          : 'https://dexter.cash/wallet/setup-passkey';
         const data = {
           vault_status: 'error',
           vault_address: null,
           swig_address: null,
-          enroll_url: 'https://dexter.cash/wallet/setup-passkey',
+          enroll_url: enrollUrl,
           user_bound: true,
           pairing_url: null,
           pairing_minted_at: null,
           pairing_ttl_seconds: null,
-          welcome_name: deriveWelcomeName(binding.email),
-          error: `dexter-api ${res.status}: ${text.slice(0, 160) || 'no body'}`,
+          welcome_name: deriveWelcomeName(binding?.email),
+          error: err?.message || String(err),
         };
         return {
           content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
@@ -1287,59 +1301,81 @@ function createOpenMcpServer() {
           _meta: PASSKEY_ONBOARD_META,
         };
       }
-
-      const status = await res.json().catch(() => ({}));
-      const enrolled = Boolean(status?.enrolled);
-      const hasVault = Boolean(status?.hasVault);
-      const vault = status?.vault || null;
-      const vaultAddress = vault?.vaultPda || vault?.vault_pda || null;
-      const swigAddress = vault?.swigAddress || vault?.swig_address || null;
-
-      // Three-state map per the contract doc.
-      let vault_status = 'not_enrolled';
-      if (hasVault) vault_status = 'ready';
-      else if (enrolled) vault_status = 'provisioning';
-
-      const data = {
-        vault_status,
-        vault_address: vaultAddress,
-        swig_address: swigAddress,
-        enroll_url: 'https://dexter.cash/wallet/setup-passkey',
-        user_bound: true,
-        pairing_url: null,
-        pairing_minted_at: null,
-        pairing_ttl_seconds: null,
-        // Friendly first-name guess from the binding's email local part.
-        // Used by the widget's ready-state welcome line. Real display name
-        // would require a profile fetch — not worth the extra round-trip.
-        welcome_name: deriveWelcomeName(binding.email),
-        error: null,
-      };
-      return {
-        content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
-        structuredContent: data,
-        _meta: PASSKEY_ONBOARD_META,
-      };
-    } catch (err) {
-      const data = {
-        vault_status: 'error',
-        vault_address: null,
-        swig_address: null,
-        enroll_url: 'https://dexter.cash/wallet/setup-passkey',
-        user_bound: true,
-        pairing_url: null,
-        pairing_minted_at: null,
-        pairing_ttl_seconds: null,
-        welcome_name: deriveWelcomeName(binding?.email),
-        error: err?.message || String(err),
-      };
-      return {
-        content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
-        structuredContent: data,
-        isError: true,
-        _meta: PASSKEY_ONBOARD_META,
-      };
     }
+
+    // ── BRANCH 2 — MCP-anon-paired session (new) ──────────
+    // Audience member who completed enrollment at /wallet/setup-passkey?mcp=<sessionId>.
+    // The setup-passkey page POSTed to /api/passkey-anon/bind-mcp-session,
+    // which made the GET below start returning their user_handle. Note:
+    // we use API_BASE_FALLBACK (default http://127.0.0.1:3030) — the file's
+    // top-level DEXTER_API constant points to the x402 facilitator, not
+    // dexter-api, so we cannot reuse it here.
+    if (sessionId) {
+      try {
+        const bindRes = await fetch(
+          `${API_BASE_FALLBACK}/api/passkey-anon/mcp-binding/${encodeURIComponent(sessionId)}`
+        );
+        if (bindRes.ok) {
+          const { user_handle } = await bindRes.json();
+          const statusRes = await fetch(
+            `${API_BASE_FALLBACK}/api/passkey-vault-anon/status?user_handle=${encodeURIComponent(user_handle)}`
+          );
+          if (statusRes.ok) {
+            const status = await statusRes.json();
+            // status shape: { hasVault: bool, vault: { vaultPda, swigAddress, ... } | null }
+            const hasVault = Boolean(status?.hasVault);
+            const vault = status?.vault || null;
+            const data = {
+              vault_status: hasVault ? 'ready' : 'provisioning',
+              vault_address: vault?.vaultPda || null,
+              swig_address: vault?.swigAddress || null,
+              enroll_url: `https://dexter.cash/wallet/setup-passkey?mcp=${encodeURIComponent(sessionId)}`,
+              user_bound: true, // bound to anon vault, NOT supabase
+              pairing_url: null,
+              pairing_minted_at: null,
+              pairing_ttl_seconds: null,
+              welcome_name: null,
+              error: null,
+            };
+            return {
+              content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+              structuredContent: data,
+              _meta: PASSKEY_ONBOARD_META,
+            };
+          }
+          // status fetch failed — fall through to not_enrolled
+        }
+        // bind 404 (expected for not-yet-enrolled sessions) — fall through
+        // silently. This is the hot polling path; logging would spam.
+      } catch (err) {
+        // network error — fall through to not_enrolled rather than blow up
+        console.warn(`[dexter_passkey] anon binding lookup failed: ${err?.message || err}`);
+      }
+    }
+
+    // ── BRANCH 3 — Not enrolled (default) ─────────────────
+    // No legacy binding, no MCP-anon binding. Send them through the
+    // anonymous enrollment flow. NO OAuth pairing URL.
+    const enrollUrl = sessionId
+      ? `https://dexter.cash/wallet/setup-passkey?mcp=${encodeURIComponent(sessionId)}`
+      : 'https://dexter.cash/wallet/setup-passkey';
+    const data = {
+      vault_status: 'not_enrolled',
+      vault_address: null,
+      swig_address: null,
+      enroll_url: enrollUrl,
+      user_bound: false,
+      pairing_url: null,
+      pairing_minted_at: null,
+      pairing_ttl_seconds: null,
+      welcome_name: null,
+      error: null,
+    };
+    return {
+      content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+      structuredContent: data,
+      _meta: PASSKEY_ONBOARD_META,
+    };
   });
 
   // ─── Dextercard Tools (via shared @dexterai/x402-mcp-tools registrars) ────
