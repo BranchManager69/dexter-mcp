@@ -530,53 +530,84 @@
 .dx-receipt-funding {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 18px;
+  padding: 24px 26px 28px;
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse 90% 22px at 50% 0%, color-mix(in srgb, var(--paper-deep) 22%, transparent), transparent 80%),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px, transparent 2px,
+      color-mix(in srgb, var(--paper-deep) 6%, transparent) 2px,
+      color-mix(in srgb, var(--paper-deep) 6%, transparent) 3px
+    ),
+    var(--paper);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ink-quiet) 22%, transparent),
+    0 14px 30px -18px color-mix(in srgb, var(--paper-deep) 60%, transparent);
+}
+
+.dx-receipt-funding__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-bottom: 1px dashed var(--rule);
+  padding-bottom: 14px;
 }
 
 .dx-receipt-funding__eyebrow {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--orange) 90%, var(--ink));
+  color: color-mix(in srgb, var(--orange) 92%, var(--ink));
 }
 
-.dx-receipt-funding__message {
+.dx-receipt-funding__headline {
   margin: 0;
-  font-size: 14px;
-  line-height: 1.55;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
   color: var(--ink);
 }
+.dx-receipt-funding__headline strong {
+  color: color-mix(in srgb, var(--orange) 90%, var(--ink));
+  font-weight: 700;
+}
 
-.dx-receipt-funding__target {
+.dx-receipt-funding__sub {
   margin: 0;
   font-size: 13px;
+  line-height: 1.5;
   color: var(--ink-soft);
 }
-.dx-receipt-funding__target strong { color: var(--ink); }
 
-.dx-receipt-funding__address {
+.dx-receipt-funding__chip {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--ink-quiet) 10%, transparent);
   border: 1px solid var(--rule);
   flex-wrap: wrap;
 }
-.dx-receipt-funding__address-label {
+.dx-receipt-funding__chip-label {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-quiet);
+  flex-shrink: 0;
 }
-.dx-receipt-funding__address-value {
+.dx-receipt-funding__chip-value {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--ink);
   flex: 1;
   min-width: 0;
@@ -588,11 +619,12 @@
 .dx-receipt-funding__qr {
   display: flex;
   justify-content: center;
-  padding: 12px;
+  padding: 14px;
   background: white;
   border: 1px solid var(--rule);
-  border-radius: 12px;
+  border-radius: 14px;
   align-self: center;
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--paper-deep) 30%, transparent);
 }
 .dx-receipt-funding__qr img { display: block; }
 
@@ -601,19 +633,70 @@
   gap: 8px;
   flex-wrap: wrap;
 }
-.dx-receipt-funding__actions button {
+
+.dx-receipt-funding__btn {
   border: 1px solid var(--rule);
   background: transparent;
   color: var(--ink);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 13px;
   font-weight: 600;
-  padding: 8px 14px;
+  padding: 9px 16px;
   border-radius: 999px;
   cursor: pointer;
-  transition: background 160ms ease;
+  transition: background 160ms ease, border-color 160ms ease;
 }
-.dx-receipt-funding__actions button:hover {
+.dx-receipt-funding__btn:hover {
   background: color-mix(in srgb, var(--ink-quiet) 14%, transparent);
+  border-color: var(--ink-soft);
+}
+.dx-receipt-funding__btn--primary {
+  border-color: color-mix(in srgb, var(--orange) 60%, transparent);
+  color: color-mix(in srgb, var(--orange) 92%, var(--ink));
+  background: color-mix(in srgb, var(--orange) 10%, transparent);
+}
+.dx-receipt-funding__btn--primary:hover {
+  background: color-mix(in srgb, var(--orange) 18%, transparent);
+  border-color: var(--orange);
+}
+
+.dx-receipt-funding__retry {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--rule);
+}
+
+.dx-receipt-funding__retry-btn {
+  align-self: flex-start;
+  border: none;
+  background: var(--orange);
+  color: white;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  padding: 11px 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--orange) 60%, transparent);
+}
+.dx-receipt-funding__retry-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--orange) 90%, black);
+}
+.dx-receipt-funding__retry-btn:active:not(:disabled) { transform: translateY(0); }
+.dx-receipt-funding__retry-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.dx-receipt-funding__retry-error {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--stamp);
 }
 
 .dx-receipt-funding__countdown {

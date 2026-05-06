@@ -8,6 +8,7 @@ import { a as CopyButton, g as getChain, D as DebugPanel } from "./DebugPanel-BY
 import { u as useIntrinsicHeight } from "./useIntrinsicHeight-jKfgvg4Y.js";
 import "./Button-BoXwCpzo.js";
 import { D as DexterLoading } from "./DexterLoading-QVm2_ohx.js";
+import { a as useCallToolFn } from "./use-call-tool-ClsA_gLD.js";
 import "./use-openai-global-CD95Kk1r.js";
 import "./Check-BZrRAPv_.js";
 import "./Copy-CMyF_UKx.js";
@@ -372,7 +373,7 @@ function ReceiptLoading({ resourceLabel }) {
 function FundingCountdown({ expiresAt }) {
   const [label, setLabel] = reactExports.useState("");
   reactExports.useEffect(() => {
-    const interval = setInterval(() => {
+    const tick = () => {
       const remaining = Math.max(0, new Date(expiresAt).getTime() - Date.now());
       if (remaining <= 0) {
         setLabel("Expired");
@@ -381,43 +382,105 @@ function FundingCountdown({ expiresAt }) {
       const mins = Math.floor(remaining / 6e4);
       const secs = Math.floor(remaining % 6e4 / 1e3);
       setLabel(`${mins}:${secs.toString().padStart(2, "0")}`);
-    }, 1e3);
+    };
+    tick();
+    const interval = setInterval(tick, 1e3);
     return () => clearInterval(interval);
   }, [expiresAt]);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "dx-receipt-funding__countdown", children: [
-    "Expires in ",
+    "Session expires in ",
     label
   ] });
 }
-function SessionFunding({ message, funding, expiresAt, onOpenExternal }) {
+function shortenAddress$1(addr, head = 6, tail = 4) {
+  if (addr.length <= head + tail + 1) return addr;
+  return `${addr.slice(0, head)}…${addr.slice(-tail)}`;
+}
+function SessionFunding({
+  message,
+  funding,
+  expiresAt,
+  retryCall,
+  onOpenExternal
+}) {
+  const callTool = useCallToolFn();
   const walletAddress = funding?.walletAddress || funding?.payTo;
-  const qrUrl = funding?.solanaPayUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(funding.solanaPayUrl)}` : null;
+  const qrUrl = funding?.solanaPayUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(funding.solanaPayUrl)}` : null;
+  const targetUsdc = funding?.amountUsdc;
+  const amountStr = typeof targetUsdc === "number" ? `$${targetUsdc.toFixed(2)} USDC` : "";
+  const canRetry = Boolean(retryCall?.url);
+  const [retrying, setRetrying] = reactExports.useState(false);
+  const [retryError, setRetryError] = reactExports.useState(null);
+  const handleRetry = async () => {
+    if (!retryCall?.url || retrying) return;
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      await callTool("x402_fetch", {
+        url: retryCall.url,
+        method: retryCall.method || "GET"
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Retry failed.";
+      setRetryError(msg);
+      setRetrying(false);
+    }
+  };
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "dx-receipt-funding", "aria-label": "Session needs funding", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-receipt-funding__eyebrow", children: "Session · Needs funding" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "dx-receipt-funding__message", children: message || "Fund your OpenDexter session to execute this paid call." }),
-    funding?.amountUsdc !== void 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "dx-receipt-funding__target", children: [
-      "Target: ",
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("strong", { children: [
-        "$",
-        Number(funding.amountUsdc).toFixed(2),
-        " USDC"
-      ] })
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-receipt-funding__head", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-receipt-funding__eyebrow", children: "Wallet · Needs funding" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "dx-receipt-funding__headline", children: amountStr ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        "Send ",
+        /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { children: amountStr }),
+        " to continue."
+      ] }) : "Fund your wallet to continue." }),
+      message && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "dx-receipt-funding__sub", children: message })
     ] }),
-    walletAddress && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-receipt-funding__address", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-receipt-funding__address-label", children: "Deposit address" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "dx-receipt-funding__address-value", children: walletAddress }),
+    walletAddress && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-receipt-funding__chip", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-receipt-funding__chip-label", children: "Deposit address" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "dx-receipt-funding__chip-value", title: walletAddress, children: shortenAddress$1(walletAddress, 8, 6) }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(CopyButton, { copyValue: walletAddress, variant: "ghost", color: "secondary", size: "sm", children: "Copy" })
     ] }),
-    qrUrl && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-receipt-funding__qr", children: /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: qrUrl, alt: "Solana Pay QR", width: 170, height: 170 }) }),
+    qrUrl && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-receipt-funding__qr", children: /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: qrUrl, alt: "Solana Pay QR", width: 196, height: 196 }) }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-receipt-funding__actions", children: [
-      funding?.txUrl && /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: () => onOpenExternal(funding.txUrl), children: [
-        "Open funding page ",
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-hidden": true, children: "↗" })
-      ] }),
-      funding?.solanaPayUrl && /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: () => onOpenExternal(funding.solanaPayUrl), children: [
-        "Solana Pay ",
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-hidden": true, children: "↗" })
-      ] })
+      funding?.solanaPayUrl && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          type: "button",
+          className: "dx-receipt-funding__btn dx-receipt-funding__btn--primary",
+          onClick: () => onOpenExternal(funding.solanaPayUrl),
+          children: [
+            "Open in Solana Pay ",
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-hidden": true, children: "↗" })
+          ]
+        }
+      ),
+      funding?.txUrl && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          type: "button",
+          className: "dx-receipt-funding__btn",
+          onClick: () => onOpenExternal(funding.txUrl),
+          children: [
+            "Funding page ",
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-hidden": true, children: "↗" })
+          ]
+        }
+      )
+    ] }),
+    canRetry && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-receipt-funding__retry", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          className: "dx-receipt-funding__retry-btn",
+          onClick: handleRetry,
+          disabled: retrying,
+          "aria-busy": retrying,
+          children: retrying ? "Trying again…" : "I've funded it — try again"
+        }
+      ),
+      retryError && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "dx-receipt-funding__retry-error", role: "alert", children: retryError })
     ] }),
     expiresAt && /* @__PURE__ */ jsxRuntimeExports.jsx(FundingCountdown, { expiresAt })
   ] });
@@ -519,6 +582,7 @@ function FetchResult() {
             message: toolOutput.message,
             funding: toolOutput.sessionFunding || toolOutput.session?.funding,
             expiresAt: toolOutput.session?.expiresAt,
+            retryCall: { url: toolOutput.url, method: toolOutput.method },
             onOpenExternal: openExternal
           }
         ) : /* @__PURE__ */ jsxRuntimeExports.jsxs("article", { className: "dx-receipt", children: [

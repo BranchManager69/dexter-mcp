@@ -217,6 +217,7 @@ function FetchResult() {
           message={toolOutput.message}
           funding={toolOutput.sessionFunding || toolOutput.session?.funding}
           expiresAt={toolOutput.session?.expiresAt}
+          retryCall={{ url: toolOutput.url, method: toolOutput.method }}
           onOpenExternal={openExternal}
         />
       ) : (
