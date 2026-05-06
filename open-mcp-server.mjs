@@ -84,6 +84,27 @@ const WIDGET_CSP = {
   connect_domains: ['https://x402.dexter.cash', 'https://api.dexter.cash', 'https://open.dexter.cash', 'https://dexter.cash'],
 };
 
+// Friendly first-name guess from an email local part. Used by the
+// dexter_passkey ready-state welcome line. We deliberately avoid a real
+// profile lookup — extra round-trip, and the email-local-part guess is
+// usually accurate enough ("nrsander@gmail.com" → "Nrsander", which the
+// widget can render as "Welcome, Nrsander"). Falls back to null when
+// the input isn't a usable email.
+function deriveWelcomeName(email) {
+  if (typeof email !== 'string') return null;
+  const local = email.split('@')[0];
+  if (!local) return null;
+  // Strip trailing digits ("branch42" → "branch") so the welcome line
+  // doesn't read like a username.
+  const cleaned = local.replace(/[._-]/g, ' ').replace(/\d+$/, '').trim();
+  if (!cleaned) return null;
+  // Title-case the first word only — "branch manager" → "Branch", which
+  // reads more naturally than "Branch Manager" for a one-word welcome.
+  const first = cleaned.split(/\s+/)[0];
+  if (!first) return null;
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}
+
 function widgetMeta(templateUri, invoking, invoked, description) {
   return {
     ui: { resourceUri: templateUri, visibility: ['model', 'app'] },
@@ -1124,19 +1145,23 @@ function createOpenMcpServer() {
     // user_not_paired state can route the user to sign in.
     if (!binding) {
       let pairingUrl = null;
+      let pairingMintedAt = null;
       // Reuse an in-flight pairing if one exists for this session.
       const existing = sessionId ? pendingPairings.get(sessionId) : null;
       if (existing && Date.now() - existing.mintedAt < PAIRING_MAX_AGE_MS) {
         pairingUrl = existing.loginUrl;
+        pairingMintedAt = existing.mintedAt;
       } else if (sessionId) {
         try {
           const minted = await mintPairingRequest('passkey');
+          const mintedAt = Date.now();
           pendingPairings.set(sessionId, {
             requestId: minted.requestId,
             loginUrl: minted.loginUrl,
-            mintedAt: Date.now(),
+            mintedAt,
           });
           pairingUrl = minted.loginUrl;
+          pairingMintedAt = mintedAt;
         } catch (err) {
           console.warn(`[dexter_passkey] pairing mint failed: ${err?.message || err}`);
         }
@@ -1148,6 +1173,12 @@ function createOpenMcpServer() {
         enroll_url: 'https://dexter.cash/wallet/setup-passkey',
         user_bound: false,
         pairing_url: pairingUrl,
+        // Epoch ms when the pairing URL was minted. The widget uses this
+        // to render a real "expires in N:NN" countdown instead of a
+        // best-guess clock-side timer.
+        pairing_minted_at: pairingMintedAt,
+        pairing_ttl_seconds: Math.floor(PAIRING_MAX_AGE_MS / 1000),
+        welcome_name: null,
         error: null,
       };
       return {
@@ -1181,6 +1212,9 @@ function createOpenMcpServer() {
           enroll_url: 'https://dexter.cash/wallet/setup-passkey',
           user_bound: false,
           pairing_url: null,
+          pairing_minted_at: null,
+          pairing_ttl_seconds: null,
+          welcome_name: null,
           error: 'session expired — re-pair to continue',
         };
         return {
@@ -1199,6 +1233,9 @@ function createOpenMcpServer() {
           enroll_url: 'https://dexter.cash/wallet/setup-passkey',
           user_bound: true,
           pairing_url: null,
+          pairing_minted_at: null,
+          pairing_ttl_seconds: null,
+          welcome_name: deriveWelcomeName(binding.email),
           error: `dexter-api ${res.status}: ${text.slice(0, 160) || 'no body'}`,
         };
         return {
@@ -1228,6 +1265,12 @@ function createOpenMcpServer() {
         enroll_url: 'https://dexter.cash/wallet/setup-passkey',
         user_bound: true,
         pairing_url: null,
+        pairing_minted_at: null,
+        pairing_ttl_seconds: null,
+        // Friendly first-name guess from the binding's email local part.
+        // Used by the widget's ready-state welcome line. Real display name
+        // would require a profile fetch — not worth the extra round-trip.
+        welcome_name: deriveWelcomeName(binding.email),
         error: null,
       };
       return {
@@ -1243,6 +1286,9 @@ function createOpenMcpServer() {
         enroll_url: 'https://dexter.cash/wallet/setup-passkey',
         user_bound: true,
         pairing_url: null,
+        pairing_minted_at: null,
+        pairing_ttl_seconds: null,
+        welcome_name: deriveWelcomeName(binding?.email),
         error: err?.message || String(err),
       };
       return {

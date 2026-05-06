@@ -1,22 +1,31 @@
 import { j as jsxRuntimeExports, u as useToolOutput, r as reactExports, i as openLink } from "./adapter-Cqp56u5t.js";
 /* empty css             */
+import { D as DexterLoading } from "./DexterLoading-QbVPVW_v.js";
 import { c as clientExports } from "./client-DVhZ5jh_.js";
 import { a as useCallToolFn } from "./use-call-tool-ClsA_gLD.js";
 const WORDMARK_URL = "https://dexter.cash/wordmarks/dexter-wordmark.svg";
-const POLL_INTERVAL_MS = 3e3;
+const POLL_INTERVAL_MS = 1500;
 const ENROLL_URL = "https://dexter.cash/wallet/setup-passkey";
 function PasskeyOnboard() {
   const toolOutput = useToolOutput();
   const callTool = useCallToolFn();
   const [polling, setPolling] = reactExports.useState(false);
   const [openedAt, setOpenedAt] = reactExports.useState(null);
+  const [confettiArmed, setConfettiArmed] = reactExports.useState(false);
+  const firedConfettiRef = reactExports.useRef(false);
   const pollingRef = reactExports.useRef(false);
   const callToolRef = reactExports.useRef(callTool);
   callToolRef.current = callTool;
   reactExports.useEffect(() => {
-    if (toolOutput?.vault_status === "ready" && pollingRef.current) {
-      pollingRef.current = false;
-      setPolling(false);
+    if (toolOutput?.vault_status === "ready") {
+      if (pollingRef.current) {
+        pollingRef.current = false;
+        setPolling(false);
+      }
+      if (!firedConfettiRef.current) {
+        firedConfettiRef.current = true;
+        setConfettiArmed(true);
+      }
     }
   }, [toolOutput?.vault_status]);
   reactExports.useEffect(() => {
@@ -51,13 +60,29 @@ function PasskeyOnboard() {
     pollingRef.current = true;
   }, [toolOutput?.pairing_url]);
   if (!toolOutput) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-passkey", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(Header, {}),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-passkey__stage", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-passkey__disc", children: /* @__PURE__ */ jsxRuntimeExports.jsx(KeyGlyph, {}) }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "dx-passkey__stage-supporting", children: "Loading wallet status…" })
-      ] })
-    ] });
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-passkey", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+      DexterLoading,
+      {
+        eyebrow: "DEXTER · PASSKEY WALLET",
+        stages: [
+          {
+            upTo: 3,
+            heading: "Checking your wallet status…",
+            supporting: "Asking dexter-api whether your passkey vault is provisioned."
+          },
+          {
+            upTo: 8,
+            heading: "Resolving session bindings…",
+            supporting: "Mapping this MCP session to your Dexter account."
+          },
+          {
+            upTo: Infinity,
+            heading: "Still working — one more moment.",
+            supporting: "The vault status endpoint is taking a beat. Holding."
+          }
+        ]
+      }
+    ) });
   }
   const status = toolOutput.vault_status;
   if (status === "user_not_paired" || toolOutput.user_bound === false) {
@@ -68,7 +93,16 @@ function PasskeyOnboard() {
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-passkey__disc", children: /* @__PURE__ */ jsxRuntimeExports.jsx(LinkGlyph, {}) }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "dx-passkey__stage-heading", children: "Link your Dexter account first" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "dx-passkey__stage-supporting", children: "Your Dexter wallet is tied to your Dexter account. Sign in to dexter.cash and the wallet will follow." }),
-        pairingUrl ? /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "dx-passkey__cta", onClick: onTapPair, children: "Sign in on dexter.cash" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "dx-passkey__error", children: "Couldn't mint a sign-in link. Refresh the chat and try again." })
+        pairingUrl ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "dx-passkey__cta", onClick: onTapPair, children: "Sign in on dexter.cash" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            PairingCountdown,
+            {
+              mintedAt: toolOutput.pairing_minted_at,
+              ttlSeconds: toolOutput.pairing_ttl_seconds
+            }
+          )
+        ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "dx-passkey__error", children: "Couldn't mint a sign-in link. Refresh the chat and try again." })
       ] })
     ] });
   }
@@ -94,11 +128,13 @@ function PasskeyOnboard() {
   if (status === "ready") {
     const vault = toolOutput.vault_address || "";
     const swig = toolOutput.swig_address || "";
+    const welcome = toolOutput.welcome_name?.trim() || null;
     return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-passkey", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(Header, {}),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-passkey__stage dx-passkey__stage--ready", children: [
+        confettiArmed && /* @__PURE__ */ jsxRuntimeExports.jsx(ConfettiBurst, {}),
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-passkey__disc", children: /* @__PURE__ */ jsxRuntimeExports.jsx(CheckGlyph, {}) }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "dx-passkey__stage-heading", children: "Your Dexter wallet is live" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "dx-passkey__stage-heading", children: welcome ? `Welcome, ${welcome} — your wallet is live` : "Your Dexter wallet is live" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "dx-passkey__stage-supporting", children: "Passkey-secured, on Solana mainnet. One signature controls everything." }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-passkey__vault", children: [
           vault && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-passkey__vault-row", children: [
@@ -125,6 +161,10 @@ function PasskeyOnboard() {
               }
             ) })
           ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-passkey__next", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-passkey__next-eyebrow", children: "Try next" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "dx-passkey__next-copy", children: '"Research the Dexter token"' })
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-passkey__status", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-passkey__status-dot dx-passkey__status-dot--ready" }),
@@ -193,6 +233,70 @@ function PollStatus({ polling, openedAt }) {
       "s"
     ] })
   ] });
+}
+function PairingCountdown({
+  mintedAt,
+  ttlSeconds
+}) {
+  const [, force] = reactExports.useState(0);
+  reactExports.useEffect(() => {
+    if (!mintedAt || !ttlSeconds) return;
+    const id = setInterval(() => force((n) => n + 1), 1e3);
+    return () => clearInterval(id);
+  }, [mintedAt, ttlSeconds]);
+  if (!mintedAt || !ttlSeconds) return null;
+  const remainingSec = Math.max(0, Math.ceil((mintedAt + ttlSeconds * 1e3 - Date.now()) / 1e3));
+  const mins = Math.floor(remainingSec / 60);
+  const secs = remainingSec % 60;
+  const expired = remainingSec <= 0;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `dx-passkey__countdown ${expired ? "dx-passkey__countdown--expired" : ""}`, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-passkey__countdown-label", children: expired ? "expired" : "expires in" }),
+    !expired && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "dx-passkey__countdown-value", children: [
+      mins,
+      ":",
+      String(secs).padStart(2, "0")
+    ] })
+  ] });
+}
+function ConfettiBurst() {
+  const pieces = Array.from({ length: 24 }, (_, i) => {
+    const angle = i / 24 * Math.PI * 2;
+    const distance = 80 + i % 3 * 28;
+    const dx = Math.cos(angle) * distance;
+    const dy = Math.sin(angle) * distance;
+    const colors = [
+      "var(--dx-accent)",
+      "var(--dx-success)",
+      "var(--dx-warn)",
+      "#ffd166",
+      "#06d6a0",
+      "#ef476f"
+    ];
+    return {
+      i,
+      dx,
+      dy,
+      color: colors[i % colors.length],
+      delay: i % 5 * 30,
+      // ms
+      rotate: i * 47 % 360
+    };
+  });
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-passkey__confetti", "aria-hidden": true, children: pieces.map((p) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "span",
+    {
+      className: "dx-passkey__confetti-piece",
+      style: {
+        background: p.color,
+        // CSS custom props consumed by the keyframe via translate.
+        ["--dx-conf-dx"]: `${p.dx}px`,
+        ["--dx-conf-dy"]: `${p.dy}px`,
+        ["--dx-conf-rot"]: `${p.rotate}deg`,
+        animationDelay: `${p.delay}ms`
+      }
+    },
+    p.i
+  )) });
 }
 function abbreviateAddress(addr) {
   if (addr.length <= 12) return addr;

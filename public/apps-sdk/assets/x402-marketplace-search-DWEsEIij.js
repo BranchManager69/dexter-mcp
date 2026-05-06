@@ -1,6 +1,7 @@
 import { j as jsxRuntimeExports, r as reactExports, d as addWidgetBreadcrumb, b as captureWidgetException, u as useToolOutput, e as useAdaptiveTheme } from "./adapter-Cqp56u5t.js";
 /* empty css             */
 import { P as ProfessorDexterCard, D as DoctorDexterCard } from "./DoctorDexterCard-CNV6RBVs.js";
+import { D as DexterLoading } from "./DexterLoading-QbVPVW_v.js";
 import { c as clientExports } from "./client-DVhZ5jh_.js";
 import { B as Button } from "./Button-BoXwCpzo.js";
 import { S as Search } from "./Search-wAJIDm_v.js";
@@ -357,36 +358,37 @@ function CheckIcon() {
     }
   ) });
 }
-const LOGO_URL = "https://dexter.cash/assets/pokedexter/dexter-logo.svg";
 function MarketBoardLoading({ query }) {
-  const [elapsed, setElapsed] = reactExports.useState(0);
-  reactExports.useEffect(() => {
-    const t = setInterval(() => setElapsed((e) => e + 1), 1e3);
-    return () => clearInterval(t);
-  }, []);
-  const stage = elapsed < 4 ? "Surveying the market…" : elapsed < 9 ? "Cross-referencing verifier history…" : elapsed < 16 ? "Re-ranking strong matches…" : "Still in flight — long-tail catalog is slow tonight.";
-  const supporting = elapsed < 4 ? "Ranking paid APIs, trust signals, and recent verifier passes." : elapsed < 9 ? "Pulling AI grades, payment routes, and seller reputation per match." : elapsed < 16 ? "Cross-encoder is reordering the top candidates." : "The capability index is still working through this query. Holding.";
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-loading", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-loading__stage", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-loading__ring dx-search-loading__ring--outer", "aria-hidden": true }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-loading__ring dx-search-loading__ring--mid", "aria-hidden": true }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-loading__logo", children: /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: LOGO_URL, alt: "", width: 120, height: 120, "aria-hidden": true }) }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-loading__orbit", "aria-hidden": true, children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-loading__orbit-tick" }) })
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-loading__copy", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-loading__eyebrow", children: "DEXTER · MARKET BOARD" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "dx-search-loading__heading", children: stage }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "dx-search-loading__supporting", children: supporting }),
-      query && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "dx-search-loading__query", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-loading__query-label", children: "query" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "dx-search-loading__query-value", children: [
-          '"',
-          query,
-          '"'
-        ] })
-      ] })
-    ] })
-  ] });
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    DexterLoading,
+    {
+      eyebrow: "DEXTER · MARKET BOARD",
+      stages: [
+        {
+          upTo: 4,
+          heading: "Surveying the market…",
+          supporting: "Ranking paid APIs, trust signals, and recent verifier passes."
+        },
+        {
+          upTo: 9,
+          heading: "Cross-referencing verifier history…",
+          supporting: "Pulling AI grades, payment routes, and seller reputation per match."
+        },
+        {
+          upTo: 16,
+          heading: "Re-ranking strong matches…",
+          supporting: "Cross-encoder is reordering the top candidates."
+        },
+        {
+          upTo: Infinity,
+          heading: "Still in flight — long-tail catalog is slow tonight.",
+          supporting: "The capability index is still working through this query. Holding."
+        }
+      ],
+      context: query || null,
+      contextLabel: "query"
+    }
+  );
 }
 const API_ORIGIN = "https://api.dexter.cash";
 function SearchVerdictDrawer({ resource, onClose, onCheckPrice, onFetch }) {

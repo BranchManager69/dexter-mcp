@@ -3,7 +3,9 @@ import '../styles/sdk.css';
 // rule scope is `dx-pricing__*` and doesn't collide with search styles.
 // Refactor to a shared primitives stylesheet in a follow-up.
 import '../styles/widgets/x402-pricing.css';
-// Search widget styles (loading state + identity icons + cell)
+// Shared loading visual (used by MarketBoardLoading)
+import '../styles/components/dexter-loading.css';
+// Search widget styles (identity icons + header + cell + drawer)
 import '../styles/widgets/x402-search.css';
 
 import { createRoot } from 'react-dom/client';

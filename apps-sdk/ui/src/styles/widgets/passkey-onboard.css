@@ -258,6 +258,122 @@
   text-decoration: underline;
 }
 
+/* ───── Pairing-URL countdown ────────────────────────────────────────── */
+/* Renders next to the Sign-in CTA when a connector OAuth pairing URL is
+ * live. Server gives us mintedAt + ttlSeconds so the countdown reflects
+ * real server-side state, not a phone-side guess. */
+
+.dx-passkey__countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--dx-bg-quiet);
+  border: 1px solid var(--dx-border-quiet);
+  font-family: var(--dx-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--dx-fg-quiet);
+}
+
+.dx-passkey__countdown--expired {
+  border-color: color-mix(in srgb, var(--dx-danger) 30%, transparent);
+  color: var(--dx-danger);
+}
+
+.dx-passkey__countdown-label {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 9px;
+}
+
+.dx-passkey__countdown-value {
+  color: var(--dx-fg);
+  font-weight: 700;
+}
+
+/* ───── Next-action prompt (ready state) ─────────────────────────────── */
+
+.dx-passkey__next {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px dashed color-mix(in srgb, var(--dx-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--dx-accent) 4%, transparent);
+  text-align: center;
+}
+
+.dx-passkey__next-eyebrow {
+  font-family: var(--dx-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--dx-accent) 80%, var(--dx-fg-quiet));
+}
+
+.dx-passkey__next-copy {
+  margin: 0;
+  font-size: var(--dx-text-md);
+  color: var(--dx-fg);
+  font-style: italic;
+}
+
+/* ───── Confetti burst (one-shot on ready) ───────────────────────────── */
+/* Pure CSS — 24 colored squares fly out from the stage's center, fall +
+ * rotate, then fade. The container is absolutely positioned over the
+ * disc; pieces use CSS custom props for per-piece dx/dy/rotation so a
+ * single keyframe drives all of them. */
+
+.dx-passkey__confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dx-passkey__confetti-piece {
+  position: absolute;
+  width: 8px;
+  height: 12px;
+  border-radius: 1px;
+  opacity: 0;
+  transform: translate(0, 0) rotate(0deg);
+  animation: dxPasskeyConfetti 1.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes dxPasskeyConfetti {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg) scale(0.5);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(calc(var(--dx-conf-dx) * 0.4), calc(var(--dx-conf-dy) * 0.4 - 12px)) rotate(var(--dx-conf-rot)) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx-conf-dx), calc(var(--dx-conf-dy) + 60px)) rotate(calc(var(--dx-conf-rot) * 2)) scale(0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dx-passkey__confetti {
+    display: none;
+  }
+}
+
 /* ───── Status footer ────────────────────────────────────────────────── */
 
 .dx-passkey__status {

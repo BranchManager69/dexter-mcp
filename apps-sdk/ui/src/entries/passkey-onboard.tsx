@@ -1,4 +1,5 @@
 import '../styles/sdk.css';
+import '../styles/components/dexter-loading.css';
 import '../styles/widgets/passkey-onboard.css';
 
 import { createRoot } from 'react-dom/client';
@@ -10,10 +11,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import '../sdk';
 import { useToolOutput, useCallToolFn } from '../sdk';
 import { openLink } from '../sdk/mcp-apps-bridge';
+import { DexterLoading } from '../components/loading/DexterLoading';
 
 const WORDMARK_URL = 'https://dexter.cash/wordmarks/dexter-wordmark.svg';
-const POLL_INTERVAL_MS = 3000;
+// Tighter than the original 3s — visible state-flips after the user comes
+// back from the popout should feel instant, not "almost done." 1500ms is
+// fast enough to feel snappy on stage and slow enough that a slow phone
+// doesn't drown in re-renders.
+const POLL_INTERVAL_MS = 1500;
 const ENROLL_URL = 'https://dexter.cash/wallet/setup-passkey';
+// Pairing URLs from connector OAuth expire 10 minutes after mint. The
+// widget renders a countdown next to the Sign-in CTA so the user knows
+// the window is real and bounded.
+const PAIRING_TTL_SECONDS = 10 * 60;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tool output shape — matches what dexter_passkey returns in structuredContent.
@@ -34,6 +44,14 @@ type PasskeyPayload = {
   enroll_url?: string;
   user_bound?: boolean;
   pairing_url?: string | null;
+  /** Epoch ms when the pairing URL was minted server-side. The widget
+   *  computes a real expires-in countdown against this — not a phone-side
+   *  guess that drifts when the screen sleeps. */
+  pairing_minted_at?: number | null;
+  /** Seconds the pairing URL stays valid (matches PAIRING_MAX_AGE_MS). */
+  pairing_ttl_seconds?: number | null;
+  /** Friendly first-name guess from the binding email (best-effort). */
+  welcome_name?: string | null;
   error?: string | null;
 };
 
@@ -46,17 +64,29 @@ function PasskeyOnboard() {
   const callTool = useCallToolFn();
   const [polling, setPolling] = useState(false);
   const [openedAt, setOpenedAt] = useState<number | null>(null);
+  // One-shot confetti — fires the first time we observe ready state in
+  // this widget mount, never again. A user resuming an already-provisioned
+  // session opens the widget already in ready, which we still want to
+  // celebrate; the gate is per-mount, not per-status-flip.
+  const [confettiArmed, setConfettiArmed] = useState(false);
+  const firedConfettiRef = useRef(false);
 
   // Refs so the polling effect doesn't restart on every state change.
   const pollingRef = useRef(false);
   const callToolRef = useRef(callTool);
   callToolRef.current = callTool;
 
-  // Auto-stop polling when the user has a vault.
+  // Auto-stop polling when the user has a vault, and arm confetti once.
   useEffect(() => {
-    if (toolOutput?.vault_status === 'ready' && pollingRef.current) {
-      pollingRef.current = false;
-      setPolling(false);
+    if (toolOutput?.vault_status === 'ready') {
+      if (pollingRef.current) {
+        pollingRef.current = false;
+        setPolling(false);
+      }
+      if (!firedConfettiRef.current) {
+        firedConfettiRef.current = true;
+        setConfettiArmed(true);
+      }
     }
   }, [toolOutput?.vault_status]);
 
@@ -99,18 +129,32 @@ function PasskeyOnboard() {
     pollingRef.current = true;
   }, [toolOutput?.pairing_url]);
 
-  // Initial render before tool returns its first payload — show a
-  // neutral loading frame so the iframe has something to size against.
+  // Initial render before tool returns its first payload — same Dexter
+  // loading visual the search widget uses (rotating logo, pulsing rings,
+  // escalating copy). Consistent visual story across the MCP surface.
   if (!toolOutput) {
     return (
       <div className="dx-passkey">
-        <Header />
-        <div className="dx-passkey__stage">
-          <div className="dx-passkey__disc">
-            <KeyGlyph />
-          </div>
-          <p className="dx-passkey__stage-supporting">Loading wallet status…</p>
-        </div>
+        <DexterLoading
+          eyebrow="DEXTER · PASSKEY WALLET"
+          stages={[
+            {
+              upTo: 3,
+              heading: 'Checking your wallet status…',
+              supporting: 'Asking dexter-api whether your passkey vault is provisioned.',
+            },
+            {
+              upTo: 8,
+              heading: 'Resolving session bindings…',
+              supporting: 'Mapping this MCP session to your Dexter account.',
+            },
+            {
+              upTo: Infinity,
+              heading: 'Still working — one more moment.',
+              supporting: 'The vault status endpoint is taking a beat. Holding.',
+            },
+          ]}
+        />
       </div>
     );
   }
@@ -132,9 +176,15 @@ function PasskeyOnboard() {
             Your Dexter wallet is tied to your Dexter account. Sign in to dexter.cash and the wallet will follow.
           </p>
           {pairingUrl ? (
-            <button type="button" className="dx-passkey__cta" onClick={onTapPair}>
-              Sign in on dexter.cash
-            </button>
+            <>
+              <button type="button" className="dx-passkey__cta" onClick={onTapPair}>
+                Sign in on dexter.cash
+              </button>
+              <PairingCountdown
+                mintedAt={toolOutput.pairing_minted_at}
+                ttlSeconds={toolOutput.pairing_ttl_seconds}
+              />
+            </>
           ) : (
             <p className="dx-passkey__error">Couldn't mint a sign-in link. Refresh the chat and try again.</p>
           )}
@@ -172,14 +222,18 @@ function PasskeyOnboard() {
   if (status === 'ready') {
     const vault = toolOutput.vault_address || '';
     const swig = toolOutput.swig_address || '';
+    const welcome = toolOutput.welcome_name?.trim() || null;
     return (
       <div className="dx-passkey">
         <Header />
         <div className="dx-passkey__stage dx-passkey__stage--ready">
+          {confettiArmed && <ConfettiBurst />}
           <div className="dx-passkey__disc">
             <CheckGlyph />
           </div>
-          <h2 className="dx-passkey__stage-heading">Your Dexter wallet is live</h2>
+          <h2 className="dx-passkey__stage-heading">
+            {welcome ? `Welcome, ${welcome} — your wallet is live` : 'Your Dexter wallet is live'}
+          </h2>
           <p className="dx-passkey__stage-supporting">
             Passkey-secured, on Solana mainnet. One signature controls everything.
           </p>
@@ -212,6 +266,15 @@ function PasskeyOnboard() {
                 </span>
               </div>
             )}
+          </div>
+          {/* Next-action prompt. TODO(branch): write the real human-shaped
+              suggestion. Placeholder reads as something a person would
+              actually say next, not "fetch a paid API." */}
+          <div className="dx-passkey__next">
+            <span className="dx-passkey__next-eyebrow">Try next</span>
+            <p className="dx-passkey__next-copy">
+              "Research the Dexter token"
+            </p>
           </div>
           <div className="dx-passkey__status">
             <span className="dx-passkey__status-dot dx-passkey__status-dot--ready" />
@@ -300,6 +363,86 @@ function PollStatus({ polling, openedAt }: { polling: boolean; openedAt: number 
     <div className="dx-passkey__status">
       <span className="dx-passkey__status-dot dx-passkey__status-dot--polling" />
       <span>watching for completion · {elapsed}s</span>
+    </div>
+  );
+}
+
+function PairingCountdown({
+  mintedAt,
+  ttlSeconds,
+}: {
+  mintedAt?: number | null;
+  ttlSeconds?: number | null;
+}) {
+  const [, force] = useState(0);
+  useEffect(() => {
+    if (!mintedAt || !ttlSeconds) return;
+    const id = setInterval(() => force((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [mintedAt, ttlSeconds]);
+
+  if (!mintedAt || !ttlSeconds) return null;
+  const remainingSec = Math.max(0, Math.ceil((mintedAt + ttlSeconds * 1000 - Date.now()) / 1000));
+  const mins = Math.floor(remainingSec / 60);
+  const secs = remainingSec % 60;
+  const expired = remainingSec <= 0;
+  return (
+    <div className={`dx-passkey__countdown ${expired ? 'dx-passkey__countdown--expired' : ''}`}>
+      <span className="dx-passkey__countdown-label">{expired ? 'expired' : 'expires in'}</span>
+      {!expired && (
+        <span className="dx-passkey__countdown-value">
+          {mins}:{String(secs).padStart(2, '0')}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One-shot confetti burst — pure CSS, ~24 colored squares falling and
+ * rotating from the disc origin. Mount-and-forget; no library.
+ */
+function ConfettiBurst() {
+  // Pre-computed pieces — angle, distance, color, delay. Stable per
+  // render so the animation looks intentional rather than random churn.
+  const pieces = Array.from({ length: 24 }, (_, i) => {
+    const angle = (i / 24) * Math.PI * 2;
+    const distance = 80 + (i % 3) * 28;
+    const dx = Math.cos(angle) * distance;
+    const dy = Math.sin(angle) * distance;
+    const colors = [
+      'var(--dx-accent)',
+      'var(--dx-success)',
+      'var(--dx-warn)',
+      '#ffd166',
+      '#06d6a0',
+      '#ef476f',
+    ];
+    return {
+      i,
+      dx,
+      dy,
+      color: colors[i % colors.length],
+      delay: (i % 5) * 30, // ms
+      rotate: (i * 47) % 360,
+    };
+  });
+  return (
+    <div className="dx-passkey__confetti" aria-hidden>
+      {pieces.map((p) => (
+        <span
+          key={p.i}
+          className="dx-passkey__confetti-piece"
+          style={{
+            background: p.color,
+            // CSS custom props consumed by the keyframe via translate.
+            ['--dx-conf-dx' as any]: `${p.dx}px`,
+            ['--dx-conf-dy' as any]: `${p.dy}px`,
+            ['--dx-conf-rot' as any]: `${p.rotate}deg`,
+            animationDelay: `${p.delay}ms`,
+          }}
+        />
+      ))}
     </div>
   );
 }
