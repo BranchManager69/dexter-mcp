@@ -1,4 +1,82 @@
 /* ═══════════════════════════════════════════════════════════════════════════
+   x402gle "by Dexter" lockup — used in the search widget header.
+   Multi-color x402gle text (Google palette) + small "by [dexter glyph +
+   wordmark]" tagline beneath.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.dx-x402gle-lockup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+
+/* The big multi-color wordmark itself. Letter-spacing tightened so it reads
+ * as a single mark, not seven loose letters. */
+.dx-x402gle-lockup__wordmark {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.dx-x402gle-lockup__wordmark--sm {
+  font-size: 28px;
+}
+
+.dx-x402gle-lockup__wordmark--md {
+  font-size: 44px;
+}
+
+/* "by Dexter" tagline beneath. Smaller, muted, with the orange Dexter
+ * wordmark inline. */
+.dx-x402gle-lockup__by {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.dx-x402gle-lockup__by-label {
+  color: var(--dx-fg-quiet);
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.dx-x402gle-lockup__beta {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--dx-accent);
+  border: 1px solid color-mix(in srgb, var(--dx-accent) 50%, transparent);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+.dx-x402gle-lockup__by-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none;
+  transition: opacity 160ms var(--dx-ease-out);
+}
+
+.dx-x402gle-lockup__by-link:hover {
+  opacity: 0.8;
+}
+
+.dx-x402gle-lockup__dexter-glyph {
+  width: 16px;
+  height: 16px;
+}
+
+.dx-x402gle-lockup__dexter-wordmark {
+  height: 14px;
+  width: auto;
+  opacity: 0.95;
+}
+/* ═══════════════════════════════════════════════════════════════════════════
    x402-search widget — token-driven, sleek, no debug-panel slop.
    Sections:
      1. Loading state (Dexter logo + pulsing rings + escalating copy)

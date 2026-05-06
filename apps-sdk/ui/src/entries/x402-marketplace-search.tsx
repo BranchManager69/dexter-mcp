@@ -5,6 +5,8 @@ import '../styles/sdk.css';
 import '../styles/widgets/x402-pricing.css';
 // Shared loading visual (used by MarketBoardLoading)
 import '../styles/components/dexter-loading.css';
+// x402gle "by Dexter" composite lockup (used in the search header)
+import '../styles/components/x402gle-lockup.css';
 // Search widget styles (identity icons + header + cell + drawer)
 import '../styles/widgets/x402-search.css';
 

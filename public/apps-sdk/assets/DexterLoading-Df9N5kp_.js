@@ -1,6 +1,13 @@
 import { r as reactExports, j as jsxRuntimeExports } from "./adapter-Cqp56u5t.js";
-const LOGO_URL = "https://dexter.cash/assets/pokedexter/dexter-logo.svg";
-function DexterLoading({ eyebrow, stages, context, contextLabel = "context" }) {
+const DEFAULT_LOGO_URL = "https://dexter.cash/assets/pokedexter/dexter-logo.svg";
+function DexterLoading({
+  eyebrow,
+  stages,
+  context,
+  contextLabel = "context",
+  logoSrc = DEFAULT_LOGO_URL,
+  logoAlt = ""
+}) {
   const [elapsed, setElapsed] = reactExports.useState(0);
   reactExports.useEffect(() => {
     const t = setInterval(() => setElapsed((e) => e + 1), 1e3);
@@ -11,7 +18,16 @@ function DexterLoading({ eyebrow, stages, context, contextLabel = "context" }) {
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-loading__stage", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-loading__ring dx-loading__ring--outer", "aria-hidden": true }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-loading__ring dx-loading__ring--mid", "aria-hidden": true }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-loading__logo", children: /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: LOGO_URL, alt: "", width: 120, height: 120, "aria-hidden": true }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-loading__logo", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "img",
+        {
+          src: logoSrc,
+          alt: logoAlt,
+          width: 120,
+          height: 120,
+          "aria-hidden": logoAlt ? void 0 : true
+        }
+      ) }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-loading__orbit", "aria-hidden": true, children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-loading__orbit-tick" }) })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-loading__copy", children: [

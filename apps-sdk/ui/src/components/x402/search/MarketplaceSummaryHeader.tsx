@@ -1,7 +1,13 @@
-const WORDMARK_URL = 'https://dexter.cash/wordmarks/dexter-wordmark.svg';
+import { X402gleLockup } from '../../brand/X402gleLockup';
 
 /**
- * Marketplace header — wordmark + eyebrow + meta line.
+ * Marketplace header — x402gle composite lockup + meta line.
+ *
+ * Search is an x402gle product, not a bare-Dexter one — the header now
+ * uses the full "x402gle by Dexter" lockup (multi-color wordmark plus
+ * the small "by [dexter glyph + wordmark]" tagline beneath). When this
+ * widget was first built, x402gle didn't exist yet and the bare Dexter
+ * wordmark was the right call; that's no longer true.
  *
  * The on-widget search input was removed: agents communicate via chat,
  * nobody types into the widget input, and on mobile it ate ~140px of
@@ -31,8 +37,7 @@ export function MarketplaceSummaryHeader({
   return (
     <div className="dx-search-header">
       <div className="dx-search-header__brand">
-        <img src={WORDMARK_URL} alt="Dexter" className="dx-search-header__wordmark" />
-        <div className="dx-search-header__eyebrow">x402 search</div>
+        <X402gleLockup size="sm" showBeta />
       </div>
 
       <div className="dx-search-header__meta">

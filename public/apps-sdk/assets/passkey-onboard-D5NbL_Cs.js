@@ -1,6 +1,6 @@
 import { j as jsxRuntimeExports, u as useToolOutput, r as reactExports, i as openLink } from "./adapter-Cqp56u5t.js";
 /* empty css             */
-import { D as DexterLoading } from "./DexterLoading-QbVPVW_v.js";
+import { D as DexterLoading } from "./DexterLoading-Df9N5kp_.js";
 import { c as clientExports } from "./client-DVhZ5jh_.js";
 import { a as useCallToolFn } from "./use-call-tool-ClsA_gLD.js";
 const WORDMARK_URL = "https://dexter.cash/wordmarks/dexter-wordmark.svg";

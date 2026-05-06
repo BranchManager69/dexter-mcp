@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-const LOGO_URL = 'https://dexter.cash/assets/pokedexter/dexter-logo.svg';
+const DEFAULT_LOGO_URL = 'https://dexter.cash/assets/pokedexter/dexter-logo.svg';
 
 export type LoadingStage = {
   /** Seconds threshold under which this stage is current. Stages are
@@ -21,6 +21,12 @@ interface Props {
   context?: string | null;
   /** Label to the left of the context value (e.g. "query"). */
   contextLabel?: string;
+  /** Override the rotating logo mark. Defaults to the Dexter glyph; the
+   *  search widget passes the x402gle "X with Dexter face" mark since
+   *  search is an x402gle product. */
+  logoSrc?: string;
+  /** Alt text for the logo image. Aria-hidden when omitted. */
+  logoAlt?: string;
 }
 
 /**
@@ -35,7 +41,14 @@ interface Props {
  *
  * Visual rules live in styles/components/dexter-loading.css.
  */
-export function DexterLoading({ eyebrow, stages, context, contextLabel = 'context' }: Props) {
+export function DexterLoading({
+  eyebrow,
+  stages,
+  context,
+  contextLabel = 'context',
+  logoSrc = DEFAULT_LOGO_URL,
+  logoAlt = '',
+}: Props) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setElapsed((e) => e + 1), 1000);
@@ -50,7 +63,13 @@ export function DexterLoading({ eyebrow, stages, context, contextLabel = 'contex
         <div className="dx-loading__ring dx-loading__ring--outer" aria-hidden />
         <div className="dx-loading__ring dx-loading__ring--mid" aria-hidden />
         <div className="dx-loading__logo">
-          <img src={LOGO_URL} alt="" width={120} height={120} aria-hidden />
+          <img
+            src={logoSrc}
+            alt={logoAlt}
+            width={120}
+            height={120}
+            aria-hidden={logoAlt ? undefined : true}
+          />
         </div>
         <div className="dx-loading__orbit" aria-hidden>
           <span className="dx-loading__orbit-tick" />

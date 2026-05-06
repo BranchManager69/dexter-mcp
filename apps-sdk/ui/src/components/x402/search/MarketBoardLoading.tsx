@@ -8,7 +8,9 @@ import { DexterLoading } from '../../loading/DexterLoading';
 export function MarketBoardLoading({ query }: { query?: string }) {
   return (
     <DexterLoading
-      eyebrow="DEXTER · MARKET BOARD"
+      eyebrow="x402gle · MARKET BOARD"
+      logoSrc="https://x402gle.com/x-final-transparent.png"
+      logoAlt="x402gle"
       stages={[
         {
           upTo: 4,

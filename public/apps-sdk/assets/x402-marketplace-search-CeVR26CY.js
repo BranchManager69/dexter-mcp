@@ -1,7 +1,7 @@
 import { j as jsxRuntimeExports, r as reactExports, d as addWidgetBreadcrumb, b as captureWidgetException, u as useToolOutput, e as useAdaptiveTheme } from "./adapter-Cqp56u5t.js";
 /* empty css             */
 import { P as ProfessorDexterCard, D as DoctorDexterCard } from "./DoctorDexterCard-CNV6RBVs.js";
-import { D as DexterLoading } from "./DexterLoading-QbVPVW_v.js";
+import { D as DexterLoading } from "./DexterLoading-Df9N5kp_.js";
 import { c as clientExports } from "./client-DVhZ5jh_.js";
 import { B as Button } from "./Button-BoXwCpzo.js";
 import { S as Search } from "./Search-wAJIDm_v.js";
@@ -20,7 +20,68 @@ function useToolInput() {
 function useUserAgent() {
   return useOpenAIGlobal("userAgent");
 }
-const WORDMARK_URL = "https://dexter.cash/wordmarks/dexter-wordmark.svg";
+const GOOGLE_COLORS = {
+  blue: "#4285F4",
+  red: "#EA4335",
+  yellow: "#FBBC05",
+  green: "#34A853"
+};
+const X402GLE_COLORS = [
+  GOOGLE_COLORS.blue,
+  // x
+  GOOGLE_COLORS.red,
+  // 4
+  GOOGLE_COLORS.yellow,
+  // 0
+  GOOGLE_COLORS.blue,
+  // 2
+  GOOGLE_COLORS.green,
+  // g
+  GOOGLE_COLORS.red,
+  // l
+  GOOGLE_COLORS.yellow
+  // e
+];
+const DEXTER_GLYPH_URL = "https://dexter.cash/assets/pokedexter/dexter-logo.svg";
+const DEXTER_WORDMARK_URL = "https://dexter.cash/wordmarks/dexter-wordmark.svg";
+function X402gleLockup({ size = "sm", showBeta = false }) {
+  const text = "x402gle";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-x402gle-lockup", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `dx-x402gle-lockup__wordmark dx-x402gle-lockup__wordmark--${size}`, "aria-label": "x402gle", children: text.split("").map((char, i) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: X402GLE_COLORS[i] }, children: char }, i)) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-x402gle-lockup__by", children: [
+      showBeta && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-x402gle-lockup__beta", children: "beta" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-x402gle-lockup__by-label", children: "by" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "a",
+        {
+          href: "https://dexter.cash",
+          target: "_blank",
+          rel: "noopener noreferrer",
+          className: "dx-x402gle-lockup__by-link",
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "img",
+              {
+                src: DEXTER_GLYPH_URL,
+                alt: "",
+                className: "dx-x402gle-lockup__dexter-glyph",
+                "aria-hidden": true
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "img",
+              {
+                src: DEXTER_WORDMARK_URL,
+                alt: "Dexter",
+                className: "dx-x402gle-lockup__dexter-wordmark"
+              }
+            )
+          ]
+        }
+      )
+    ] })
+  ] });
+}
 function MarketplaceSummaryHeader({
   resultCount,
   strongCount,
@@ -32,10 +93,7 @@ function MarketplaceSummaryHeader({
   const hasTieredCounts = typeof strongCount === "number" && typeof relatedCount === "number";
   const tierLabel = hasTieredCounts ? `${strongCount} strong · ${relatedCount} related` : `${resultCount.toLocaleString()} result${resultCount !== 1 ? "s" : ""}`;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-header", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-header__brand", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: WORDMARK_URL, alt: "Dexter", className: "dx-search-header__wordmark" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-header__eyebrow", children: "x402 search" })
-    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dx-search-header__brand", children: /* @__PURE__ */ jsxRuntimeExports.jsx(X402gleLockup, { size: "sm", showBeta: true }) }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dx-search-header__meta", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "dx-search-header__count", children: tierLabel }),
       rerankApplied && /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -362,7 +420,9 @@ function MarketBoardLoading({ query }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
     DexterLoading,
     {
-      eyebrow: "DEXTER · MARKET BOARD",
+      eyebrow: "x402gle · MARKET BOARD",
+      logoSrc: "https://x402gle.com/x-final-transparent.png",
+      logoAlt: "x402gle",
       stages: [
         {
           upTo: 4,
