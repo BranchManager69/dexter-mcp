@@ -379,6 +379,7 @@ async function x402Fetch({ url, method, body, multipart, sessionToken, sessionKe
       form.append(f.fieldName, new Blob([new Uint8Array(f.data)], { type: f.mimeType }), f.filename);
     }
 
+    const multipartPayStart = Date.now();
     try {
       const bases = [DEXTER_API, API_BASE_FALLBACK].filter(Boolean);
       let openRes = null;
@@ -410,12 +411,13 @@ async function x402Fetch({ url, method, body, multipart, sessionToken, sessionKe
       } else if (resolvedSessionToken) {
         linkSessionToContext(extra, resolvedSessionToken);
       }
+      const multipartSettlementMs = Date.now() - multipartPayStart;
       return {
         status: openBody.status ?? 200,
         mode: openBody.paid ? 'session_ready' : 'session_error',
         data: openBody.data,
         payment: openBody.payment?.settlement
-          ? { settled: true, details: openBody.payment.settlement }
+          ? { settled: true, details: { ...openBody.payment.settlement, settlementMs: multipartSettlementMs } }
           : { settled: Boolean(openBody.paid) },
         session: { ...(openBody.session ?? { sessionToken: resolvedSessionToken }), funding: undefined },
         sessionFunding: normalizeSessionFunding(openBody.session?.funding || readOpenSessionHint(resolvedSessionToken)?.funding),
@@ -457,6 +459,7 @@ async function x402Fetch({ url, method, body, multipart, sessionToken, sessionKe
 
   const walletKey = process.env.DEXTER_PRIVATE_KEY || process.env.SOLANA_PRIVATE_KEY;
   if (walletKey) {
+    const directPayStart = Date.now();
     try {
       const { wrapFetch } = await import('@dexterai/x402/client');
       const x402FetchFn = wrapFetch(fetch, { walletPrivateKey: walletKey });
@@ -474,11 +477,14 @@ async function x402Fetch({ url, method, body, multipart, sessionToken, sessionKe
       const sponsoredRecs = getSponsoredRecommendations(paidRes);
       if (sponsoredRecs) fireImpressionBeacon(paidRes).catch(() => {});
 
+      const directSettlementMs = Date.now() - directPayStart;
       const result = {
         status: paidRes.status,
         mode: paidRes.ok ? 'session_ready' : 'session_error',
         data,
-        payment: settlement ? { settled: true, details: settlement } : { settled: false },
+        payment: settlement
+          ? { settled: true, details: { ...settlement, settlementMs: directSettlementMs } }
+          : { settled: false },
         merchantSettlement: buildMerchantSettlement(requirements),
       };
       if (sponsoredRecs?.length) {
@@ -510,6 +516,7 @@ async function x402Fetch({ url, method, body, multipart, sessionToken, sessionKe
 
   const resolvedSessionToken = paymentSession.session?.sessionToken || null;
   if (resolvedSessionToken) {
+    const sessionPayStart = Date.now();
     try {
       const bases = [DEXTER_API, API_BASE_FALLBACK].filter(Boolean);
       const paths = ['/v2/open/x402/fetch', '/v2/pay/open/x402/fetch'];
@@ -589,12 +596,13 @@ async function x402Fetch({ url, method, body, multipart, sessionToken, sessionKe
       } else if (resolvedSessionToken) {
         linkSessionToContext(extra, resolvedSessionToken);
       }
+      const sessionSettlementMs = Date.now() - sessionPayStart;
       const sessionResult = {
         status: openBody.status ?? 200,
         mode: openBody.paid ? 'session_ready' : 'session_error',
         data: openBody.data,
         payment: openBody.payment?.settlement
-          ? { settled: true, details: openBody.payment.settlement }
+          ? { settled: true, details: { ...openBody.payment.settlement, settlementMs: sessionSettlementMs } }
           : { settled: Boolean(openBody.paid) },
         session: { ...(openBody.session ?? { sessionToken: resolvedSessionToken }), funding: undefined },
         sessionFunding: normalizeSessionFunding(openBody.session?.funding || readOpenSessionHint(resolvedSessionToken)?.funding),
@@ -908,6 +916,8 @@ function createOpenMcpServer() {
   }, async (args, extra) => {
     try {
       const result = await x402Pay(args, extra);
+      result.url = args.url;
+      result.method = (args.method || 'GET').toUpperCase();
       const meta = { ...PAY_META };
       if (result.session?.sessionToken) {
         meta.sessionToken = result.session.sessionToken;
@@ -917,7 +927,7 @@ function createOpenMcpServer() {
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], structuredContent: result, _meta: meta };
     } catch (err) {
       const msg = err?.cause?.code === 'ENOTFOUND' ? `Could not reach ${args.url}` : err?.message || String(err);
-      const data = { status: 500, error: msg };
+      const data = { status: 500, error: msg, url: args.url, method: (args.method || 'GET').toUpperCase() };
       return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }], structuredContent: data, isError: true, _meta: PAY_META };
     }
   });
@@ -939,6 +949,11 @@ function createOpenMcpServer() {
   }, async (args, extra) => {
     try {
       const result = await x402Fetch(args, extra);
+      // Echo the call coordinates back into structuredContent so the
+      // widget can show the user what was called without parsing the
+      // tool input (which it doesn't see).
+      result.url = args.url;
+      result.method = (args.method || 'GET').toUpperCase();
       // Strip sessionToken from session object so model never sees it
       const meta = { ...FETCH_META };
       if (result.session?.sessionToken) {
@@ -949,7 +964,7 @@ function createOpenMcpServer() {
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], structuredContent: result, _meta: meta };
     } catch (err) {
       const msg = err.cause?.code === 'ENOTFOUND' ? `Could not reach ${args.url}` : err.message || String(err);
-      const data = { status: 500, error: msg };
+      const data = { status: 500, error: msg, url: args.url, method: (args.method || 'GET').toUpperCase() };
       return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }], structuredContent: data, isError: true, _meta: FETCH_META };
     }
   });

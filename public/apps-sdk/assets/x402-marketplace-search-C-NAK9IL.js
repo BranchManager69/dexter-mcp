@@ -1,7 +1,7 @@
 import { j as jsxRuntimeExports, r as reactExports, d as addWidgetBreadcrumb, b as captureWidgetException, u as useToolOutput, e as useAdaptiveTheme } from "./adapter-Cqp56u5t.js";
 /* empty css             */
 import { P as ProfessorDexterCard, D as DoctorDexterCard } from "./DoctorDexterCard-CNV6RBVs.js";
-import { D as DexterLoading } from "./DexterLoading-Df9N5kp_.js";
+/* empty css                        */
 import { c as clientExports } from "./client-DVhZ5jh_.js";
 import { B as Button } from "./Button-BoXwCpzo.js";
 import { S as Search } from "./Search-wAJIDm_v.js";
@@ -12,6 +12,7 @@ import { u as useMaxHeight } from "./use-max-height-CHtTYO6k.js";
 import { a as useCallToolFn } from "./use-call-tool-ClsA_gLD.js";
 import { u as useOpenAIGlobal } from "./use-openai-global-CD95Kk1r.js";
 import { C as ChainIcon, U as UsdcIcon, a as CopyButton, D as DebugPanel } from "./DebugPanel-BYHd6KTo.js";
+import { D as DexterLoading } from "./DexterLoading-QVm2_ohx.js";
 import "./Check-BZrRAPv_.js";
 import "./Copy-CMyF_UKx.js";
 function useToolInput() {
