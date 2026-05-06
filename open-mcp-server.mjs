@@ -368,6 +368,67 @@ async function readMultipartFiles(files) {
 }
 
 async function x402Fetch({ url, method, body, multipart, sessionToken, sessionKey }, extra) {
+  // ── Anonymous-vault path ────────────────────────────────────────────────
+  // If this MCP session has been bound to an anonymous passkey vault via
+  // /api/passkey-anon/bind-mcp-session, pay from the vault's swig wallet
+  // instead of the custodial OpenDexter session keypair. This is the
+  // audience-demo path: no session funding, no Supabase, no custodial keys.
+  // Multipart is not supported for the anon path yet — falls through to the
+  // legacy custodial flow. Solana-only.
+  const sessionIdForAnon = extra ? extractMcpSessionId(extra) : null;
+  if (sessionIdForAnon && !multipart) {
+    try {
+      const bindRes = await fetch(
+        `${API_BASE_FALLBACK}/api/passkey-anon/mcp-binding/${encodeURIComponent(sessionIdForAnon)}`,
+        { signal: AbortSignal.timeout(2000) },
+      );
+      if (bindRes.ok) {
+        const { user_handle } = await bindRes.json();
+        const anonStart = Date.now();
+        const anonRes = await fetch(`${API_BASE_FALLBACK}/v2/pay/anon/x402/fetch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_handle,
+            url,
+            method: method || 'GET',
+            body: body ?? null,
+            requestId: randomUUID(),
+          }),
+          signal: AbortSignal.timeout(30000),
+        });
+        const anonBody = await anonRes.json().catch(() => null);
+        const anonRoundtripMs = Date.now() - anonStart;
+        if (anonBody?.ok) {
+          return {
+            status: anonBody.status ?? 200,
+            mode: anonBody.paid ? 'vault_ready' : 'vault_no_payment_required',
+            data: anonBody.data,
+            payment: anonBody.payment?.settlement
+              ? { settled: true, details: buildPaymentDetails(anonBody.payment.settlement, anonRoundtripMs) }
+              : { settled: Boolean(anonBody.paid) },
+            vault: anonBody.vault,
+            paySource: 'anon_vault',
+          };
+        }
+        // Surface the dexter-api error directly so the agent can route
+        // (e.g. no_solana_accept) instead of falling back to custodial.
+        return {
+          status: anonRes.status || 500,
+          mode: 'vault_error',
+          error: anonBody?.error || 'anon_fetch_failed',
+          message: anonBody?.message,
+          requirements: anonBody?.requirements ?? null,
+          paySource: 'anon_vault',
+        };
+      }
+      // bind 404 — session not bound; fall through to legacy custodial flow
+    } catch (err) {
+      console.warn(`[x402_fetch] anon-binding lookup failed: ${err?.message || err}`);
+      // network error — fall through rather than block
+    }
+  }
+
   // Multipart path: build a FormData, route through dexter-api's
   // /v2/pay/open/x402/fetch/multipart handler which signs server-side and
   // forwards the body to the upstream endpoint. Requires an OpenDexter session.
