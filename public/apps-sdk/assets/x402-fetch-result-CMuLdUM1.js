@@ -487,9 +487,10 @@ function FetchResult() {
     if (!payment?.settled || !details?.transaction) return null;
     const networkName = details.network ? getChain(details.network).name : "";
     const priceLabel = details.requirements?.amount ? formatUsdc(details.requirements.amount, details.requirements.extra?.decimals ?? 6) : "";
+    const stampMs = details.settleDurationMs ?? details.settlementMs;
     return {
       priceLabel,
-      settlementMs: details.settlementMs,
+      settlementMs: stampMs,
       networkName,
       txHash: details.transaction,
       explorerUrl: getExplorerUrl(details.transaction, details.network)

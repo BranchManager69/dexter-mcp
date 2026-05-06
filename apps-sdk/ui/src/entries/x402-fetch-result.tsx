@@ -62,6 +62,9 @@ type FetchPayload = {
       transaction?: string;
       network?: string;
       payer?: string;
+      /** Pure facilitator settle time (no roundtrip, no seller delay). */
+      settleDurationMs?: number;
+      /** Full open-mcp roundtrip — fallback when settleDurationMs absent. */
       settlementMs?: number;
       requirements?: {
         amount?: string;
@@ -177,9 +180,13 @@ function FetchResult() {
     const priceLabel = details.requirements?.amount
       ? formatUsdc(details.requirements.amount, details.requirements.extra?.decimals ?? 6)
       : '';
+    // Prefer the facilitator's pure-settle timing when present; fall back
+    // to the open-mcp roundtrip number on older facilitator deploys so
+    // the stamp always has *something* to show.
+    const stampMs = details.settleDurationMs ?? details.settlementMs;
     return {
       priceLabel,
-      settlementMs: details.settlementMs,
+      settlementMs: stampMs,
       networkName,
       txHash: details.transaction,
       explorerUrl: getExplorerUrl(details.transaction, details.network),

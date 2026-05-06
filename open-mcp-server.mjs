@@ -212,6 +212,33 @@ function buildMerchantSettlement(requirements) {
   }));
 }
 
+/**
+ * Build the widget-facing payment.details object from a raw x402 settlement
+ * payload + the open-mcp roundtrip timing.
+ *
+ * Surfaces TWO timing fields:
+ *   - settlementMs:       full open-mcp ↔ dexter-api ↔ seller roundtrip
+ *                         (includes seller endpoint response delay).
+ *   - settleDurationMs:   pure facilitator settle work, lifted out of
+ *                         settlement.extensions['dexter-timing']. This is
+ *                         the clean "Dexter speed" number — no hops, no
+ *                         seller delay. Falls through as undefined when
+ *                         the facilitator hasn't shipped the timing
+ *                         extension yet, so widget display degrades
+ *                         gracefully.
+ */
+function buildPaymentDetails(settlement, roundtripMs) {
+  if (!settlement) return null;
+  const timingExt = settlement?.extensions?.['dexter-timing'];
+  const settleDurationMs =
+    typeof timingExt?.settleDurationMs === 'number' ? timingExt.settleDurationMs : undefined;
+  return {
+    ...settlement,
+    settlementMs: roundtripMs,
+    ...(settleDurationMs !== undefined ? { settleDurationMs } : {}),
+  };
+}
+
 function logX402SearchDebug(stage, details = {}) {
   try {
     console.log(`[x402_search] ${stage} ${JSON.stringify(details)}`);
@@ -411,13 +438,13 @@ async function x402Fetch({ url, method, body, multipart, sessionToken, sessionKe
       } else if (resolvedSessionToken) {
         linkSessionToContext(extra, resolvedSessionToken);
       }
-      const multipartSettlementMs = Date.now() - multipartPayStart;
+      const multipartRoundtripMs = Date.now() - multipartPayStart;
       return {
         status: openBody.status ?? 200,
         mode: openBody.paid ? 'session_ready' : 'session_error',
         data: openBody.data,
         payment: openBody.payment?.settlement
-          ? { settled: true, details: { ...openBody.payment.settlement, settlementMs: multipartSettlementMs } }
+          ? { settled: true, details: buildPaymentDetails(openBody.payment.settlement, multipartRoundtripMs) }
           : { settled: Boolean(openBody.paid) },
         session: { ...(openBody.session ?? { sessionToken: resolvedSessionToken }), funding: undefined },
         sessionFunding: normalizeSessionFunding(openBody.session?.funding || readOpenSessionHint(resolvedSessionToken)?.funding),
@@ -477,13 +504,13 @@ async function x402Fetch({ url, method, body, multipart, sessionToken, sessionKe
       const sponsoredRecs = getSponsoredRecommendations(paidRes);
       if (sponsoredRecs) fireImpressionBeacon(paidRes).catch(() => {});
 
-      const directSettlementMs = Date.now() - directPayStart;
+      const directRoundtripMs = Date.now() - directPayStart;
       const result = {
         status: paidRes.status,
         mode: paidRes.ok ? 'session_ready' : 'session_error',
         data,
         payment: settlement
-          ? { settled: true, details: { ...settlement, settlementMs: directSettlementMs } }
+          ? { settled: true, details: buildPaymentDetails(settlement, directRoundtripMs) }
           : { settled: false },
         merchantSettlement: buildMerchantSettlement(requirements),
       };
@@ -596,13 +623,13 @@ async function x402Fetch({ url, method, body, multipart, sessionToken, sessionKe
       } else if (resolvedSessionToken) {
         linkSessionToContext(extra, resolvedSessionToken);
       }
-      const sessionSettlementMs = Date.now() - sessionPayStart;
+      const sessionRoundtripMs = Date.now() - sessionPayStart;
       const sessionResult = {
         status: openBody.status ?? 200,
         mode: openBody.paid ? 'session_ready' : 'session_error',
         data: openBody.data,
         payment: openBody.payment?.settlement
-          ? { settled: true, details: { ...openBody.payment.settlement, settlementMs: sessionSettlementMs } }
+          ? { settled: true, details: buildPaymentDetails(openBody.payment.settlement, sessionRoundtripMs) }
           : { settled: Boolean(openBody.paid) },
         session: { ...(openBody.session ?? { sessionToken: resolvedSessionToken }), funding: undefined },
         sessionFunding: normalizeSessionFunding(openBody.session?.funding || readOpenSessionHint(resolvedSessionToken)?.funding),

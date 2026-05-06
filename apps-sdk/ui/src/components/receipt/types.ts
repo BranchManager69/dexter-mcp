@@ -10,7 +10,13 @@ export interface ReceiptRecommendation {
 export interface ReceiptStampData {
   /** USDC amount (already formatted, e.g. "$0.02"). Empty string when unknown. */
   priceLabel: string;
-  /** Settlement time in milliseconds, measured from request to response in open-mcp. */
+  /**
+   * The display number for the stamp's "settle in N" line, in milliseconds.
+   * Prefer `payment.details.settleDurationMs` when present (clean
+   * facilitator timing, no roundtrip pollution); fall back to
+   * `payment.details.settlementMs` (full open-mcp roundtrip) so older
+   * facilitator deploys still get a number.
+   */
   settlementMs?: number;
   /** Network short name (e.g. "Solana", "Base"). Empty string when unknown. */
   networkName: string;
